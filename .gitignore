@@ -1,0 +1,39 @@
+# Dependencias
+node_modules/
+
+# Build
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Entorno
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Pruebas
+coverage/
+playwright-report/
+test-results/
+
+# Editores y sistema
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel
+
+# Material del curso: no debe subirse nunca.
+Level*/
+*.pdf
+*.docx
+*.pptx
