@@ -17,7 +17,7 @@ export function TarjetaNivel({ nivel, seleccionado, onSeleccionar }: Props) {
         'group w-full rounded-2xl border p-4 text-left transition',
         'focus-visible:outline-2 focus-visible:outline-offset-2',
         seleccionado
-          ? 'border-marca-600 bg-marca-50 dark:bg-marca-900/40 shadow-sm'
+          ? 'border-marca-600 bg-marca-50 shadow-sm ring-2 ring-marca-600/30 dark:border-marca-400 dark:bg-marca-600/20'
           : 'border-[var(--borde)] bg-[var(--superficie)] hover:border-marca-400',
       )}
     >

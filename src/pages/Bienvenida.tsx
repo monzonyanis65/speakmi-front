@@ -27,7 +27,8 @@ export function Bienvenida() {
           Elige el nivel que estás cursando. Podrás cambiarlo cuando quieras.
         </p>
 
-        <div className="mt-5 grid gap-3">
+        {/* El hueco de abajo deja sitio a la barra fija, para que no tape el último nivel. */}
+        <div className="mt-5 grid gap-3 pb-28">
           {NIVELES.map((nivel) => (
             <TarjetaNivel
               key={nivel.codigo}

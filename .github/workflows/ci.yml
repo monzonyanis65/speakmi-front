@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [developer, main]
+  pull_request:
+    branches: [developer, main]
+
+jobs:
+  verificar:
+    name: Formato, linter, tipos y pruebas
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Comprobar formato
+        run: npm run format:check
+
+      - name: Linter
+        run: npm run lint
+
+      - name: Tipos
+        run: npm run typecheck
+
+      - name: Pruebas
+        run: npm run test
+
+      - name: Compilar
+        run: npm run build
