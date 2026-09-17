@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { Ejercicio } from '@/components/ejercicios/Ejercicio';
+import { LeerEnVozAlta } from '@/components/ejercicios/LeerEnVozAlta';
 import {
   NOMBRE_CATEGORIA,
   type Correccion,
@@ -24,7 +25,8 @@ interface Resumen {
   xpEarned: number;
 }
 
-const SIN_TECLADO = new Set(['read_aloud', 'speak_prompt', 'listen_type']);
+// Los que se responden con la voz y no con el teclado.
+const SIN_TECLADO = new Set(['speak_prompt', 'listen_type']);
 
 /**
  * Una lección, un ejercicio por pantalla.
@@ -43,6 +45,7 @@ export function Leccion() {
   const [correccion, setCorreccion] = useState<Correccion | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [resumen, setResumen] = useState<Resumen | null>(null);
+  const [vozHecha, setVozHecha] = useState(false);
 
   const { data, isPending, isError } = useQuery({
     queryKey: ['leccion', code],
@@ -81,6 +84,7 @@ export function Leccion() {
   async function siguiente() {
     setCorreccion(null);
     setRespuesta(null);
+    setVozHecha(false);
 
     if (!esUltimo) {
       setIndice(indice + 1);
@@ -125,7 +129,18 @@ export function Leccion() {
       </header>
 
       <main className="mt-10 flex-1">
-        <Ejercicio ejercicio={ejercicio} bloqueado={correccion !== null} onCambio={setRespuesta} />
+        {ejercicio.type === 'read_aloud' ? (
+          <LeerEnVozAlta
+            ejercicio={ejercicio as unknown as Parameters<typeof LeerEnVozAlta>[0]['ejercicio']}
+            onTerminado={() => setVozHecha(true)}
+          />
+        ) : (
+          <Ejercicio
+            ejercicio={ejercicio}
+            bloqueado={correccion !== null}
+            onCambio={setRespuesta}
+          />
+        )}
       </main>
 
       {correccion && <HojaCorreccion correccion={correccion} />}
@@ -138,6 +153,18 @@ export function Leccion() {
             className="w-full rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700"
           >
             {esUltimo ? 'Terminar' : 'Continuar'}
+          </button>
+        ) : ejercicio.type === 'read_aloud' ? (
+          <button
+            type="button"
+            onClick={() => void siguiente()}
+            className={
+              vozHecha
+                ? 'w-full rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700'
+                : 'w-full rounded-2xl border border-[var(--borde)] px-6 py-4 font-medium transition hover:border-marca-400'
+            }
+          >
+            {vozHecha ? (esUltimo ? 'Terminar' : 'Continuar') : 'Saltar por ahora'}
           </button>
         ) : necesitaVoz ? (
           <button
