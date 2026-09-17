@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "comment": "Todo lo que empieza por /api va al backend. Así el navegador ve un único origen y las cookies de sesión funcionan sin problemas entre sitios. Cambia el destino por la URL real de speakmi-back.",
+      "source": "/api/:path*",
+      "destination": "https://speakmi-back.vercel.app/api/:path*"
+    },
+    {
+      "comment": "Cualquier otra ruta la resuelve el router del navegador.",
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
