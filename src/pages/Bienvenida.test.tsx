@@ -18,18 +18,18 @@ function renderizar() {
 }
 
 beforeEach(() => {
-  // La pantalla consulta el estado de la API; en la prueba no hay servidor.
   vi.stubGlobal(
     'fetch',
     vi.fn(() => Promise.reject(new Error('sin servidor en las pruebas'))),
   );
 });
 
-describe('pantalla de bienvenida', () => {
+describe('elección de nivel', () => {
   it('muestra los ocho niveles del curso', () => {
     renderizar();
 
-    expect(screen.getByRole('heading', { name: 'Speakmi' })).toBeInTheDocument();
+    // Sin sesión en la prueba, el encabezado es el genérico.
+    expect(screen.getByRole('heading', { name: 'Elige tu nivel' })).toBeInTheDocument();
     for (const nivel of NIVELES) {
       expect(screen.getByText(nivel.titulo)).toBeInTheDocument();
     }
@@ -62,5 +62,11 @@ describe('pantalla de bienvenida', () => {
       'aria-pressed',
       'false',
     );
+  });
+
+  it('ofrece la prueba de nivel a quien no sabe cuál es el suyo', () => {
+    renderizar();
+
+    expect(screen.getByRole('button', { name: /haz la prueba de nivel/i })).toBeInTheDocument();
   });
 });
