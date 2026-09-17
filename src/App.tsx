@@ -12,6 +12,7 @@ import { Bienvenida } from '@/pages/Bienvenida';
 import { Ruta } from '@/pages/Ruta';
 import { Leccion } from '@/pages/Leccion';
 import { Repaso } from '@/pages/Repaso';
+import { Conversar } from '@/pages/Conversar';
 
 // El cliente de API necesita saber de dónde sacar el token y cómo renovarlo.
 // Se le dice una sola vez, al cargar la aplicación.
@@ -109,6 +110,14 @@ export default function App() {
             element={
               <SoloConSesion>
                 <Repaso />
+              </SoloConSesion>
+            }
+          />
+          <Route
+            path="/conversar"
+            element={
+              <SoloConSesion>
+                <Conversar />
               </SoloConSesion>
             }
           />

@@ -68,6 +68,23 @@ export function PanelInicio() {
         </button>
       )}
 
+      <button
+        type="button"
+        onClick={() => navegar('/conversar')}
+        className="boton-3d flex animate-entrada items-center gap-4 rounded-2xl border-marca-800 bg-marca-600 p-4 text-left text-white hover:bg-marca-500"
+      >
+        <span className="text-2xl" aria-hidden>
+          💬
+        </span>
+        <span className="flex-1">
+          <span className="block font-bold">Conversar con Milo</span>
+          <span className="block text-sm text-marca-100">
+            Habla de lo que quieras. Te corrige al final, no mientras hablas.
+          </span>
+        </span>
+        <span aria-hidden>›</span>
+      </button>
+
       <div className="grid grid-cols-3 gap-3">
         <Dato
           valor={String(data.racha.currentDays)}
