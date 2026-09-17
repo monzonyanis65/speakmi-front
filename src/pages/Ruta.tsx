@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { salir } from '@/lib/auth';
 import { useSesion } from '@/store/sesion';
 import { cn } from '@/lib/cn';
+import { PanelInicio } from '@/components/PanelInicio';
 
 interface Leccion {
   code: string;
@@ -94,6 +95,10 @@ export function Ruta() {
           Salir
         </button>
       </header>
+
+      <div className="mt-6">
+        <PanelInicio />
+      </div>
 
       {isPending && (
         <p className="mt-10 text-center text-[var(--texto-suave)]">Cargando tu ruta…</p>
