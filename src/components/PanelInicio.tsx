@@ -49,9 +49,9 @@ export function PanelInicio() {
         <button
           type="button"
           onClick={() => navegar('/repaso')}
-          className="flex items-center gap-4 rounded-2xl bg-acento-500 p-4 text-left text-white transition hover:bg-acento-600"
+          className="boton-3d flex animate-entrada items-center gap-4 rounded-2xl border-acento-600 bg-acento-500 p-4 text-left text-white hover:bg-acento-400"
         >
-          <span className="text-2xl" aria-hidden>
+          <span className="animate-latido text-2xl" aria-hidden>
             🔄
           </span>
           <span className="flex-1">
@@ -131,11 +131,11 @@ export function PanelInicio() {
 
 function Dato({ valor, etiqueta, icono }: { valor: string; etiqueta: string; icono: string }) {
   return (
-    <div className="rounded-2xl border border-[var(--borde)] bg-[var(--superficie)] p-3 text-center">
+    <div className="animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-3 text-center">
       <p className="text-lg" aria-hidden>
         {icono}
       </p>
-      <p className="mt-0.5 text-xl font-bold">{valor}</p>
+      <p className="mt-0.5 text-xl font-extrabold">{valor}</p>
       <p className="text-xs text-[var(--texto-suave)]">{etiqueta}</p>
     </div>
   );

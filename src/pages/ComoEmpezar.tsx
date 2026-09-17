@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useSesion } from '@/store/sesion';
+import { Mascota } from '@/components/Mascota';
 
 /**
  * Bifurcación para quien acaba de entrar y todavía no tiene nivel.
@@ -14,7 +15,10 @@ export function ComoEmpezar() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10">
       <header className="text-center">
-        <h1 className="text-2xl font-bold">Bienvenido, {usuario?.displayName}</h1>
+        <div className="flex justify-center">
+          <Mascota estado="feliz" tamano={120} />
+        </div>
+        <h1 className="mt-2 text-2xl font-extrabold">Bienvenido, {usuario?.displayName}</h1>
         <p className="mt-2 text-[var(--texto-suave)]">
           Para armar tu ruta necesitamos saber por dónde vas.
         </p>
@@ -63,8 +67,8 @@ function Opcion({
       onClick={onClick}
       className={
         principal
-          ? 'rounded-2xl bg-marca-600 p-5 text-left text-white transition hover:bg-marca-700'
-          : 'rounded-2xl border border-[var(--borde)] bg-[var(--superficie)] p-5 text-left transition hover:border-marca-400'
+          ? 'boton-3d animate-entrada rounded-2xl border-marca-800 bg-marca-600 p-5 text-left text-white hover:bg-marca-500'
+          : 'boton-3d animate-entrada rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] p-5 text-left hover:border-marca-400'
       }
     >
       <span className="flex items-start gap-4">

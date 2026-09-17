@@ -5,6 +5,9 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { Ejercicio } from '@/components/ejercicios/Ejercicio';
 import { LeerEnVozAlta } from '@/components/ejercicios/LeerEnVozAlta';
+import { Mascota } from '@/components/Mascota';
+import { Boton } from '@/components/Boton';
+import { Confeti } from '@/components/Confeti';
 import {
   NOMBRE_CATEGORIA,
   type Correccion,
@@ -147,42 +150,33 @@ export function Leccion() {
 
       <div className="sticky bottom-0 bg-[var(--fondo)] py-4">
         {correccion ? (
-          <button
-            type="button"
+          <Boton
+            tono={correccion.isCorrect ? 'acierto' : 'marca'}
+            tamano="grande"
             onClick={() => void siguiente()}
-            className="w-full rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700"
           >
-            {esUltimo ? 'Terminar' : 'Continuar'}
-          </button>
+            {esUltimo ? 'TERMINAR' : 'CONTINUAR'}
+          </Boton>
         ) : ejercicio.type === 'read_aloud' ? (
-          <button
-            type="button"
+          <Boton
+            tono={vozHecha ? 'acierto' : 'suave'}
+            tamano="grande"
             onClick={() => void siguiente()}
-            className={
-              vozHecha
-                ? 'w-full rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700'
-                : 'w-full rounded-2xl border border-[var(--borde)] px-6 py-4 font-medium transition hover:border-marca-400'
-            }
           >
-            {vozHecha ? (esUltimo ? 'Terminar' : 'Continuar') : 'Saltar por ahora'}
-          </button>
+            {vozHecha ? (esUltimo ? 'TERMINAR' : 'CONTINUAR') : 'Saltar por ahora'}
+          </Boton>
         ) : necesitaVoz ? (
-          <button
-            type="button"
-            onClick={() => void siguiente()}
-            className="w-full rounded-2xl border border-[var(--borde)] px-6 py-4 font-medium transition hover:border-marca-400"
-          >
+          <Boton tono="suave" tamano="grande" onClick={() => void siguiente()}>
             Saltar por ahora
-          </button>
+          </Boton>
         ) : (
-          <button
-            type="button"
+          <Boton
+            tamano="grande"
             onClick={() => void comprobar()}
             disabled={respuesta === null || enviando || !sessionId}
-            className="w-full rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700 disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700"
           >
-            {enviando ? 'Revisando…' : 'Comprobar'}
-          </button>
+            {enviando ? 'REVISANDO…' : 'COMPROBAR'}
+          </Boton>
         )}
       </div>
     </div>
@@ -198,7 +192,8 @@ function HojaCorreccion({ correccion }: { correccion: Correccion }) {
     <div
       role="status"
       className={cn(
-        'mt-6 rounded-2xl p-5',
+        'mt-6 animate-subir rounded-2xl p-5',
+        !isCorrect && correccion.score === 0 && 'animate-temblor',
         isCorrect
           ? 'bg-emerald-50 dark:bg-emerald-950/30'
           : correccion.score > 0
@@ -206,18 +201,21 @@ function HojaCorreccion({ correccion }: { correccion: Correccion }) {
             : 'bg-red-50 dark:bg-red-950/30',
       )}
     >
-      <p
-        className={cn(
-          'font-semibold',
-          isCorrect
-            ? 'text-emerald-700 dark:text-emerald-300'
-            : correccion.score > 0
-              ? 'text-amber-700 dark:text-amber-300'
-              : 'text-red-700 dark:text-red-300',
-        )}
-      >
-        {isCorrect ? '✓' : '✕'} {feedback.message_es}
-      </p>
+      <div className="flex items-center gap-3">
+        <Mascota estado={isCorrect ? 'celebrando' : 'pensando'} tamano={52} className="shrink-0" />
+        <p
+          className={cn(
+            'text-lg font-extrabold',
+            isCorrect
+              ? 'text-emerald-700 dark:text-emerald-300'
+              : correccion.score > 0
+                ? 'text-amber-700 dark:text-amber-300'
+                : 'text-red-700 dark:text-red-300',
+          )}
+        >
+          {feedback.message_es}
+        </p>
+      </div>
 
       {feedback.correcta && (
         <p className="mt-3 font-[var(--font-lectura)] text-lg">
@@ -289,11 +287,16 @@ function PantallaResumen({ resumen, onSalir }: { resumen: Resumen; onSalir: () =
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10 text-center">
-      <p className="text-5xl" aria-hidden>
-        {porcentaje >= 80 ? '🎉' : porcentaje >= 50 ? '💪' : '📚'}
-      </p>
+      {porcentaje >= 80 && <Confeti />}
 
-      <h1 className="mt-4 text-2xl font-bold">
+      <div className="flex justify-center">
+        <Mascota
+          estado={porcentaje >= 80 ? 'celebrando' : porcentaje >= 50 ? 'feliz' : 'animando'}
+          tamano={150}
+        />
+      </div>
+
+      <h1 className="mt-4 animate-crecer text-3xl font-extrabold">
         {porcentaje >= 80 ? '¡Muy bien!' : porcentaje >= 50 ? 'Vas bien' : 'Sigue practicando'}
       </h1>
 
@@ -306,21 +309,17 @@ function PantallaResumen({ resumen, onSalir }: { resumen: Resumen; onSalir: () =
         <Dato valor={`+${resumen.xpEarned}`} etiqueta="XP" />
       </div>
 
-      <button
-        type="button"
-        onClick={onSalir}
-        className="mt-8 rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700"
-      >
-        Volver a mi ruta
-      </button>
+      <Boton tamano="grande" onClick={onSalir} className="mt-8">
+        VOLVER A MI RUTA
+      </Boton>
     </div>
   );
 }
 
 function Dato({ valor, etiqueta }: { valor: string; etiqueta: string }) {
   return (
-    <div className="rounded-2xl bg-[var(--superficie)] p-4">
-      <p className="text-2xl font-bold text-marca-600 dark:text-marca-400">{valor}</p>
+    <div className="animate-entrada rounded-2xl border-2 border-[var(--borde)] bg-[var(--superficie)] p-4">
+      <p className="text-2xl font-extrabold text-marca-600 dark:text-marca-400">{valor}</p>
       <p className="mt-0.5 text-xs text-[var(--texto-suave)]">{etiqueta}</p>
     </div>
   );

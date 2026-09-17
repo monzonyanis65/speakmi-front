@@ -1,8 +1,10 @@
 @import 'tailwindcss';
 
 /*
- * Tema de Speakmi. Los valores salen de docs/06-diseno-ui-ux.md.
- * Claro y cálido, adulto, sin infantilismo. Modo oscuro desde el primer día.
+ * Tema de Speakmi.
+ *
+ * Alegre pero no infantil: formas redondas, color vivo y movimiento, sin perder
+ * que quien lo usa es una persona adulta que estudia en serio.
  */
 @theme {
   --color-marca-50: #eef2ff;
@@ -12,8 +14,10 @@
   --color-marca-500: #6366f1;
   --color-marca-600: #4f46e5;
   --color-marca-700: #4338ca;
+  --color-marca-800: #3730a3;
   --color-marca-900: #312e81;
 
+  --color-acento-300: #fcd34d;
   --color-acento-400: #fbbf24;
   --color-acento-500: #f59e0b;
   --color-acento-600: #d97706;
@@ -22,10 +26,135 @@
   --color-fallo: #ef4444;
   --color-aviso: #f97316;
 
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Nunito', ui-rounded, 'Segoe UI', system-ui, sans-serif;
   --font-lectura: 'Lexend', ui-sans-serif, system-ui, sans-serif;
 
   --radius-tarjeta: 1rem;
+
+  /* Animaciones. Cortas y con rebote: han de sentirse, no hacerse esperar. */
+  --animate-entrada: entrada 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-subir: subir 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-saltito: saltito 0.6s ease-in-out infinite;
+  --animate-latido: latido 1.4s ease-in-out infinite;
+  --animate-balanceo: balanceo 2s ease-in-out infinite;
+  --animate-onda: onda 1.8s ease-out infinite;
+  --animate-destello: destello 1.2s ease-in-out infinite;
+  --animate-temblor: temblor 0.4s ease-in-out;
+  --animate-crecer: crecer 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes entrada {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes subir {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes saltito {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  30% {
+    transform: translateY(-14px) rotate(-5deg);
+  }
+  60% {
+    transform: translateY(-4px) rotate(3deg);
+  }
+}
+
+@keyframes latido {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes balanceo {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes onda {
+  from {
+    transform: scale(0.75);
+    opacity: 0.5;
+  }
+  to {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+
+@keyframes destello {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+/* Para cuando algo está mal: un "no" con la cabeza, no un castigo. */
+@keyframes temblor {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-7px);
+  }
+  75% {
+    transform: translateX(7px);
+  }
+}
+
+@keyframes crecer {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes caer {
+  from {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(105vh) rotate(720deg);
+    opacity: 0;
+  }
 }
 
 :root {
@@ -34,6 +163,8 @@
   --borde: #e2e8f0;
   --texto: #0f172a;
   --texto-suave: #64748b;
+  /* Profundidad de los botones: el grosor que se hunde al pulsar. */
+  --hueco: #cbd5e1;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,6 +174,7 @@
     --borde: #334155;
     --texto: #f1f5f9;
     --texto-suave: #94a3b8;
+    --hueco: #0b1220;
   }
 }
 
@@ -56,9 +188,28 @@ body {
   color: var(--texto);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  /* Respeta la zona segura de los móviles con muesca. */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
     env(safe-area-inset-left);
+}
+
+/*
+ * Botón con profundidad.
+ *
+ * El borde inferior grueso hace que parezca una tecla física. Al pulsarlo se
+ * hunde, y ese medio segundo de respuesta táctil es lo que hace que una app se
+ * sienta viva en el móvil.
+ */
+.boton-3d {
+  border-bottom-width: 4px;
+  transition:
+    transform 0.08s ease,
+    border-bottom-width 0.08s ease,
+    background-color 0.15s ease;
+}
+
+.boton-3d:active:not(:disabled) {
+  transform: translateY(3px);
+  border-bottom-width: 1px;
 }
 
 /* Quien prefiere menos movimiento, menos movimiento tiene. */
@@ -67,12 +218,12 @@ body {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }
 
-/* El foco siempre visible: la app se puede recorrer entera con el teclado. */
 :focus-visible {
-  outline: 2px solid var(--color-marca-500);
+  outline: 3px solid var(--color-marca-500);
   outline-offset: 2px;
 }

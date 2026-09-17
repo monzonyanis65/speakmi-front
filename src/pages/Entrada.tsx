@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ApiError } from '@/lib/api';
 import { entrar, registrar, tieneNivel } from '@/lib/auth';
 import { cn } from '@/lib/cn';
+import { Mascota } from '@/components/Mascota';
+import { Boton } from '@/components/Boton';
 
 /**
  * Primera pantalla de la app: entrar o crear cuenta.
@@ -52,7 +54,12 @@ export function Entrada() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10">
       <header className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight">Speakmi</h1>
+        <div className="flex justify-center">
+          <Mascota estado="animando" tamano={130} />
+        </div>
+        <h1 className="mt-2 text-4xl font-extrabold tracking-tight text-marca-600 dark:text-marca-400">
+          Speakmi
+        </h1>
         <p className="mx-auto mt-2 max-w-xs text-sm text-[var(--texto-suave)]">
           Aprende inglés hablando. Te escucha, te corrige palabra por palabra y conversa contigo.
         </p>
@@ -106,13 +113,9 @@ export function Entrada() {
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={enviando}
-          className="mt-2 rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700 disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700"
-        >
-          {enviando ? 'Un momento…' : modo === 'crear' ? 'Crear mi cuenta' : 'Entrar'}
-        </button>
+        <Boton type="submit" disabled={enviando} tamano="grande" className="mt-2">
+          {enviando ? 'Un momento…' : modo === 'crear' ? 'CREAR MI CUENTA' : 'ENTRAR'}
+        </Boton>
       </form>
 
       {modo === 'entrar' && (

@@ -5,6 +5,7 @@ import { salir } from '@/lib/auth';
 import { useSesion } from '@/store/sesion';
 import { cn } from '@/lib/cn';
 import { PanelInicio } from '@/components/PanelInicio';
+import { MascotaConMensaje } from '@/components/Mascota';
 
 interface Leccion {
   code: string;
@@ -96,7 +97,14 @@ export function Ruta() {
         </button>
       </header>
 
-      <div className="mt-6">
+      <div className="mt-5">
+        <MascotaConMensaje
+          estado="feliz"
+          mensaje={`¡Hola de nuevo! ${data?.units[0]?.titleEs ? `Hoy toca ${data.units[0].titleEs.toLowerCase()}.` : 'Vamos a practicar un rato.'}`}
+        />
+      </div>
+
+      <div className="mt-5">
         <PanelInicio />
       </div>
 
@@ -122,7 +130,7 @@ export function Ruta() {
       <div className="mt-8 grid gap-8">
         {data?.units.map((unidad) => (
           <section key={unidad.code}>
-            <div className="rounded-2xl bg-marca-600 p-5 text-white">
+            <div className="animate-entrada rounded-2xl border-b-4 border-marca-800 bg-marca-600 p-5 text-white">
               <p className="text-xs font-medium uppercase tracking-wide text-marca-100">
                 {unidad.code.replace('-', ' · ')}
               </p>
@@ -145,8 +153,10 @@ export function Ruta() {
                   <button
                     type="button"
                     onClick={() => navegar(`/leccion/${leccion.code}`)}
+                    style={{ animationDelay: `${indice * 60}ms` }}
                     className={cn(
-                      'flex w-full items-center gap-4 rounded-2xl border border-[var(--borde)] bg-[var(--superficie)] p-4 text-left transition',
+                      'boton-3d flex w-full animate-entrada items-center gap-4 rounded-2xl',
+                      'border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4 text-left',
                       'hover:border-marca-400',
                     )}
                   >
@@ -160,7 +170,7 @@ export function Ruta() {
                           {indice + 1}. {NOMBRE_TIPO[leccion.type] ?? leccion.type}
                         </span>
                       </span>
-                      <span className="mt-0.5 block truncate font-semibold">{leccion.titleEs}</span>
+                      <span className="mt-0.5 block truncate font-bold">{leccion.titleEs}</span>
                       <span className="mt-1 block text-xs text-[var(--texto-suave)]">
                         {leccion.exercisesCount} ejercicios · {leccion.estMinutes} min ·{' '}
                         {leccion.xpReward} XP
