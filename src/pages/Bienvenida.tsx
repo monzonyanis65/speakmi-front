@@ -1,16 +1,27 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { NIVELES } from '@/data/niveles';
+import { useSesion } from '@/store/sesion';
 import { TarjetaNivel } from '@/components/TarjetaNivel';
 import { EstadoApi } from '@/components/EstadoApi';
 
 /**
  * Primera pantalla: elegir el nivel.
  *
- * Todavía no guarda nada en el servidor. Cuando exista la autenticación, esta
- * elección pasará a user_levels. Ver la fase 2 del plan de implementación.
+ * La elección se recuerda en el navegador y se envía al servidor en cuanto la
+ * persona crea su cuenta, que es el paso siguiente.
  */
 export function Bienvenida() {
+  const navegar = useNavigate();
+  const setNivelPendiente = useSesion((estado) => estado.setNivelPendiente);
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
+
+  function continuar() {
+    if (!seleccionado) return;
+    // Se recuerda hasta que haya cuenta; entonces se guarda en el servidor.
+    setNivelPendiente(seleccionado);
+    navegar('/entrar');
+  }
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-4 py-8 sm:px-6">
@@ -44,6 +55,7 @@ export function Bienvenida() {
       <div className="sticky bottom-0 mt-8 bg-gradient-to-t from-[var(--fondo)] via-[var(--fondo)] to-transparent pb-2 pt-6">
         <button
           type="button"
+          onClick={continuar}
           disabled={!seleccionado}
           className="w-full rounded-2xl bg-marca-600 px-6 py-4 text-base font-semibold text-white transition hover:bg-marca-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-500"
         >

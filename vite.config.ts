@@ -15,7 +15,7 @@ export default defineConfig({
     // Ver docs/07-entornos-local-y-produccion.md en speakmi-back.
     proxy: {
       '/api': {
-        target: process.env.VITE_API_PROXY ?? 'http://localhost:3000',
+        target: process.env.VITE_API_PROXY ?? 'http://localhost:4000',
         changeOrigin: true,
       },
     },

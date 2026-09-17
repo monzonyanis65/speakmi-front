@@ -49,6 +49,22 @@ export class NetworkError extends Error {
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
 
+/**
+ * Cómo se consigue el token. Se inyecta desde fuera para que este archivo no
+ * dependa del módulo de sesión, que a su vez depende de este. Sin esto, los dos
+ * se importarían en círculo.
+ */
+let proveedorToken: () => string | null = () => null;
+let renovarSesion: (() => Promise<boolean>) | null = null;
+
+export function configurarAuth(opciones: {
+  token: () => string | null;
+  renovar: () => Promise<boolean>;
+}): void {
+  proveedorToken = opciones.token;
+  renovarSesion = opciones.renovar;
+}
+
 interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
   /** Se corta la petición si tarda demasiado, para no dejar la interfaz colgada. */
@@ -56,7 +72,16 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
 }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  return ejecutar<T>(path, options, true);
+}
+
+async function ejecutar<T>(
+  path: string,
+  options: RequestOptions,
+  puedeReintentar: boolean,
+): Promise<T> {
   const { body, timeoutMs = 20_000, headers, ...rest } = options;
+  const token = proveedorToken();
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -70,6 +95,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       headers: {
         Accept: 'application/json',
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
@@ -88,10 +114,19 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
   if (!response.ok) {
     const parsed = data as ApiErrorBody | null;
-    throw new ApiError(
-      response.status,
-      parsed?.error ?? { code: 'SYS-001', message: 'Algo salió mal por nuestra parte.' },
-    );
+    const detalle = parsed?.error ?? {
+      code: 'SYS-001',
+      message: 'Algo salió mal por nuestra parte.',
+    };
+
+    // El token caducó: se renueva y se repite la petición una sola vez.
+    // Un segundo fallo significa que la sesión terminó de verdad.
+    if (detalle.code === 'AUTH-004' && puedeReintentar && renovarSesion) {
+      const renovada = await renovarSesion();
+      if (renovada) return ejecutar<T>(path, options, false);
+    }
+
+    throw new ApiError(response.status, detalle);
   }
 
   return data as T;
@@ -102,6 +137,8 @@ export const api = {
     apiFetch<T>(path, { ...options, method: 'GET' }),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     apiFetch<T>(path, { ...options, method: 'POST', body }),
+  put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    apiFetch<T>(path, { ...options, method: 'PUT', body }),
   patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     apiFetch<T>(path, { ...options, method: 'PATCH', body }),
   delete: <T>(path: string, options?: RequestOptions) =>
