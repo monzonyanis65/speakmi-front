@@ -4,8 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { configurarAuth } from '@/lib/api';
 import { getToken, recuperarSesion } from '@/lib/auth';
 import { useSesion } from '@/store/sesion';
+import { Entrada } from '@/pages/Entrada';
+import { OlvideClave } from '@/pages/OlvideClave';
+import { ComoEmpezar } from '@/pages/ComoEmpezar';
+import { Prueba } from '@/pages/Prueba';
 import { Bienvenida } from '@/pages/Bienvenida';
-import { Registro } from '@/pages/Registro';
 import { Ruta } from '@/pages/Ruta';
 
 // El cliente de API necesita saber de dónde sacar el token y cómo renovarlo.
@@ -22,12 +25,21 @@ const queryClient = new QueryClient({
   },
 });
 
+/**
+ * Orden de las pantallas:
+ *
+ *   entrar  →  ¿cómo empiezas?  →  elegir nivel o hacer la prueba  →  ruta
+ *
+ * Los pasos del medio solo aparecen la primera vez, o cuando alguien quiere
+ * cambiar de nivel.
+ *
+ * Quien vuelve con la sesión abierta va directo a su ruta.
+ */
 export default function App() {
   const [comprobando, setComprobando] = useState(true);
 
-  // Al abrir la app se intenta recuperar la sesión con la cookie de refresco.
-  // Solo si esta persona ya había entrado alguna vez: a quien llega por primera
-  // vez no se le pide nada, y así no aparece un 401 inútil en la consola.
+  // Solo se intenta recuperar la sesión de quien ya había entrado alguna vez.
+  // A quien llega por primera vez no se le pide nada.
   useEffect(() => {
     if (!useSesion.getState().usuario) {
       setComprobando(false);
@@ -49,7 +61,31 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<SoloVisitantes />} />
-          <Route path="/entrar" element={<Registro />} />
+          <Route path="/recuperar" element={<OlvideClave />} />
+          <Route
+            path="/empezar"
+            element={
+              <SoloConSesion>
+                <ComoEmpezar />
+              </SoloConSesion>
+            }
+          />
+          <Route
+            path="/prueba"
+            element={
+              <SoloConSesion>
+                <Prueba />
+              </SoloConSesion>
+            }
+          />
+          <Route
+            path="/nivel"
+            element={
+              <SoloConSesion>
+                <Bienvenida />
+              </SoloConSesion>
+            }
+          />
           <Route
             path="/ruta"
             element={
@@ -65,10 +101,10 @@ export default function App() {
   );
 }
 
-/** Quien ya entró no necesita volver a elegir nivel al abrir la app. */
+/** Quien ya entró no vuelve a ver la pantalla de acceso. */
 function SoloVisitantes() {
   const usuario = useSesion((estado) => estado.usuario);
-  return usuario ? <Navigate to="/ruta" replace /> : <Bienvenida />;
+  return usuario ? <Navigate to="/ruta" replace /> : <Entrada />;
 }
 
 function SoloConSesion({ children }: { children: React.ReactNode }) {

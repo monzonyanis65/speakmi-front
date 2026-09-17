@@ -10,10 +10,7 @@ export interface Usuario {
 
 interface EstadoSesion {
   usuario: Usuario | null;
-  /** Nivel elegido antes de tener cuenta. Se envía al servidor al registrarse. */
-  nivelPendiente: string | null;
   setSesion: (usuario: Usuario) => void;
-  setNivelPendiente: (codigo: string | null) => void;
   cerrar: () => void;
 }
 
@@ -28,9 +25,7 @@ export const useSesion = create<EstadoSesion>()(
   persist(
     (set) => ({
       usuario: null,
-      nivelPendiente: null,
       setSesion: (usuario) => set({ usuario }),
-      setNivelPendiente: (codigo) => set({ nivelPendiente: codigo }),
       cerrar: () => set({ usuario: null }),
     }),
     { name: 'speakmi-sesion' },

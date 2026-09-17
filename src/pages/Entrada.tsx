@@ -1,31 +1,25 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '@/lib/api';
-import { entrar, guardarNivel, registrar } from '@/lib/auth';
-import { useSesion } from '@/store/sesion';
-import { NIVELES } from '@/data/niveles';
+import { entrar, registrar, tieneNivel } from '@/lib/auth';
 import { cn } from '@/lib/cn';
 
 /**
- * Crear cuenta o entrar.
+ * Primera pantalla de la app: entrar o crear cuenta.
  *
- * Se llega aquí después de elegir el nivel, igual que en el curso real: primero
- * dices por dónde vas y luego te apuntas. El nivel elegido se guarda en cuanto
- * hay sesión.
+ * Al terminar, quien ya tiene un nivel activo va directo a su ruta, y quien
+ * todavía no lo eligió pasa antes por la pantalla de niveles.
  */
-export function Registro() {
+export function Entrada() {
   const navegar = useNavigate();
-  const { nivelPendiente, setNivelPendiente } = useSesion();
 
-  const [modo, setModo] = useState<'crear' | 'entrar'>('crear');
+  const [modo, setModo] = useState<'entrar' | 'crear'>('entrar');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
-
-  const nivel = NIVELES.find((n) => n.codigo === nivelPendiente);
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
@@ -36,20 +30,16 @@ export function Registro() {
     try {
       if (modo === 'crear') {
         await registrar({ email, password, displayName });
-      } else {
-        await entrar({ email, password });
+        // Una cuenta nueva nunca tiene nivel: se le pregunta cómo quiere empezar.
+        navegar('/empezar', { replace: true });
+        return;
       }
 
-      if (nivelPendiente) {
-        await guardarNivel(nivelPendiente);
-        setNivelPendiente(null);
-      }
-
-      navegar('/ruta', { replace: true });
+      await entrar({ email, password });
+      navegar((await tieneNivel()) ? '/ruta' : '/empezar', { replace: true });
     } catch (error) {
       if (error instanceof ApiError) {
         setErrores(error.fieldErrors);
-        // Si el fallo es de un campo concreto ya se muestra debajo del campo.
         if (Object.keys(error.fieldErrors).length === 0) setErrorGeneral(error.message);
       } else {
         setErrorGeneral('No pudimos conectar. Revisa tu conexión.');
@@ -62,17 +52,22 @@ export function Registro() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10">
       <header className="text-center">
-        <h1 className="text-2xl font-bold">
-          {modo === 'crear' ? 'Crea tu cuenta' : 'Entra en tu cuenta'}
-        </h1>
-        {nivel && modo === 'crear' && (
-          <p className="mt-2 text-sm text-[var(--texto-suave)]">
-            Empezarás por el nivel {nivel.numero}, {nivel.titulo.toLowerCase()}.
-          </p>
-        )}
+        <h1 className="text-3xl font-bold tracking-tight">Speakmi</h1>
+        <p className="mx-auto mt-2 max-w-xs text-sm text-[var(--texto-suave)]">
+          Aprende inglés hablando. Te escucha, te corrige palabra por palabra y conversa contigo.
+        </p>
       </header>
 
-      <form onSubmit={(e) => void enviar(e)} className="mt-8 grid gap-4" noValidate>
+      <div className="mt-8 flex rounded-2xl bg-[var(--superficie)] p-1 ring-1 ring-[var(--borde)]">
+        <Pestana activa={modo === 'entrar'} onClick={() => cambiarModo('entrar')}>
+          Ya tengo cuenta
+        </Pestana>
+        <Pestana activa={modo === 'crear'} onClick={() => cambiarModo('crear')}>
+          Soy nuevo
+        </Pestana>
+      </div>
+
+      <form onSubmit={(e) => void enviar(e)} className="mt-6 grid gap-4" noValidate>
         {modo === 'crear' && (
           <Campo
             etiqueta="¿Cómo te llamas?"
@@ -116,22 +111,50 @@ export function Registro() {
           disabled={enviando}
           className="mt-2 rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700 disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700"
         >
-          {enviando ? 'Un momento…' : modo === 'crear' ? 'Empezar' : 'Entrar'}
+          {enviando ? 'Un momento…' : modo === 'crear' ? 'Crear mi cuenta' : 'Entrar'}
         </button>
       </form>
 
-      <button
-        type="button"
-        onClick={() => {
-          setModo(modo === 'crear' ? 'entrar' : 'crear');
-          setErrores({});
-          setErrorGeneral(null);
-        }}
-        className="mt-6 text-sm text-marca-600 underline-offset-4 hover:underline dark:text-marca-400"
-      >
-        {modo === 'crear' ? '¿Ya tienes cuenta? Entra aquí' : '¿Eres nuevo? Crea tu cuenta'}
-      </button>
+      {modo === 'entrar' && (
+        <button
+          type="button"
+          onClick={() => navegar('/recuperar')}
+          className="mt-6 text-center text-sm text-marca-600 underline-offset-4 hover:underline dark:text-marca-400"
+        >
+          Se me olvidó la contraseña
+        </button>
+      )}
     </div>
+  );
+
+  function cambiarModo(nuevo: 'entrar' | 'crear') {
+    setModo(nuevo);
+    setErrores({});
+    setErrorGeneral(null);
+  }
+}
+
+function Pestana({
+  activa,
+  onClick,
+  children,
+}: {
+  activa: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activa}
+      className={cn(
+        'flex-1 rounded-xl px-4 py-2.5 text-sm font-medium transition',
+        activa ? 'bg-marca-600 text-white' : 'text-[var(--texto-suave)] hover:text-[var(--texto)]',
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

@@ -70,6 +70,16 @@ export async function guardarNivel(levelCode: string): Promise<void> {
   await api.put('/me/level', { levelCode });
 }
 
+/** ¿Esta persona ya eligió nivel? Decide a qué pantalla va tras entrar. */
+export async function tieneNivel(): Promise<boolean> {
+  try {
+    const respuesta = await api.get<{ level: { levelCode: string } | null }>('/me/level');
+    return respuesta.level !== null;
+  } catch {
+    return false;
+  }
+}
+
 function aplicar(respuesta: RespuestaSesion): void {
   setToken(respuesta.accessToken);
   useSesion.getState().setSesion(respuesta.user);
