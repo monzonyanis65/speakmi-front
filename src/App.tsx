@@ -10,6 +10,7 @@ import { ComoEmpezar } from '@/pages/ComoEmpezar';
 import { Prueba } from '@/pages/Prueba';
 import { Bienvenida } from '@/pages/Bienvenida';
 import { Ruta } from '@/pages/Ruta';
+import { Leccion } from '@/pages/Leccion';
 
 // El cliente de API necesita saber de dónde sacar el token y cómo renovarlo.
 // Se le dice una sola vez, al cargar la aplicación.
@@ -91,6 +92,14 @@ export default function App() {
             element={
               <SoloConSesion>
                 <Ruta />
+              </SoloConSesion>
+            }
+          />
+          <Route
+            path="/leccion/:code"
+            element={
+              <SoloConSesion>
+                <Leccion />
               </SoloConSesion>
             }
           />
