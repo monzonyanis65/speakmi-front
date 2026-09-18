@@ -112,6 +112,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Escucha en todas las direcciones, no solo en localhost. Es lo que permite
+    // abrir la aplicación desde el móvil escribiendo la IP del portátil, que es
+    // la única forma de ver de verdad cómo queda en un teléfono.
+    host: true,
     // En local la API va por aquí, así que el navegador ve un solo origen,
     // igual que en producción con la reescritura de Vercel.
     // Ver docs/07-entornos-local-y-produccion.md en speakmi-back.
