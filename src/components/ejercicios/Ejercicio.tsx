@@ -575,13 +575,33 @@ const DISTINTAS = 1;
 /** Lo que se lee en el botón. */
 const ROTULO_PAR = ['La misma palabra', 'Dos palabras distintas'];
 
-/*
-  El mismo texto que el servidor manda en `feedback.correcta` al fallar. No se
-  enseña: se le pasa a `marcaDe`, que corrige comparando por texto, y así el par
-  mínimo se pinta con la misma función que la opción múltiple en vez de con una
-  copia suya. Si allí cambia la redacción, cambia aquí.
-*/
-const TEXTO_CORRECCION_PAR = ['Eran la misma palabra', 'Eran dos palabras distintas'];
+/**
+ * Cómo se pinta cada una de las dos respuestas, una vez corregida.
+ *
+ * No hace falta mirar el texto que manda el servidor: con dos opciones, saber
+ * si se acertó y cuál se eligió basta para deducirlo todo. Si acertaste, la
+ * tuya es la buena; si fallaste, la buena es la otra.
+ *
+ * Se hizo así después de probar la vía fácil, que era comparar con la frase
+ * exacta de `feedback.correcta`. Eso ataba el color de un botón a la redacción
+ * de un mensaje del servidor: cambiar «Eran» por «Era» allí habría dejado de
+ * marcar nada aquí, sin que fallara ninguna prueba ni ningún tipo.
+ */
+function marcaDelPar({
+  resultado,
+  valor,
+  elegida,
+}: {
+  resultado?: Correccion | null;
+  valor: number;
+  elegida: number | null;
+}): Marca {
+  if (!resultado || elegida === null) return 'ninguna';
+
+  const buena = resultado.isCorrect ? elegida : elegida === MISMA ? DISTINTAS : MISMA;
+  if (valor === buena) return 'buena';
+  return valor === elegida ? 'mala' : 'ninguna';
+}
 
 /** Silencio entre las dos palabras. Pegadas se oyen como una sola. */
 const PAUSA_MS = 350;
@@ -655,11 +675,11 @@ function ParMinimo({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio
 
       <div className="mt-6 flex flex-col items-center gap-3">
         <div className="flex items-center gap-5">
-          {ambas.map((palabra, indice) => (
+          {(['a', 'b'] as const).map((cual, indice) => (
             <button
-              key={indice}
+              key={cual}
               type="button"
-              onClick={() => void reproducir([palabra], 0.9)}
+              onClick={() => void reproducir(cual, 0.9)}
               disabled={sonando}
               // Sin esto se oyen dos botones iguales y no se sabe cuál es cuál.
               aria-label={`Escuchar la ${indice === 0 ? 'primera' : 'segunda'} palabra`}
@@ -667,7 +687,7 @@ function ParMinimo({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio
               className="flex size-20 animate-entrada flex-col items-center justify-center gap-0.5 rounded-full bg-marca-600 text-white shadow-lg transition hover:bg-marca-500 disabled:opacity-70"
             >
               <span className="text-2xl" aria-hidden>
-                {sonando ? '🔈' : '🔊'}
+                {fuente === cual ? '🔈' : '🔊'}
               </span>
               <span className="text-sm font-bold" aria-hidden>
                 {indice + 1}
@@ -678,7 +698,7 @@ function ParMinimo({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio
 
         <button
           type="button"
-          onClick={() => void reproducir(ambas, 0.9)}
+          onClick={() => void reproducir('par', 0.9)}
           disabled={sonando}
           style={{ animationDelay: '160ms', animationFillMode: 'backwards' }}
           className="animate-entrada rounded-xl border border-[var(--borde)] bg-[var(--superficie)] px-4 py-2.5 text-sm font-bold transition hover:border-marca-400 disabled:opacity-60"
@@ -688,7 +708,7 @@ function ParMinimo({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio
 
         <button
           type="button"
-          onClick={() => void reproducir(ambas, 0.55)}
+          onClick={() => void reproducir('par', 0.55)}
           disabled={sonando}
           className="rounded-xl px-4 py-2.5 text-sm font-bold text-marca-600 hover:bg-marca-50 disabled:opacity-60 dark:text-marca-400 dark:hover:bg-marca-900/30"
         >
@@ -709,16 +729,14 @@ function ParMinimo({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio
             texto={ROTULO_PAR[valor]!}
             bloqueado={bloqueado}
             elegida={elegida === valor}
-            marca={marcaDe({
-              resultado,
-              texto: TEXTO_CORRECCION_PAR[valor]!,
-              esLaElegida: elegida === valor,
-            })}
+            marca={marcaDelPar({ resultado, valor, elegida })}
             onElegir={() => {
               setElegida(valor);
               onCambio(valor);
             }}
-            clase="animate-entrada justify-center"
+            // Sin `animate-entrada`: aquí la animación que importa es la de la
+            // corrección, y dos animaciones en el mismo elemento se pisan.
+            clase="justify-center"
           />
         ))}
       </div>
