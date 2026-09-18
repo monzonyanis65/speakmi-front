@@ -296,14 +296,19 @@ function PantallaResumen({ resumen, onSalir }: { resumen: Resumen; onSalir: () =
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10 text-center">
       {porcentaje >= 80 && <Confeti />}
 
-      <div className="flex justify-center">
+      {/* Milo entra con la animación larga, la única de la aplicación: es el
+          premio por haber terminado y merece un segundo entero. */}
+      <div className="flex animate-revelar justify-center">
         <Mascota
           estado={porcentaje >= 80 ? 'celebrando' : porcentaje >= 50 ? 'feliz' : 'animando'}
           tamano={150}
         />
       </div>
 
-      <h1 className="mt-4 animate-crecer text-3xl font-extrabold">
+      <h1
+        className="mt-4 animate-crecer text-3xl font-extrabold"
+        style={{ animationDelay: '250ms', animationFillMode: 'backwards' }}
+      >
         {porcentaje >= 80 ? '¡Muy bien!' : porcentaje >= 50 ? 'Vas bien' : 'Sigue practicando'}
       </h1>
 

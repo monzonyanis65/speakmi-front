@@ -45,6 +45,7 @@
   --animate-respirar: respirar 3.4s ease-in-out infinite;
   --animate-parpadeo: parpadeo 5s ease-in-out infinite;
   --animate-puntear: puntear 1.2s ease-in-out infinite;
+  --animate-revelar: revelar 1s cubic-bezier(0.74, 0, 0.11, 0.96);
 }
 
 @keyframes entrada {
@@ -178,6 +179,31 @@
   }
   95% {
     transform: scaleY(0.08);
+  }
+}
+
+/*
+  El momento grande: el final de la lección.
+
+  Todo lo demás en esta aplicación dura entre 0.1 y 0.4 segundos, porque
+  responder rápido es lo que hace que se sienta viva. Esta es la excepción, y
+  por eso funciona: aparece de golpe y luego se coloca despacio, durante un
+  segundo entero. Si se usara en más sitios dejaría de significar nada.
+
+  La curva arranca casi parada y termina lanzada, que es lo que le da el aire
+  de cosa importante.
+*/
+@keyframes revelar {
+  from {
+    opacity: 0;
+    transform: scale(0.6) translateY(24px);
+  }
+  15% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 
