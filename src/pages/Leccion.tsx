@@ -53,6 +53,23 @@ export function Leccion() {
   const [enviando, setEnviando] = useState(false);
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [vozHecha, setVozHecha] = useState(false);
+  /**
+   * Lo que se falló y hay que volver a preguntar antes de dar la lección por
+   * terminada.
+   *
+   * Pasar de largo por un fallo es la forma más rápida de no aprenderlo: se lee
+   * la corrección, se asiente y se olvida. Volver a preguntarlo al final, en la
+   * misma sesión, obliga a producirlo de nuevo, que es cuando se fija.
+   *
+   * Guarda posiciones, no códigos, porque es la posición lo que se usa para
+   * navegar por la lista.
+   */
+  const [porRepetir, setPorRepetir] = useState<number[]>([]);
+  const [repitiendo, setRepitiendo] = useState(false);
+  /** Cuántas preguntas se han contestado ya, repescas incluidas. */
+  const [contestados, setContestados] = useState(0);
+  /** Cuántas repescas habrá en total. Solo crece, para que la barra no retroceda. */
+  const [repescas, setRepescas] = useState(0);
 
   const { data, isPending, isError } = useQuery({
     queryKey: ['leccion', code],
@@ -71,7 +88,8 @@ export function Leccion() {
 
   const ejercicios = data?.exercises ?? [];
   const ejercicio = ejercicios[indice];
-  const esUltimo = indice + 1 >= ejercicios.length;
+  // Solo es el último de verdad si no queda nada pendiente de repetir.
+  const esUltimo = indice + 1 >= ejercicios.length && porRepetir.length === 0;
   const necesitaVoz = ejercicio ? SIN_TECLADO.has(ejercicio.type) : false;
 
   async function comprobar() {
@@ -81,23 +99,62 @@ export function Leccion() {
       const resultado = await api.post<Correccion>(`/sessions/${sessionId}/answer`, {
         exerciseCode: ejercicio.code,
         answer: respuesta,
+        // En la repesca el servidor corrige y explica, pero no vuelve a contar:
+        // acertar a la segunda no borra que a la primera no salió.
+        ...(repitiendo ? { reintento: true } : {}),
       });
       setCorreccion(resultado);
+    } catch {
+      // Sin corrección no se puede seguir, y dejar el botón mudo parece que la
+      // aplicación se colgó. Se avisa y se deja volver a intentarlo.
+      setCorreccion({
+        isCorrect: false,
+        score: 0,
+        feedback: {
+          message_es: 'No pudimos corregirlo. Inténtalo otra vez en un momento.',
+          errores: [],
+        },
+      });
     } finally {
       setEnviando(false);
     }
   }
 
   async function siguiente() {
+    // Lo que se acaba de fallar se apunta para volver a preguntarlo. Si ya
+    // venía de la repesca y se vuelve a fallar, no se encola otra vez:
+    // repetir en bucle algo que no sale frustra y no enseña.
+    const cola = [...porRepetir];
+    if (correccion && !correccion.isCorrect && !repitiendo && !cola.includes(indice)) {
+      cola.push(indice);
+      setRepescas((n) => n + 1);
+    }
+
     setCorreccion(null);
     setRespuesta(null);
     setVozHecha(false);
+    setContestados((n) => n + 1);
 
-    if (!esUltimo) {
+    // Mientras quede lista por delante se sigue en orden. Ojo: esto NO vale
+    // durante la repesca, porque entonces el índice apunta a un ejercicio de
+    // atrás y avanzar uno volvería a recorrer la lección entera.
+    if (!repitiendo && indice + 1 < ejercicios.length) {
+      setPorRepetir(cola);
       setIndice(indice + 1);
       return;
     }
 
+    // Se acabó la lista, o se está en la repesca: toca lo siguiente de la cola.
+    const siguienteRepesca = cola[0];
+    if (siguienteRepesca !== undefined) {
+      setPorRepetir(cola.slice(1));
+      setRepitiendo(true);
+      setIndice(siguienteRepesca);
+      return;
+    }
+
+    setRepitiendo(false);
+    setPorRepetir([]);
     if (sessionId) {
       const final = await api.post<Resumen>(`/sessions/${sessionId}/finish`);
       setResumen(final);
@@ -111,7 +168,11 @@ export function Leccion() {
 
   if (!ejercicio) return <Centrado>Esta lección no tiene ejercicios todavía.</Centrado>;
 
-  const progreso = (indice / ejercicios.length) * 100;
+  // El total incluye las repescas: si no, la barra llegaría al final y después
+  // seguirían apareciendo preguntas, que es desconcertante. Y `repescas` solo
+  // crece, así que la barra nunca retrocede.
+  const total = ejercicios.length + repescas;
+  const progreso = Math.min(100, (contestados / total) * 100);
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-4 py-4 sm:px-6">
@@ -133,7 +194,7 @@ export function Leccion() {
           />
         </div>
         <span className="text-xs text-[var(--texto-suave)]">
-          {indice + 1}/{ejercicios.length}
+          {Math.min(contestados + 1, total)}/{total}
         </span>
       </header>
 
@@ -144,7 +205,22 @@ export function Leccion() {
         como si la pantalla hubiera parpadeado. Con ella se monta uno nuevo cada
         vez y se ve de dónde viene.
       */}
-      <main key={ejercicio.code} className="mt-10 flex-1 animate-entrada">
+      {/*
+        Decir que este ya se falló cambia cómo se afronta: se lee con cuidado
+        en vez de ir en automático. Callarlo y repreguntarlo a secas parece un
+        error de la aplicación, como si se hubiera perdido el sitio.
+      */}
+      {repitiendo && (
+        <p className="mt-6 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-[var(--color-aviso)]">
+          <span aria-hidden>↻</span>
+          Esta la fallaste antes
+        </p>
+      )}
+
+      <main
+        key={`${ejercicio.code}-${repitiendo ? 'rep' : 'ini'}`}
+        className="mt-6 flex-1 animate-entrada"
+      >
         {ejercicio.type === 'read_aloud' ? (
           <LeerEnVozAlta
             ejercicio={ejercicio as unknown as Parameters<typeof LeerEnVozAlta>[0]['ejercicio']}
