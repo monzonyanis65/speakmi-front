@@ -153,11 +153,14 @@ export function Leccion() {
             ejercicio={ejercicio}
             bloqueado={correccion !== null}
             onCambio={setRespuesta}
+            resultado={correccion}
           />
         )}
       </main>
 
-      {correccion && <HojaCorreccion correccion={correccion} />}
+      {correccion && (
+        <HojaCorreccion correccion={correccion} yaSeVeArriba={seMarcaEnElEjercicio(ejercicio)} />
+      )}
 
       <div className="sticky bottom-0 bg-[var(--fondo)] py-4">
         {correccion ? (
@@ -191,7 +194,27 @@ export function Leccion() {
 }
 
 /** El panel que sube al responder: lo más importante de toda la pantalla. */
-function HojaCorreccion({ correccion }: { correccion: Correccion }) {
+/**
+ * ¿El propio ejercicio ya pinta cuál era la buena?
+ *
+ * Los que se responden eligiendo la marcan en verde en su sitio. Repetirla
+ * abajo en grande hace leer dos veces lo mismo y roba sitio a la explicación,
+ * que es lo que de verdad enseña. Los que se escriben sí la necesitan: ahí no
+ * hay nada que marcar.
+ */
+function seMarcaEnElEjercicio(ejercicio: { type: string; prompt: Record<string, unknown> }): boolean {
+  if (ejercicio.type === 'multiple_choice') return true;
+  const opciones = ejercicio.prompt.choices;
+  return ejercicio.type === 'fill_blank' && Array.isArray(opciones) && opciones.length > 0;
+}
+
+function HojaCorreccion({
+  correccion,
+  yaSeVeArriba,
+}: {
+  correccion: Correccion;
+  yaSeVeArriba: boolean;
+}) {
   const { isCorrect, feedback } = correccion;
   const [verPorque, setVerPorque] = useState(false);
 
@@ -224,7 +247,7 @@ function HojaCorreccion({ correccion }: { correccion: Correccion }) {
         </p>
       </div>
 
-      {feedback.correcta && (
+      {feedback.correcta && !yaSeVeArriba && (
         <p className="mt-3 font-[var(--font-lectura)] text-lg">
           {feedback.diff ? <TextoComparado diff={feedback.diff} /> : feedback.correcta}
         </p>

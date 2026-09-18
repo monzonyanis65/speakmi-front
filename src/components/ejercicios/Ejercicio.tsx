@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { decir, hayVoz } from '@/lib/voz';
-import type { PropsEjercicio } from './tipos';
+import type { Correccion, PropsEjercicio } from './tipos';
 
 /**
  * Los cinco tipos escritos.
@@ -36,7 +36,7 @@ function Instruccion({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-[var(--texto-suave)]">{children}</p>;
 }
 
-function OpcionMultiple({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
+function OpcionMultiple({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio) {
   const [elegida, setElegida] = useState<number | null>(null);
   const prompt = ejercicio.prompt as {
     instruction_es: string;
@@ -52,34 +52,135 @@ function OpcionMultiple({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
       <p className="mt-3 font-[var(--font-lectura)] text-xl leading-relaxed">{prompt.question}</p>
 
       <div className="mt-6 grid gap-3">
-        {prompt.options.map((opcion, indice) => (
-          <button
-            key={opcion.text}
-            type="button"
-            disabled={bloqueado}
-            // Sin esto, quien use lector de pantalla oye cuatro botones iguales
-            // y no sabe cuál acaba de marcar.
-            aria-pressed={elegida === indice}
-            onClick={() => {
-              setElegida(indice);
-              onCambio(indice);
-            }}
-            className={cn(
-              'rounded-2xl border px-5 py-4 text-left text-base transition disabled:opacity-60',
-              elegida === indice
-                ? 'border-marca-600 bg-marca-50 ring-2 ring-marca-600/30 dark:bg-marca-600/20'
-                : 'border-[var(--borde)] bg-[var(--superficie)] hover:border-marca-400',
-            )}
-          >
-            {opcion.text}
-          </button>
-        ))}
+        {prompt.options.map((opcion, indice) => {
+          const marca = marcaDe({ resultado, texto: opcion.text, esLaElegida: elegida === indice });
+
+          return (
+            <button
+              key={opcion.text}
+              type="button"
+              disabled={bloqueado}
+              // Sin esto, quien use lector de pantalla oye cuatro botones iguales
+              // y no sabe cuál acaba de marcar.
+              aria-pressed={elegida === indice}
+              onClick={() => {
+                setElegida(indice);
+                onCambio(indice);
+              }}
+              className={cn(
+                'flex items-center gap-3 rounded-2xl border px-5 py-4 text-left text-base transition',
+                CLASE_MARCA[marca],
+                marca === 'buena' && 'animate-crecer',
+                marca === 'mala' && 'animate-temblor',
+                marca === 'ninguna' &&
+                  (elegida === indice
+                    ? 'border-marca-600 bg-marca-50 ring-2 ring-marca-600/30 dark:bg-marca-600/20'
+                    : 'border-[var(--borde)] bg-[var(--superficie)] hover:border-marca-400'),
+                marca === 'ninguna' && 'disabled:opacity-60',
+              )}
+            >
+              <span className="flex-1">{opcion.text}</span>
+              {/* El color no puede ser la única señal: hay quien no distingue
+                  el verde del rojo, y un icono lo resuelve sin texto extra. */}
+              {marca !== 'ninguna' && (
+                <span aria-label={marca === 'buena' ? 'Correcta' : 'Tu respuesta'}>
+                  {marca === 'buena' ? '✓' : '✕'}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function Hueco({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
+/**
+ * Una ficha de opción, la de los huecos.
+ *
+ * Es la misma lógica de colores que la opción múltiple, en un componente
+ * aparte porque son dos formas distintas: aquí las fichas van en fila y son
+ * pequeñas, allí ocupan el ancho.
+ */
+function BotonOpcion({
+  texto,
+  bloqueado,
+  elegida,
+  marca,
+  onElegir,
+}: {
+  texto: string;
+  bloqueado: boolean;
+  elegida: boolean;
+  marca: Marca;
+  onElegir: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={bloqueado}
+      aria-pressed={elegida}
+      onClick={onElegir}
+      className={cn(
+        'inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-base transition',
+        CLASE_MARCA[marca],
+        marca === 'buena' && 'animate-crecer',
+        marca === 'mala' && 'animate-temblor',
+        marca === 'ninguna' &&
+          (elegida
+            ? 'border-marca-600 bg-marca-50 dark:bg-marca-600/20'
+            : 'border-[var(--borde)] bg-[var(--superficie)] hover:border-marca-400'),
+        marca === 'ninguna' && 'disabled:opacity-60',
+      )}
+    >
+      {texto}
+      {marca !== 'ninguna' && (
+        <span aria-label={marca === 'buena' ? 'Correcta' : 'Tu respuesta'}>
+          {marca === 'buena' ? '✓' : '✕'}
+        </span>
+      )}
+    </button>
+  );
+}
+
+type Marca = 'buena' | 'mala' | 'ninguna';
+
+/*
+  Tonos oscuros con texto blanco, no los claros. Un verde pálido con texto
+  verde no llega al contraste mínimo, y este es justo el momento en que hay que
+  poder leer bien.
+*/
+const CLASE_MARCA: Record<Marca, string> = {
+  buena: 'border-emerald-800 bg-emerald-800 text-white',
+  mala: 'border-red-700 bg-red-700 text-white',
+  ninguna: '',
+};
+
+/**
+ * Cómo se pinta una opción una vez corregida.
+ *
+ * La buena se marca siempre, la hayas elegido o no: si solo se tachara la tuya,
+ * te quedarías sin saber cuál era. La tuya se marca en rojo solo si fallaste,
+ * porque si acertaste ya está en verde por ser la buena.
+ */
+function marcaDe({
+  resultado,
+  texto,
+  esLaElegida,
+}: {
+  resultado?: Correccion | null;
+  texto: string;
+  esLaElegida: boolean;
+}): Marca {
+  if (!resultado) return 'ninguna';
+  if (resultado.isCorrect) return esLaElegida ? 'buena' : 'ninguna';
+
+  const correcta = resultado.feedback.correcta?.trim().toLowerCase();
+  if (correcta && texto.trim().toLowerCase() === correcta) return 'buena';
+  return esLaElegida ? 'mala' : 'ninguna';
+}
+
+function Hueco({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio) {
   const [valor, setValor] = useState('');
   const prompt = ejercicio.prompt as {
     instruction_es: string;
@@ -111,21 +212,14 @@ function Hueco({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
       {prompt.choices && prompt.choices.length > 0 ? (
         <div className="mt-6 flex flex-wrap gap-2">
           {prompt.choices.map((opcion) => (
-            <button
+            <BotonOpcion
               key={opcion}
-              type="button"
-              disabled={bloqueado}
-              aria-pressed={valor === opcion}
-              onClick={() => fijar(opcion)}
-              className={cn(
-                'rounded-xl border px-4 py-3 text-base transition disabled:opacity-60',
-                valor === opcion
-                  ? 'border-marca-600 bg-marca-50 dark:bg-marca-600/20'
-                  : 'border-[var(--borde)] bg-[var(--superficie)] hover:border-marca-400',
-              )}
-            >
-              {opcion}
-            </button>
+              texto={opcion}
+              bloqueado={bloqueado}
+              elegida={valor === opcion}
+              marca={marcaDe({ resultado, texto: opcion, esLaElegida: valor === opcion })}
+              onElegir={() => fijar(opcion)}
+            />
           ))}
         </div>
       ) : (

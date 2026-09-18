@@ -41,6 +41,15 @@ export interface PropsEjercicio {
   /** Se bloquea la interacción mientras se muestra la corrección. */
   bloqueado: boolean;
   onCambio: (respuesta: Respuesta | null) => void;
+  /**
+   * La corrección, cuando ya llegó.
+   *
+   * Sirve para que el propio ejercicio pueda pintarse: marcar en verde la
+   * respuesta buena y en rojo la que se eligió. Ver la tuya al lado de la
+   * correcta es lo que enseña; una hoja aparte debajo obliga a mirar dos
+   * sitios y a acordarse de cuál habías tocado.
+   */
+  resultado?: Correccion | null;
 }
 
 export const NOMBRE_CATEGORIA: Record<string, string> = {
