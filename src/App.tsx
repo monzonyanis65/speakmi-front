@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { configurarAuth } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 import { getToken, recuperarSesion } from '@/lib/auth';
 import { useSesion } from '@/store/sesion';
 import { Entrada } from '@/pages/Entrada';
@@ -18,16 +19,6 @@ import { AvisoActualizacion } from '@/components/AvisoActualizacion';
 // El cliente de API necesita saber de dónde sacar el token y cómo renovarlo.
 // Se le dice una sola vez, al cargar la aplicación.
 configurarAuth({ token: getToken, renovar: recuperarSesion });
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      retry: (intento, error) => intento < 2 && !(error instanceof Error && 'code' in error),
-      refetchOnWindowFocus: false,
-    },
-  },
-});
 
 /**
  * Orden de las pantallas:

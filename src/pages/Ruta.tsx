@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
@@ -52,12 +53,24 @@ const NOMBRE_TIPO: Record<string, string> = {
   checkpoint: 'Prueba de unidad',
 };
 
+/**
+ * El saludo de Milo, con el título de la primera unidad dentro.
+ *
+ * Muchos títulos son preguntas («¿Cómo te llamas?»), así que no se les puede
+ * pegar un punto detrás ni bajarles la mayúscula sin más: quedaba «Hoy toca
+ * ¿cómo te llamas?.». Se entrecomilla y se respeta tal cual está escrito.
+ */
+function saludo(titulo?: string): string {
+  if (!titulo) return '¡Hola de nuevo! Vamos a practicar un rato.';
+  return `¡Hola de nuevo! Hoy toca «${titulo}».`;
+}
+
 /** La pantalla principal: qué hay por delante en tu nivel. */
 export function Ruta() {
   const navegar = useNavigate();
   const usuario = useSesion((estado) => estado.usuario);
 
-  const { data: nivelActivo } = useQuery({
+  const { data: nivelActivo, isPending: buscandoNivel } = useQuery({
     queryKey: ['mi-nivel'],
     queryFn: () => api.get<{ level: { levelCode: string } | null }>('/me/level'),
   });
@@ -69,6 +82,17 @@ export function Ruta() {
     queryFn: () => api.get<RespuestaNivel>(`/curriculum/levels/${codigoNivel!}`),
     enabled: Boolean(codigoNivel),
   });
+
+  // Sin nivel no hay ruta que enseñar, así que se vuelve a elegirlo. Esto pasa
+  // si alguien entra por la barra de direcciones antes de haberlo escogido.
+  useEffect(() => {
+    if (nivelActivo && !nivelActivo.level) navegar('/empezar', { replace: true });
+  }, [nivelActivo, navegar]);
+
+  // Una consulta apagada se queda en «pending» para siempre, y eso dejaba el
+  // «Cargando tu ruta…» clavado en pantalla. Solo se espera cuando de verdad
+  // hay algo en camino.
+  const cargando = buscandoNivel || (Boolean(codigoNivel) && isPending);
 
   async function cerrarSesion() {
     await salir();
@@ -106,7 +130,7 @@ export function Ruta() {
         <div className="lg:order-2 lg:sticky lg:top-6">
           <MascotaConMensaje
             estado="feliz"
-            mensaje={`¡Hola de nuevo! ${data?.units[0]?.titleEs ? `Hoy toca ${data.units[0].titleEs.toLowerCase()}.` : 'Vamos a practicar un rato.'}`}
+            mensaje={saludo(data?.units[0]?.titleEs)}
           />
           <div className="mt-5">
             <PanelInicio />
@@ -114,7 +138,7 @@ export function Ruta() {
         </div>
 
         <div className="lg:order-1 lg:min-w-0">
-          {isPending && (
+          {cargando && (
             <p className="mt-10 text-center text-[var(--texto-suave)]">Cargando tu ruta…</p>
           )}
 

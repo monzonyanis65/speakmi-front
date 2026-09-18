@@ -1,5 +1,6 @@
 import { api, ApiError } from './api';
 import { useSesion, type Usuario } from '@/store/sesion';
+import { queryClient } from '@/lib/queryClient';
 
 /**
  * El token de acceso vive solo en memoria.
@@ -84,6 +85,12 @@ async function renovarDeVerdad(): Promise<boolean> {
 
 export async function guardarNivel(levelCode: string): Promise<void> {
   await api.put('/me/level', { levelCode });
+
+  // Hay que avisar a la caché. Sin esto, la ruta seguía leyendo el nivel viejo
+  // durante medio minuto: si era la primera vez, leía «ninguno» y se quedaba
+  // cargando sin fin, porque la consulta de la ruta nunca llegaba a encenderse.
+  queryClient.setQueryData(['mi-nivel'], { level: { levelCode } });
+  await queryClient.invalidateQueries({ queryKey: ['mi-nivel'] });
 }
 
 /** ¿Esta persona ya eligió nivel? Decide a qué pantalla va tras entrar. */
