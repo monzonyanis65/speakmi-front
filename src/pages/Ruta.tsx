@@ -5,6 +5,7 @@ import { salir } from '@/lib/auth';
 import { useSesion } from '@/store/sesion';
 import { cn } from '@/lib/cn';
 import { PanelInicio } from '@/components/PanelInicio';
+import { NivelVacio } from '@/components/NivelVacio';
 import { MascotaConMensaje } from '@/components/Mascota';
 
 interface Leccion {
@@ -124,12 +125,7 @@ export function Ruta() {
           )}
 
           {data?.units.length === 0 && (
-            <div className="mt-10 rounded-2xl border border-dashed border-[var(--borde)] p-8 text-center">
-              <p className="font-medium">Todavía no hay contenido en este nivel.</p>
-              <p className="mt-1 text-sm text-[var(--texto-suave)]">
-                Estamos preparándolo. Mientras tanto puedes cambiar de nivel.
-              </p>
-            </div>
+            <NivelVacio {...(codigoNivel ? { nivel: codigoNivel } : {})} />
           )}
 
           <div className="mt-8 grid min-w-0 gap-8 lg:mt-0">
