@@ -311,10 +311,10 @@ export function Conversar() {
           <div className="flex items-end gap-2">
             <Mascota estado="pensando" tamano={40} className="shrink-0" />
             <div className="rounded-2xl border-2 border-[var(--borde)] bg-[var(--superficie)] px-4 py-3">
-              <span className="inline-flex gap-1">
+              <span className="inline-flex items-end gap-1" role="status" aria-label="Milo está pensando">
                 <Punto retraso="0s" />
-                <Punto retraso="0.2s" />
-                <Punto retraso="0.4s" />
+                <Punto retraso="0.15s" />
+                <Punto retraso="0.3s" />
               </span>
             </div>
           </div>
@@ -345,10 +345,18 @@ export function Conversar() {
   );
 }
 
+/**
+ * Uno de los tres puntos de «está pensando».
+ *
+ * El desfase entre ellos es corto a propósito: si se separan mucho parecen tres
+ * cosas distintas, y si van a la vez parece un fallo. Con poco más de un
+ * décimo de segundo se lee como una onda que los recorre.
+ */
 function Punto({ retraso }: { retraso: string }) {
   return (
     <span
-      className="inline-block size-2 animate-latido rounded-full bg-[var(--texto-suave)]"
+      aria-hidden
+      className="inline-block size-2 animate-puntear rounded-full bg-[var(--texto-suave)]"
       style={{ animationDelay: retraso }}
     />
   );

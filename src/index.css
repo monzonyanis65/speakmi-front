@@ -44,6 +44,7 @@
   --animate-flotar: flotar 2.2s ease-in-out infinite;
   --animate-respirar: respirar 3.4s ease-in-out infinite;
   --animate-parpadeo: parpadeo 5s ease-in-out infinite;
+  --animate-puntear: puntear 1.2s ease-in-out infinite;
 }
 
 @keyframes entrada {
@@ -177,6 +178,25 @@
   }
   95% {
     transform: scaleY(0.08);
+  }
+}
+
+/*
+  Los tres puntos de «está pensando».
+  Se mueven y se apagan a la vez: solo con escala, en un punto de ocho píxeles,
+  no se ve nada. El ciclo pasa la mayor parte del tiempo abajo, para que se lea
+  como una onda que recorre los tres y no como tres cosas parpadeando sueltas.
+*/
+@keyframes puntear {
+  0%,
+  70%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  35% {
+    transform: translateY(-6px);
+    opacity: 1;
   }
 }
 
