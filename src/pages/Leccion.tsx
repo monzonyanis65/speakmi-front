@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { Ejercicio } from '@/components/ejercicios/Ejercicio';
 import { LeerEnVozAlta } from '@/components/ejercicios/LeerEnVozAlta';
+import { HablarLibre } from '@/components/ejercicios/HablarLibre';
 import { Mascota } from '@/components/Mascota';
 import { Boton } from '@/components/Boton';
 import { Confeti } from '@/components/Confeti';
@@ -28,8 +29,10 @@ interface Resumen {
   xpEarned: number;
 }
 
-// Los que se responden con la voz y no con el teclado.
-const SIN_TECLADO = new Set(['speak_prompt', 'listen_type']);
+// Los que no se corrigen contra una solución escrita: llevan su propio flujo,
+// se evalúan en el módulo de voz y se pueden saltar. El dictado no está aquí
+// porque sí se escribe, aunque se oiga primero.
+const SIN_TECLADO = new Set(['read_aloud', 'speak_prompt']);
 
 /**
  * Una lección, un ejercicio por pantalla.
@@ -137,6 +140,11 @@ export function Leccion() {
             ejercicio={ejercicio as unknown as Parameters<typeof LeerEnVozAlta>[0]['ejercicio']}
             onTerminado={() => setVozHecha(true)}
           />
+        ) : ejercicio.type === 'speak_prompt' ? (
+          <HablarLibre
+            ejercicio={ejercicio as unknown as Parameters<typeof HablarLibre>[0]['ejercicio']}
+            onTerminado={() => setVozHecha(true)}
+          />
         ) : (
           <Ejercicio
             ejercicio={ejercicio}
@@ -157,17 +165,13 @@ export function Leccion() {
           >
             {esUltimo ? 'TERMINAR' : 'CONTINUAR'}
           </Boton>
-        ) : ejercicio.type === 'read_aloud' ? (
+        ) : necesitaVoz ? (
           <Boton
             tono={vozHecha ? 'acierto' : 'suave'}
             tamano="grande"
             onClick={() => void siguiente()}
           >
             {vozHecha ? (esUltimo ? 'TERMINAR' : 'CONTINUAR') : 'Saltar por ahora'}
-          </Boton>
-        ) : necesitaVoz ? (
-          <Boton tono="suave" tamano="grande" onClick={() => void siguiente()}>
-            Saltar por ahora
           </Boton>
         ) : (
           <Boton
