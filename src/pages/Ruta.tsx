@@ -182,10 +182,7 @@ export function Ruta() {
       */}
       <div className="mt-5 lg:grid lg:grid-cols-[1fr_340px] lg:items-start lg:gap-8">
         <div className="lg:order-2 lg:sticky lg:top-6">
-          <MascotaConMensaje
-            estado="feliz"
-            mensaje={saludo(data?.units[0]?.titleEs)}
-          />
+          <MascotaConMensaje estado="feliz" mensaje={saludo(data?.units[0]?.titleEs)} />
           <div className="mt-5">
             <PanelInicio />
           </div>

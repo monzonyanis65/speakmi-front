@@ -311,7 +311,11 @@ export function Conversar() {
           <div className="flex items-end gap-2">
             <Mascota estado="pensando" tamano={40} className="shrink-0" />
             <div className="rounded-2xl border-2 border-[var(--borde)] bg-[var(--superficie)] px-4 py-3">
-              <span className="inline-flex items-end gap-1" role="status" aria-label="Milo está pensando">
+              <span
+                className="inline-flex items-end gap-1"
+                role="status"
+                aria-label="Milo está pensando"
+              >
                 <Punto retraso="0s" />
                 <Punto retraso="0.15s" />
                 <Punto retraso="0.3s" />

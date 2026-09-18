@@ -209,7 +209,10 @@ export function Leccion() {
  * que es lo que de verdad enseña. Los que se escriben sí la necesitan: ahí no
  * hay nada que marcar.
  */
-function seMarcaEnElEjercicio(ejercicio: { type: string; prompt: Record<string, unknown> }): boolean {
+function seMarcaEnElEjercicio(ejercicio: {
+  type: string;
+  prompt: Record<string, unknown>;
+}): boolean {
   if (ejercicio.type === 'multiple_choice') return true;
   const opciones = ejercicio.prompt.choices;
   return ejercicio.type === 'fill_blank' && Array.isArray(opciones) && opciones.length > 0;

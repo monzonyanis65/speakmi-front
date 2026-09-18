@@ -97,10 +97,7 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
       <circle cx="60" cy="42" r="26" className="fill-marca-600" />
 
       {/* Ojos. Parpadean solos, salvo cuando ya están cerrados de pensar. */}
-      <g
-        className={cn(ojoAbierto && 'animate-parpadeo')}
-        style={{ transformOrigin: '60px 40px' }}
-      >
+      <g className={cn(ojoAbierto && 'animate-parpadeo')} style={{ transformOrigin: '60px 40px' }}>
         <circle cx="50" cy="40" r="9" fill="white" />
         <circle cx="70" cy="40" r="9" fill="white" />
         {ojoAbierto ? (

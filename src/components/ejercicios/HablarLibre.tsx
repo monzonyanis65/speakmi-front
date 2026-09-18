@@ -130,8 +130,8 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
       <div>
         <p className="text-sm text-[var(--texto-suave)]">{prompt.instruction_es}</p>
         <p className="mt-6 rounded-2xl border border-dashed border-[var(--borde)] p-6 text-center text-sm text-[var(--texto-suave)]">
-          Este navegador no puede escuchar. Abre la app en Chrome o en Edge para hacer los ejercicios
-          de hablar, o sáltalo por ahora.
+          Este navegador no puede escuchar. Abre la app en Chrome o en Edge para hacer los
+          ejercicios de hablar, o sáltalo por ahora.
         </p>
       </div>
     );
