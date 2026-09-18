@@ -125,8 +125,10 @@ export function Leccion() {
           ✕
         </button>
         <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[var(--superficie)]">
+          {/* La barra avanza con una curva que frena al final, no lineal: se
+              nota el avance sin que parezca que va a seguir corriendo. */}
           <div
-            className="h-full rounded-full bg-marca-600 transition-all duration-300"
+            className="h-full rounded-full bg-marca-600 transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
             style={{ width: `${progreso}%` }}
           />
         </div>

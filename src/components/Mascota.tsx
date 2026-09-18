@@ -35,6 +35,8 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
         estado === 'celebrando' && 'animate-saltito',
         estado === 'escuchando' && 'animate-latido',
         estado === 'animando' && 'animate-balanceo',
+        // Quieto respira. Sin esto parece una pegatina, no un personaje.
+        (estado === 'neutral' || estado === 'feliz') && 'animate-respirar',
         className,
       )}
     >
@@ -94,8 +96,11 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
       {/* Cabeza */}
       <circle cx="60" cy="42" r="26" className="fill-marca-600" />
 
-      {/* Ojos */}
-      <g>
+      {/* Ojos. Parpadean solos, salvo cuando ya están cerrados de pensar. */}
+      <g
+        className={cn(ojoAbierto && 'animate-parpadeo')}
+        style={{ transformOrigin: '60px 40px' }}
+      >
         <circle cx="50" cy="40" r="9" fill="white" />
         <circle cx="70" cy="40" r="9" fill="white" />
         {ojoAbierto ? (
