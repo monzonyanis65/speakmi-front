@@ -41,6 +41,7 @@
   --animate-destello: destello 1.2s ease-in-out infinite;
   --animate-temblor: temblor 0.4s ease-in-out;
   --animate-crecer: crecer 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-flotar: flotar 2.2s ease-in-out infinite;
 }
 
 @keyframes entrada {
@@ -146,6 +147,17 @@
   }
 }
 
+/* El cartel de «empezar» flota sobre el nodo, como un globo atado. */
+@keyframes flotar {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
 @keyframes caer {
   from {
     transform: translateY(-10vh) rotate(0deg);
@@ -204,12 +216,26 @@ body {
   transition:
     transform 0.08s ease,
     border-bottom-width 0.08s ease,
+    filter 0.2s ease,
     background-color 0.15s ease;
 }
 
 .boton-3d:active:not(:disabled) {
   transform: translateY(3px);
   border-bottom-width: 1px;
+}
+
+/*
+  Oscurecer al pulsar con un filtro, en vez de cambiar cada color a mano.
+  Funciona igual sobre cualquier fondo, claro u oscuro, y es lo que hace que un
+  botón se sienta físico: se hunde y se sombrea a la vez.
+*/
+.boton-3d:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.boton-3d:active:not(:disabled) {
+  filter: brightness(0.92);
 }
 
 /* Quien prefiere menos movimiento, menos movimiento tiene. */

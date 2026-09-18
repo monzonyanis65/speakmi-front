@@ -6,6 +6,7 @@ import { cn } from '@/lib/cn';
 import { Ejercicio } from '@/components/ejercicios/Ejercicio';
 import { LeerEnVozAlta } from '@/components/ejercicios/LeerEnVozAlta';
 import { HablarLibre } from '@/components/ejercicios/HablarLibre';
+import { useContador } from '@/lib/contador';
 import { Mascota } from '@/components/Mascota';
 import { Boton } from '@/components/Boton';
 import { Confeti } from '@/components/Confeti';
@@ -309,8 +310,8 @@ function PantallaResumen({ resumen, onSalir }: { resumen: Resumen; onSalir: () =
       </p>
 
       <div className="mt-8 grid grid-cols-2 gap-3">
-        <Dato valor={`${porcentaje}%`} etiqueta="Aciertos" />
-        <Dato valor={`+${resumen.xpEarned}`} etiqueta="XP" />
+        <Dato valor={porcentaje} sufijo="%" etiqueta="Aciertos" retraso={200} />
+        <Dato valor={resumen.xpEarned} prefijo="+" etiqueta="XP" retraso={450} />
       </div>
 
       <Boton tamano="grande" onClick={onSalir} className="mt-8">
@@ -320,10 +321,43 @@ function PantallaResumen({ resumen, onSalir }: { resumen: Resumen; onSalir: () =
   );
 }
 
-function Dato({ valor, etiqueta }: { valor: string; etiqueta: string }) {
+/**
+ * Una cifra del resumen.
+ *
+ * Entran una después de otra y suben contando. Es el único momento de la
+ * lección en que merece la pena hacer esperar medio segundo: se acaba de
+ * terminar algo y el número es el premio.
+ */
+function Dato({
+  valor,
+  etiqueta,
+  retraso,
+  prefijo = '',
+  sufijo = '',
+}: {
+  valor: number;
+  etiqueta: string;
+  retraso: number;
+  prefijo?: string;
+  sufijo?: string;
+}) {
+  const contado = useContador(valor, 1000);
+
   return (
-    <div className="animate-entrada rounded-2xl border-2 border-[var(--borde)] bg-[var(--superficie)] p-4">
-      <p className="text-2xl font-extrabold text-marca-600 dark:text-marca-400">{valor}</p>
+    <div
+      className="animate-crecer rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-4"
+      style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
+    >
+      <p
+        className="text-2xl font-extrabold tabular-nums text-marca-600 dark:text-marca-400"
+        aria-label={`${prefijo}${valor}${sufijo} ${etiqueta}`}
+      >
+        <span aria-hidden>
+          {prefijo}
+          {contado}
+          {sufijo}
+        </span>
+      </p>
       <p className="mt-0.5 text-xs text-[var(--texto-suave)]">{etiqueta}</p>
     </div>
   );

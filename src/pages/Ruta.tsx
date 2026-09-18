@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { salir } from '@/lib/auth';
 import { useSesion } from '@/store/sesion';
-import { cn } from '@/lib/cn';
 import { PanelInicio } from '@/components/PanelInicio';
 import { NivelVacio } from '@/components/NivelVacio';
 import { MascotaConMensaje } from '@/components/Mascota';
+import { NodoLeccion, type EstadoNodo } from '@/components/NodoLeccion';
 
 interface Leccion {
   code: string;
@@ -16,6 +16,8 @@ interface Leccion {
   estMinutes: number;
   xpReward: number;
   exercisesCount: number;
+  /** Solo llega si hay sesión. Sin ella se pintan todas como pendientes. */
+  completed?: boolean;
 }
 
 interface Unidad {
@@ -65,6 +67,55 @@ function saludo(titulo?: string): string {
   return `¡Hola de nuevo! Hoy toca «${titulo}».`;
 }
 
+/**
+ * Cuál es la lección por la que toca seguir, en todo el nivel.
+ *
+ * Una sola en toda la pantalla, no una por unidad: el cartel de «empezar» deja
+ * de significar nada si aparece cuatro veces. Es la primera sin hacer leyendo
+ * de arriba abajo.
+ */
+function codigoActual(unidades: Unidad[]): string | null {
+  for (const unidad of unidades) {
+    const pendiente = unidad.lessons.find((leccion) => !leccion.completed);
+    if (pendiente) return pendiente.code;
+  }
+  return null;
+}
+
+/**
+ * En qué estado se pinta una lección.
+ *
+ * Lo que queda por delante sale apagado, pero se puede abrir igual. Bloquearlo
+ * de verdad sería tratar a un adulto como si no supiera qué quiere repasar.
+ */
+function estadoDe(leccion: Leccion, actual: string | null): EstadoNodo {
+  if (leccion.completed) return 'hecha';
+  return leccion.code === actual ? 'actual' : 'porHacer';
+}
+
+/**
+ * Cuánto se aparta del centro cada nodo, entre -1 y 1.
+ *
+ * Es un ciclo de ocho: centro, derecha, tope, derecha, centro, izquierda, tope,
+ * izquierda. Da una curva suave en vez del zigzag de ida y vuelta, que marea
+ * cuando hay veinte lecciones seguidas.
+ */
+function desvioDe(indice: number): number {
+  const CICLO = [0, 0.7, 1, 0.7, 0, -0.7, -1, -0.7];
+  return CICLO[indice % CICLO.length] ?? 0;
+}
+
+/**
+ * Cuántas lecciones hay antes de una unidad.
+ *
+ * El serpenteo se cuenta sobre el nivel entero. Si cada unidad reiniciara el
+ * ciclo, todas las curvas saldrían iguales y siempre hacia el mismo lado, que
+ * es justo lo contrario de un camino.
+ */
+function leccionesAntes(unidades: Unidad[], hasta: number): number {
+  return unidades.slice(0, hasta).reduce((total, unidad) => total + unidad.lessons.length, 0);
+}
+
 /** La pantalla principal: qué hay por delante en tu nivel. */
 export function Ruta() {
   const navegar = useNavigate();
@@ -93,6 +144,9 @@ export function Ruta() {
   // «Cargando tu ruta…» clavado en pantalla. Solo se espera cuando de verdad
   // hay algo en camino.
   const cargando = buscandoNivel || (Boolean(codigoNivel) && isPending);
+
+  // Dónde se retoma. Se calcula una vez para toda la pantalla.
+  const actual = codigoActual(data?.units ?? []);
 
   async function cerrarSesion() {
     await salir();
@@ -153,7 +207,7 @@ export function Ruta() {
           )}
 
           <div className="mt-8 grid min-w-0 gap-8 lg:mt-0">
-            {data?.units.map((unidad) => (
+            {data?.units.map((unidad, iUnidad) => (
               <section key={unidad.code} className="min-w-0">
                 <div className="animate-entrada rounded-2xl border-b-4 border-marca-800 bg-marca-600 p-5 text-white">
                   <p className="text-xs font-medium uppercase tracking-wide text-marca-100">
@@ -172,43 +226,20 @@ export function Ruta() {
                   )}
                 </div>
 
-                <ol className="mt-4 grid min-w-0 gap-3">
+                {/* La línea de puntos va detrás y sujeta visualmente el camino:
+                    sin ella los nodos parecen sueltos en vez de un recorrido. */}
+                <ol className="relative mt-6 grid min-w-0 justify-items-center gap-5 before:absolute before:inset-y-4 before:left-1/2 before:-z-10 before:w-0.5 before:-translate-x-1/2 before:border-l-4 before:border-dotted before:border-[var(--borde)]">
                   {unidad.lessons.map((leccion, indice) => (
-                    <li key={leccion.code} className="min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => navegar(`/leccion/${leccion.code}`)}
-                        style={{ animationDelay: `${indice * 60}ms` }}
-                        className={cn(
-                          'boton-3d flex w-full min-w-0 animate-entrada items-center gap-4 rounded-2xl',
-                          'border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4 text-left',
-                          'hover:border-marca-400',
-                        )}
-                      >
-                        <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[var(--fondo)] text-2xl">
-                          {ICONO[leccion.type] ?? '📘'}
-                        </span>
-
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-[var(--texto-suave)]">
-                              {indice + 1}. {NOMBRE_TIPO[leccion.type] ?? leccion.type}
-                            </span>
-                          </span>
-                          <span className="mt-0.5 block font-bold leading-tight">
-                            {leccion.titleEs}
-                          </span>
-                          <span className="mt-1 block text-xs text-[var(--texto-suave)]">
-                            {leccion.exercisesCount} ejercicios · {leccion.estMinutes} min ·{' '}
-                            {leccion.xpReward} XP
-                          </span>
-                        </span>
-
-                        <span aria-hidden className="text-[var(--texto-suave)]">
-                          ›
-                        </span>
-                      </button>
-                    </li>
+                    <NodoLeccion
+                      key={leccion.code}
+                      titulo={leccion.titleEs}
+                      tipo={NOMBRE_TIPO[leccion.type] ?? leccion.type}
+                      icono={ICONO[leccion.type] ?? '📘'}
+                      estado={estadoDe(leccion, actual)}
+                      desvio={desvioDe(leccionesAntes(data.units, iUnidad) + indice)}
+                      retraso={indice * 70}
+                      onAbrir={() => navegar(`/leccion/${leccion.code}`)}
+                    />
                   ))}
                 </ol>
               </section>

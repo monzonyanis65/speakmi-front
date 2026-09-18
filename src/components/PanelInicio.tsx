@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { NOMBRE_CATEGORIA } from '@/components/ejercicios/tipos';
+import { useContador } from '@/lib/contador';
 
 interface Progreso {
   xpTotal: number;
@@ -87,12 +88,14 @@ export function PanelInicio() {
 
       <div className="grid grid-cols-3 gap-3">
         <Dato
-          valor={String(data.racha.currentDays)}
+          valor={data.racha.currentDays}
           etiqueta={data.racha.currentDays === 1 ? 'día' : 'días'}
           icono="🔥"
+          vivo={data.racha.currentDays > 0}
+          retraso={0}
         />
-        <Dato valor={String(data.xpTotal)} etiqueta="XP" icono="⭐" />
-        <Dato valor={String(data.leccionesCompletadas)} etiqueta="lecciones" icono="📘" />
+        <Dato valor={data.xpTotal} etiqueta="XP" icono="⭐" retraso={80} />
+        <Dato valor={data.leccionesCompletadas} etiqueta="lecciones" icono="📘" retraso={160} />
       </div>
 
       {(debilidad ?? flojo) && (
@@ -146,13 +149,41 @@ export function PanelInicio() {
   );
 }
 
-function Dato({ valor, etiqueta, icono }: { valor: string; etiqueta: string; icono: string }) {
+/**
+ * Una cifra del panel.
+ *
+ * Las tres entran escalonadas, no las tres a la vez: cuando algo aparece en
+ * cascada el ojo lo sigue, y cuando aparece de golpe ni se mira. Y el número
+ * sube contando, que es lo que convierte un dato en un pequeño premio.
+ */
+function Dato({
+  valor,
+  etiqueta,
+  icono,
+  retraso,
+  vivo = false,
+}: {
+  valor: number;
+  etiqueta: string;
+  icono: string;
+  retraso: number;
+  vivo?: boolean;
+}) {
+  const contado = useContador(valor);
+
   return (
-    <div className="animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-3 text-center">
-      <p className="text-lg" aria-hidden>
+    <div
+      className="animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-3 text-center"
+      style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
+    >
+      {/* La llama solo late si la racha está viva. Un fuego apagado no parpadea. */}
+      <p className={cn('text-lg', vivo && 'animate-latido')} aria-hidden>
         {icono}
       </p>
-      <p className="mt-0.5 text-xl font-extrabold">{valor}</p>
+      {/* El número cambia solo; para quien escucha la página basta el final. */}
+      <p className="mt-0.5 text-xl font-extrabold tabular-nums" aria-label={`${valor} ${etiqueta}`}>
+        <span aria-hidden>{contado}</span>
+      </p>
       <p className="text-xs text-[var(--texto-suave)]">{etiqueta}</p>
     </div>
   );
