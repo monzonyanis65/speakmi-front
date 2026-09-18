@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
+import { decir, hayVoz } from '@/lib/voz';
 import type { PropsEjercicio } from './tipos';
 
 /**
@@ -21,9 +22,10 @@ export function Ejercicio(props: PropsEjercicio) {
       return <Emparejar {...props} />;
     case 'translate_write':
       return <Traducir {...props} />;
+    case 'listen_type':
+      return <Dictado {...props} />;
     case 'read_aloud':
     case 'speak_prompt':
-    case 'listen_type':
       return <Pendiente tipo={props.ejercicio.type} />;
     default:
       return <Pendiente tipo={props.ejercicio.type} />;
@@ -55,6 +57,9 @@ function OpcionMultiple({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
             key={opcion.text}
             type="button"
             disabled={bloqueado}
+            // Sin esto, quien use lector de pantalla oye cuatro botones iguales
+            // y no sabe cuál acaba de marcar.
+            aria-pressed={elegida === indice}
             onClick={() => {
               setElegida(indice);
               onCambio(indice);
@@ -341,6 +346,115 @@ function Traducir({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Escuchar y escribir.
+ *
+ * La frase no se enseña nunca: si se viera, el ejercicio sería copiar. Se puede
+ * repetir las veces que haga falta, y hay un botón para oírla más despacio,
+ * que es lo primero que pide quien está empezando.
+ */
+function Dictado({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
+  const [valor, setValor] = useState('');
+  const [sonando, setSonando] = useState(false);
+  const [vecesOida, setVecesOida] = useState(0);
+  const montado = useRef(true);
+  const prompt = ejercicio.prompt as { instruction_es: string; speakText: string };
+
+  useEffect(() => {
+    setValor('');
+    setVecesOida(0);
+  }, [ejercicio.code]);
+
+  // La frase puede seguir sonando cuando ya se pasó de ejercicio. Si se tocara
+  // el estado después, React se quejaría de un cambio sobre algo que ya no está.
+  useEffect(() => {
+    montado.current = true;
+    return () => {
+      montado.current = false;
+    };
+  }, []);
+
+  async function reproducir(velocidad: number) {
+    if (sonando) return;
+    setSonando(true);
+    setVecesOida((veces) => veces + 1);
+    await decir(prompt.speakText, { velocidad });
+    if (montado.current) setSonando(false);
+  }
+
+  // Al entrar suena sola una vez: es lo que se espera de un dictado, y ahorra
+  // un toque en el móvil. Los navegadores que lo bloqueen no rompen nada,
+  // porque el botón sigue ahí.
+  useEffect(() => {
+    void reproducir(0.9);
+    // Solo al cambiar de ejercicio, no en cada pintada.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ejercicio.code]);
+
+  function fijar(nuevo: string) {
+    setValor(nuevo);
+    onCambio(nuevo.trim() ? nuevo : null);
+  }
+
+  if (!hayVoz()) {
+    return (
+      <div>
+        <Instruccion>{prompt.instruction_es}</Instruccion>
+        <p className="mt-6 rounded-2xl border border-dashed border-[var(--borde)] p-6 text-center text-sm text-[var(--texto-suave)]">
+          Este navegador no puede leer en voz alta, así que este ejercicio no se puede hacer aquí.
+          Prueba con Chrome, o sáltalo.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <Instruccion>{prompt.instruction_es}</Instruccion>
+
+      <div className="mt-6 flex flex-col items-center gap-3">
+        <button
+          type="button"
+          onClick={() => void reproducir(0.9)}
+          disabled={sonando}
+          aria-label="Escuchar la frase"
+          className="flex size-24 items-center justify-center rounded-full bg-marca-600 text-4xl text-white shadow-lg transition hover:bg-marca-500 disabled:opacity-70"
+        >
+          <span aria-hidden>{sonando ? '🔈' : '🔊'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => void reproducir(0.55)}
+          disabled={sonando}
+          className="rounded-xl px-4 py-2.5 text-sm font-bold text-marca-600 hover:bg-marca-50 disabled:opacity-60 dark:text-marca-400 dark:hover:bg-marca-900/30"
+        >
+          🐢 Más despacio
+        </button>
+
+        <p className="text-xs text-[var(--texto-suave)]">
+          {vecesOida > 0
+            ? `La has oído ${vecesOida} ${vecesOida === 1 ? 'vez' : 'veces'}. Repítela cuantas quieras.`
+            : 'Toca para escucharla.'}
+        </p>
+      </div>
+
+      <input
+        type="text"
+        value={valor}
+        disabled={bloqueado}
+        onChange={(e) => fijar(e.target.value)}
+        autoComplete="off"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+        placeholder="Escribe lo que oíste"
+        className="mt-6 w-full rounded-xl border border-[var(--borde)] bg-[var(--superficie)] px-4 py-3.5 text-base outline-none focus:border-marca-500 disabled:opacity-60"
+      />
     </div>
   );
 }
