@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/cn';
 
 export type EstadoNodo = 'hecha' | 'actual' | 'porHacer';
@@ -24,8 +25,27 @@ interface Props {
  * siguiente lleva anillo y cartel, y lo que queda está apagado.
  */
 export function NodoLeccion({ titulo, tipo, icono, estado, desvio, retraso, onAbrir }: Props) {
+  const nodo = useRef<HTMLLIElement>(null);
+
+  // Al abrir la ruta se baja sola hasta donde toca seguir. Con veinte lecciones
+  // por nivel, empezar siempre arriba obliga a buscar cada vez por dónde ibas.
+  useEffect(() => {
+    if (estado !== 'actual') return;
+    const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Se espera a que entren los nodos; si no, se desplaza hacia una posición
+    // que aún está cambiando y acaba en otro sitio.
+    const t = setTimeout(() => {
+      nodo.current?.scrollIntoView({
+        behavior: quieto ? 'auto' : 'smooth',
+        block: 'center',
+      });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [estado]);
+
   return (
     <li
+      ref={nodo}
       className="flex animate-crecer flex-col items-center"
       style={{
         // Desplazamiento en rem, no en porcentaje: el porcentaje se mide sobre
