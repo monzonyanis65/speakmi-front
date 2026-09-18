@@ -69,6 +69,12 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
   /** Se corta la petición si tarda demasiado, para no dejar la interfaz colgada. */
   timeoutMs?: number;
+  /**
+   * Marca las peticiones que NO deben intentar renovar la sesión.
+   * La propia llamada de refresco lleva esto puesto: sin ello, un refresco
+   * caducado dispararía otro refresco, y ese otro, en un bucle infinito.
+   */
+  sinRenovar?: boolean;
 }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -80,7 +86,7 @@ async function ejecutar<T>(
   options: RequestOptions,
   puedeReintentar: boolean,
 ): Promise<T> {
-  const { body, timeoutMs = 20_000, headers, ...rest } = options;
+  const { body, timeoutMs = 20_000, headers, sinRenovar, ...rest } = options;
   const token = proveedorToken();
 
   const controller = new AbortController();
@@ -121,7 +127,7 @@ async function ejecutar<T>(
 
     // El token caducó: se renueva y se repite la petición una sola vez.
     // Un segundo fallo significa que la sesión terminó de verdad.
-    if (detalle.code === 'AUTH-004' && puedeReintentar && renovarSesion) {
+    if (detalle.code === 'AUTH-004' && puedeReintentar && !sinRenovar && renovarSesion) {
       const renovada = await renovarSesion();
       if (renovada) return ejecutar<T>(path, options, false);
     }

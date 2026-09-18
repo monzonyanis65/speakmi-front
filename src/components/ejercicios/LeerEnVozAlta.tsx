@@ -235,7 +235,7 @@ function TextoCorregido({ palabras }: { palabras: PalabraLeida[] }) {
             className={cn(
               'mr-1.5 inline-block rounded px-1',
               palabra.verdict === 'correct'
-                ? 'text-emerald-700 dark:text-emerald-400'
+                ? 'text-emerald-800 dark:text-emerald-300'
                 : palabra.verdict === 'mispronounced'
                   ? 'bg-amber-200/70 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
                   : 'bg-red-200/60 text-red-900 line-through dark:bg-red-900/40 dark:text-red-200',

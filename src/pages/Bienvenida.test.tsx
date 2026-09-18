@@ -47,7 +47,7 @@ describe('elección de nivel', () => {
 
     await usuario.click(screen.getByText('Mi gente y mi barrio'));
 
-    expect(screen.getByRole('button', { name: 'Empezar' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'EMPEZAR' })).toBeEnabled();
   });
 
   it('marca como seleccionado solo el nivel elegido', async () => {

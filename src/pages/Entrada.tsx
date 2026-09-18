@@ -122,7 +122,7 @@ export function Entrada() {
         <button
           type="button"
           onClick={() => navegar('/recuperar')}
-          className="mt-6 text-center text-sm text-marca-600 underline-offset-4 hover:underline dark:text-marca-400"
+          className="mx-auto mt-5 rounded-xl px-4 py-3 text-center text-sm font-bold text-marca-600 hover:bg-marca-50 dark:text-marca-400 dark:hover:bg-marca-900/30"
         >
           Se me olvidó la contraseña
         </button>

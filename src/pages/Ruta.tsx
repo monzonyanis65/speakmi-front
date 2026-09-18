@@ -75,7 +75,7 @@ export function Ruta() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       <header className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm text-[var(--texto-suave)]">Hola, {usuario?.displayName}</p>
@@ -91,101 +91,110 @@ export function Ruta() {
         <button
           type="button"
           onClick={() => void cerrarSesion()}
-          className="shrink-0 text-sm text-[var(--texto-suave)] underline-offset-4 hover:underline"
+          className="-mr-2 shrink-0 rounded-xl px-3 py-2.5 text-sm text-[var(--texto-suave)] hover:bg-[var(--superficie)]"
         >
           Salir
         </button>
       </header>
 
-      <div className="mt-5">
-        <MascotaConMensaje
-          estado="feliz"
-          mensaje={`¡Hola de nuevo! ${data?.units[0]?.titleEs ? `Hoy toca ${data.units[0].titleEs.toLowerCase()}.` : 'Vamos a practicar un rato.'}`}
-        />
-      </div>
-
-      <div className="mt-5">
-        <PanelInicio />
-      </div>
-
-      {isPending && (
-        <p className="mt-10 text-center text-[var(--texto-suave)]">Cargando tu ruta…</p>
-      )}
-
-      {isError && (
-        <p className="mt-10 text-center text-[var(--color-fallo)]">
-          No pudimos cargar tu ruta. Inténtalo de nuevo en un momento.
-        </p>
-      )}
-
-      {data?.units.length === 0 && (
-        <div className="mt-10 rounded-2xl border border-dashed border-[var(--borde)] p-8 text-center">
-          <p className="font-medium">Todavía no hay contenido en este nivel.</p>
-          <p className="mt-1 text-sm text-[var(--texto-suave)]">
-            Estamos preparándolo. Mientras tanto puedes cambiar de nivel.
-          </p>
+      {/*
+        En pantalla ancha, el saludo y el panel se van a una columna lateral y la
+        ruta ocupa la principal. En móvil siguen uno encima de otro.
+      */}
+      <div className="mt-5 lg:grid lg:grid-cols-[1fr_340px] lg:items-start lg:gap-8">
+        <div className="lg:order-2 lg:sticky lg:top-6">
+          <MascotaConMensaje
+            estado="feliz"
+            mensaje={`¡Hola de nuevo! ${data?.units[0]?.titleEs ? `Hoy toca ${data.units[0].titleEs.toLowerCase()}.` : 'Vamos a practicar un rato.'}`}
+          />
+          <div className="mt-5">
+            <PanelInicio />
+          </div>
         </div>
-      )}
 
-      <div className="mt-8 grid gap-8">
-        {data?.units.map((unidad) => (
-          <section key={unidad.code}>
-            <div className="animate-entrada rounded-2xl border-b-4 border-marca-800 bg-marca-600 p-5 text-white">
-              <p className="text-xs font-medium uppercase tracking-wide text-marca-100">
-                {unidad.code.replace('-', ' · ')}
+        <div className="lg:order-1 lg:min-w-0">
+          {isPending && (
+            <p className="mt-10 text-center text-[var(--texto-suave)]">Cargando tu ruta…</p>
+          )}
+
+          {isError && (
+            <p className="mt-10 text-center text-[var(--color-fallo)]">
+              No pudimos cargar tu ruta. Inténtalo de nuevo en un momento.
+            </p>
+          )}
+
+          {data?.units.length === 0 && (
+            <div className="mt-10 rounded-2xl border border-dashed border-[var(--borde)] p-8 text-center">
+              <p className="font-medium">Todavía no hay contenido en este nivel.</p>
+              <p className="mt-1 text-sm text-[var(--texto-suave)]">
+                Estamos preparándolo. Mientras tanto puedes cambiar de nivel.
               </p>
-              <h2 className="mt-1 text-lg font-bold">{unidad.titleEs}</h2>
-              {unidad.canDoStatements.length > 0 && (
-                <ul className="mt-3 grid gap-1.5">
-                  {unidad.canDoStatements.map((frase) => (
-                    <li key={frase} className="flex gap-2 text-sm text-marca-50">
-                      <span aria-hidden>✓</span>
-                      <span>{frase}</span>
+            </div>
+          )}
+
+          <div className="mt-8 grid min-w-0 gap-8 lg:mt-0">
+            {data?.units.map((unidad) => (
+              <section key={unidad.code} className="min-w-0">
+                <div className="animate-entrada rounded-2xl border-b-4 border-marca-800 bg-marca-600 p-5 text-white">
+                  <p className="text-xs font-medium uppercase tracking-wide text-marca-100">
+                    {unidad.code.replace('-', ' · ')}
+                  </p>
+                  <h2 className="mt-1 text-lg font-bold">{unidad.titleEs}</h2>
+                  {unidad.canDoStatements.length > 0 && (
+                    <ul className="mt-3 grid gap-1.5">
+                      {unidad.canDoStatements.map((frase) => (
+                        <li key={frase} className="flex gap-2 text-sm text-marca-50">
+                          <span aria-hidden>✓</span>
+                          <span>{frase}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <ol className="mt-4 grid min-w-0 gap-3">
+                  {unidad.lessons.map((leccion, indice) => (
+                    <li key={leccion.code} className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => navegar(`/leccion/${leccion.code}`)}
+                        style={{ animationDelay: `${indice * 60}ms` }}
+                        className={cn(
+                          'boton-3d flex w-full min-w-0 animate-entrada items-center gap-4 rounded-2xl',
+                          'border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4 text-left',
+                          'hover:border-marca-400',
+                        )}
+                      >
+                        <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[var(--fondo)] text-2xl">
+                          {ICONO[leccion.type] ?? '📘'}
+                        </span>
+
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-[var(--texto-suave)]">
+                              {indice + 1}. {NOMBRE_TIPO[leccion.type] ?? leccion.type}
+                            </span>
+                          </span>
+                          <span className="mt-0.5 block font-bold leading-tight">
+                            {leccion.titleEs}
+                          </span>
+                          <span className="mt-1 block text-xs text-[var(--texto-suave)]">
+                            {leccion.exercisesCount} ejercicios · {leccion.estMinutes} min ·{' '}
+                            {leccion.xpReward} XP
+                          </span>
+                        </span>
+
+                        <span aria-hidden className="text-[var(--texto-suave)]">
+                          ›
+                        </span>
+                      </button>
                     </li>
                   ))}
-                </ul>
-              )}
-            </div>
-
-            <ol className="mt-4 grid gap-3">
-              {unidad.lessons.map((leccion, indice) => (
-                <li key={leccion.code}>
-                  <button
-                    type="button"
-                    onClick={() => navegar(`/leccion/${leccion.code}`)}
-                    style={{ animationDelay: `${indice * 60}ms` }}
-                    className={cn(
-                      'boton-3d flex w-full animate-entrada items-center gap-4 rounded-2xl',
-                      'border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4 text-left',
-                      'hover:border-marca-400',
-                    )}
-                  >
-                    <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[var(--fondo)] text-2xl">
-                      {ICONO[leccion.type] ?? '📘'}
-                    </span>
-
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-[var(--texto-suave)]">
-                          {indice + 1}. {NOMBRE_TIPO[leccion.type] ?? leccion.type}
-                        </span>
-                      </span>
-                      <span className="mt-0.5 block truncate font-bold">{leccion.titleEs}</span>
-                      <span className="mt-1 block text-xs text-[var(--texto-suave)]">
-                        {leccion.exercisesCount} ejercicios · {leccion.estMinutes} min ·{' '}
-                        {leccion.xpReward} XP
-                      </span>
-                    </span>
-
-                    <span aria-hidden className="text-[var(--texto-suave)]">
-                      ›
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </section>
-        ))}
+                </ol>
+              </section>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

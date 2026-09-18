@@ -116,7 +116,7 @@ export function Leccion() {
           type="button"
           onClick={() => navegar('/ruta')}
           aria-label="Salir de la lección"
-          className="text-xl text-[var(--texto-suave)] transition hover:text-[var(--texto)]"
+          className="-ml-2 rounded-xl px-3 py-2 text-xl text-[var(--texto-suave)] transition hover:text-[var(--texto)]"
         >
           ✕
         </button>
@@ -230,8 +230,8 @@ function HojaCorreccion({ correccion }: { correccion: Correccion }) {
               <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-xs font-medium dark:bg-white/10">
                 {NOMBRE_CATEGORIA[error.category] ?? error.category}
               </span>{' '}
-              {error.explicacion_es ??
-                (error.expected ? `Debía ser «${error.expected}».` : 'Revísalo.')}
+              {/* Sin repetir la respuesta: ya se muestra arriba en grande. */}
+              {error.explicacion_es ?? 'Revísalo.'}
             </li>
           ))}
         </ul>
@@ -245,7 +245,7 @@ function HojaCorreccion({ correccion }: { correccion: Correccion }) {
             <button
               type="button"
               onClick={() => setVerPorque(true)}
-              className="text-sm underline underline-offset-4"
+              className="-mx-2 rounded-lg px-2 py-2 text-sm font-bold underline underline-offset-4"
             >
               ¿Por qué?
             </button>

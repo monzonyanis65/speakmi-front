@@ -49,12 +49,28 @@ export async function salir(): Promise<void> {
 }
 
 /**
- * Recupera la sesión al abrir la app.
- * Devuelve false sin hacer ruido si no había ninguna, que es lo normal.
+ * Recupera la sesión.
+ *
+ * Se llama al abrir la app y cada vez que caduca el token de acceso. Como el
+ * servidor rota el token de refresco en cada uso, dos renovaciones a la vez
+ * harían que la segunda usara uno ya gastado, y eso cierra todas las sesiones
+ * por seguridad. Por eso solo puede haber una en marcha: las demás esperan a esa.
  */
-export async function recuperarSesion(): Promise<boolean> {
+let renovacionEnCurso: Promise<boolean> | null = null;
+
+export function recuperarSesion(): Promise<boolean> {
+  renovacionEnCurso ??= renovarDeVerdad().finally(() => {
+    renovacionEnCurso = null;
+  });
+  return renovacionEnCurso;
+}
+
+async function renovarDeVerdad(): Promise<boolean> {
   try {
-    const respuesta = await api.post<RespuestaSesion>('/auth/refresh');
+    // `sinRenovar` corta el bucle: si este refresco falla, no dispara otro.
+    const respuesta = await api.post<RespuestaSesion>('/auth/refresh', undefined, {
+      sinRenovar: true,
+    });
     aplicar(respuesta);
     return true;
   } catch (error) {

@@ -80,7 +80,7 @@ export function Repaso() {
           type="button"
           onClick={() => navegar('/ruta')}
           aria-label="Salir del repaso"
-          className="text-xl text-[var(--texto-suave)]"
+          className="-ml-2 rounded-xl px-3 py-2 text-xl text-[var(--texto-suave)]"
         >
           ✕
         </button>
@@ -167,10 +167,10 @@ function Boton({
   children: React.ReactNode;
 }) {
   const colores = {
-    fallo: 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300',
-    aviso: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-    bien: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
-    facil: 'bg-marca-100 text-marca-700 dark:bg-marca-900/50 dark:text-marca-200',
+    fallo: 'bg-red-100 text-red-900 dark:bg-red-950/50 dark:text-red-200',
+    aviso: 'bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200',
+    bien: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200',
+    facil: 'bg-marca-100 text-marca-800 dark:bg-marca-900/50 dark:text-marca-100',
   };
 
   return (

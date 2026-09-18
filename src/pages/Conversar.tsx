@@ -271,7 +271,7 @@ export function Conversar() {
           type="button"
           onClick={() => navegar('/ruta')}
           aria-label="Salir"
-          className="text-xl text-[var(--texto-suave)]"
+          className="-ml-2 rounded-xl px-3 py-2 text-xl text-[var(--texto-suave)]"
         >
           ✕
         </button>

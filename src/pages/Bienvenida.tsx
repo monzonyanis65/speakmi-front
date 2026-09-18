@@ -4,6 +4,7 @@ import { NIVELES } from '@/data/niveles';
 import { guardarNivel } from '@/lib/auth';
 import { useSesion } from '@/store/sesion';
 import { TarjetaNivel } from '@/components/TarjetaNivel';
+import { Boton } from '@/components/Boton';
 
 /**
  * Elegir el nivel. Se llega aquí después de entrar, y solo la primera vez o
@@ -66,19 +67,18 @@ export function Bienvenida() {
           </p>
         )}
 
-        <button
-          type="button"
+        <Boton
+          tamano="grande"
           onClick={() => void continuar()}
           disabled={!seleccionado || guardando}
-          className="w-full rounded-2xl bg-marca-600 px-6 py-4 text-base font-semibold text-white transition hover:bg-marca-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-500"
         >
-          {guardando ? 'Guardando…' : seleccionado ? 'Empezar' : 'Elige un nivel para empezar'}
-        </button>
+          {guardando ? 'GUARDANDO…' : seleccionado ? 'EMPEZAR' : 'Elige un nivel para empezar'}
+        </Boton>
 
         <button
           type="button"
           onClick={() => navegar('/prueba')}
-          className="mt-3 w-full text-center text-xs text-marca-600 underline-offset-4 hover:underline dark:text-marca-400"
+          className="mt-2 w-full rounded-xl py-3 text-center text-sm font-bold text-marca-600 hover:bg-marca-50 dark:text-marca-400 dark:hover:bg-marca-900/30"
         >
           ¿No sabes cuál es el tuyo? Haz la prueba de nivel
         </button>
