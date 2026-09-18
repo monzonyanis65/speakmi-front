@@ -115,6 +115,7 @@ function Hueco({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
               key={opcion}
               type="button"
               disabled={bloqueado}
+              aria-pressed={valor === opcion}
               onClick={() => fijar(opcion)}
               className={cn(
                 'rounded-xl border px-4 py-3 text-base transition disabled:opacity-60',
