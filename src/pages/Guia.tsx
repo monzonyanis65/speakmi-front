@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { useState } from 'react';
 import { Explicacion } from '@/components/Explicacion';
+import { decir, hayVoz } from '@/lib/voz';
 import { MascotaConMensaje } from '@/components/Mascota';
 
 interface Regla {
@@ -10,6 +12,14 @@ interface Regla {
   kind: string;
   titleEs: string;
   explanationMd: string | null;
+}
+
+interface Palabra {
+  lemma: string;
+  translationEs: string;
+  ipaUs: string | null;
+  exampleEn: string | null;
+  exampleEs: string | null;
 }
 
 const NOMBRE_TIPO: Record<string, string> = {
@@ -41,7 +51,9 @@ export function Guia() {
   const { data, isPending, isError } = useQuery({
     queryKey: ['guia', code],
     queryFn: () =>
-      api.get<{ unitCode: string; skills: Regla[] }>(`/curriculum/units/${code!}/guide`),
+      api.get<{ unitCode: string; vocab: Palabra[]; skills: Regla[] }>(
+        `/curriculum/units/${code!}/guide`,
+      ),
     enabled: Boolean(code),
   });
 
@@ -74,7 +86,26 @@ export function Guia() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-4">
+      {data && data.vocab.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-xs font-extrabold uppercase tracking-wide text-[var(--texto-suave)]">
+            Frases clave
+          </h2>
+          <div className="mt-3 grid gap-2">
+            {data.vocab
+              .filter((palabra) => palabra.exampleEn)
+              .map((palabra, indice) => (
+                <FraseClave key={palabra.lemma} palabra={palabra} retraso={indice * 60} />
+              ))}
+          </div>
+        </section>
+      )}
+
+      <h2 className="mt-8 text-xs font-extrabold uppercase tracking-wide text-[var(--texto-suave)]">
+        Las reglas
+      </h2>
+
+      <div className="mt-3 grid gap-4">
         {data?.skills.map((regla, indice) => (
           <section
             key={regla.code}
@@ -100,6 +131,52 @@ export function Guia() {
             )}
           </section>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Una frase clave de la unidad, con su traducción y su botón para oírla.
+ *
+ * Se oye con el sintetizador del navegador, el mismo que usa el dictado. Leer
+ * una frase en inglés sin saber cómo suena sirve de poco: se aprende escrita y
+ * luego no se reconoce al oírla.
+ */
+function FraseClave({ palabra, retraso }: { palabra: Palabra; retraso: number }) {
+  const [sonando, setSonando] = useState(false);
+
+  async function reproducir() {
+    if (sonando || !palabra.exampleEn) return;
+    setSonando(true);
+    await decir(palabra.exampleEn, { velocidad: 0.9 });
+    setSonando(false);
+  }
+
+  return (
+    <div
+      className="flex animate-entrada items-start gap-3 rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-3"
+      style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
+    >
+      {hayVoz() && (
+        <button
+          type="button"
+          onClick={() => void reproducir()}
+          disabled={sonando}
+          aria-label={`Escuchar «${palabra.exampleEn ?? palabra.lemma}»`}
+          className="boton-3d grid size-10 shrink-0 place-items-center rounded-xl border-marca-900 bg-marca-700 text-lg text-white hover:bg-marca-600 disabled:opacity-70"
+        >
+          <span aria-hidden>{sonando ? '🔈' : '🔊'}</span>
+        </button>
+      )}
+
+      <div className="min-w-0 flex-1">
+        <p className="font-[var(--font-lectura)] leading-snug">{palabra.exampleEn}</p>
+        <p className="mt-0.5 text-sm text-[var(--texto-suave)]">{palabra.exampleEs}</p>
+        <p className="mt-1 text-xs text-[var(--texto-suave)]">
+          <span className="font-semibold">{palabra.lemma}</span>
+          {palabra.ipaUs ? ` · ${palabra.ipaUs}` : ''} · {palabra.translationEs}
+        </p>
       </div>
     </div>
   );
