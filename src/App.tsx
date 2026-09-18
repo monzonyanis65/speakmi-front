@@ -12,6 +12,7 @@ import { Prueba } from '@/pages/Prueba';
 import { Bienvenida } from '@/pages/Bienvenida';
 import { Ruta } from '@/pages/Ruta';
 import { Leccion } from '@/pages/Leccion';
+import { Guia } from '@/pages/Guia';
 import { Repaso } from '@/pages/Repaso';
 import { Conversar } from '@/pages/Conversar';
 import { AvisoActualizacion } from '@/components/AvisoActualizacion';
@@ -94,6 +95,14 @@ export default function App() {
             element={
               <SoloConSesion>
                 <Leccion />
+              </SoloConSesion>
+            }
+          />
+          <Route
+            path="/guia/:code"
+            element={
+              <SoloConSesion>
+                <Guia />
               </SoloConSesion>
             }
           />

@@ -207,10 +207,28 @@ export function Ruta() {
             {data?.units.map((unidad, iUnidad) => (
               <section key={unidad.code} className="min-w-0">
                 <div className="animate-entrada rounded-2xl border-b-4 border-marca-800 bg-marca-600 p-5 text-white">
-                  <p className="text-xs font-medium uppercase tracking-wide text-marca-100">
-                    {unidad.code.replace('-', ' · ')}
-                  </p>
-                  <h2 className="mt-1 text-lg font-bold">{unidad.titleEs}</h2>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium uppercase tracking-wide text-marca-100">
+                        {unidad.code.replace('-', ' · ')}
+                      </p>
+                      <h2 className="mt-1 text-lg font-bold">{unidad.titleEs}</h2>
+                    </div>
+
+                    {/* La salida a las reglas explicadas. Va aquí, junto al
+                        título, porque es donde se mira cuando uno no entiende
+                        de qué va la unidad. */}
+                    <button
+                      type="button"
+                      onClick={() => navegar(`/guia/${unidad.code}`)}
+                      // Blanco con letra de marca, no un morado sobre otro morado: dos
+                      // tonos vecinos de la misma familia no llegan al contraste
+                      // mínimo y el botón se pierde dentro de la cabecera.
+                      className="boton-3d shrink-0 rounded-xl border-2 border-marca-200 bg-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide text-marca-700 hover:bg-marca-50"
+                    >
+                      Guía
+                    </button>
+                  </div>
                   {unidad.canDoStatements.length > 0 && (
                     <ul className="mt-3 grid gap-1.5">
                       {unidad.canDoStatements.map((frase) => (
