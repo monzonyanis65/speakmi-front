@@ -6,6 +6,8 @@ dist/
 build/
 .vite/
 *.tsbuildinfo
+# Service worker que genera vite-plugin-pwa al desarrollar.
+dev-dist/
 
 # Entorno
 .env

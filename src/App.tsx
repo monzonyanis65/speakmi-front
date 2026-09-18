@@ -13,6 +13,7 @@ import { Ruta } from '@/pages/Ruta';
 import { Leccion } from '@/pages/Leccion';
 import { Repaso } from '@/pages/Repaso';
 import { Conversar } from '@/pages/Conversar';
+import { AvisoActualizacion } from '@/components/AvisoActualizacion';
 
 // El cliente de API necesita saber de dónde sacar el token y cómo renovarlo.
 // Se le dice una sola vez, al cargar la aplicación.
@@ -123,6 +124,8 @@ export default function App() {
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        {/* Fuera de las rutas: el aviso vale para cualquier pantalla. */}
+        <AvisoActualizacion />
       </BrowserRouter>
     </QueryClientProvider>
   );
