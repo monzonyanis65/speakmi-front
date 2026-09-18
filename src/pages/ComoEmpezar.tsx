@@ -36,7 +36,7 @@ export function ComoEmpezar() {
         <Opcion
           emoji="📝"
           titulo="Hazme una prueba"
-          descripcion="Dieciséis preguntas, unos tres minutos. Te decimos dónde encajas."
+          descripcion="Veinticuatro preguntas, unos cinco minutos. Te decimos dónde encajas."
           onClick={() => navegar('/prueba')}
         />
       </div>
