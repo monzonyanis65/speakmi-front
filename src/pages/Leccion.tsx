@@ -137,7 +137,14 @@ export function Leccion() {
         </span>
       </header>
 
-      <main className="mt-10 flex-1">
+      {/*
+        La `key` es lo que hace que el ejercicio entre animado.
+        Sin ella React reutiliza el mismo nodo al cambiar de pregunta, la
+        animación no vuelve a arrancar y el siguiente ejercicio aparece de golpe,
+        como si la pantalla hubiera parpadeado. Con ella se monta uno nuevo cada
+        vez y se ve de dónde viene.
+      */}
+      <main key={ejercicio.code} className="mt-10 flex-1 animate-entrada">
         {ejercicio.type === 'read_aloud' ? (
           <LeerEnVozAlta
             ejercicio={ejercicio as unknown as Parameters<typeof LeerEnVozAlta>[0]['ejercicio']}

@@ -290,11 +290,19 @@ body {
  * hunde, y ese medio segundo de respuesta táctil es lo que hace que una app se
  * sienta viva en el móvil.
  */
+/*
+  El botón físico.
+
+  Las dos partes del gesto van a velocidades distintas a propósito: el
+  hundimiento es lineal y muy corto, porque un objeto que se aplasta no acelera
+  ni frena, simplemente cede. El sombreado tarda el doble y sí lleva curva,
+  porque la luz sí se difumina. Con ambos iguales el botón se siente de goma.
+*/
 .boton-3d {
   border-bottom-width: 4px;
   transition:
-    transform 0.08s ease,
-    border-bottom-width 0.08s ease,
+    transform 0.1s linear,
+    border-bottom-width 0.1s linear,
     filter 0.2s ease,
     background-color 0.15s ease;
 }
