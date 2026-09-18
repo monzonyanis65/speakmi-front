@@ -62,4 +62,5 @@ export const NOMBRE_CATEGORIA: Record<string, string> = {
   vocabulary: 'vocabulario',
   grammar: 'gramática',
   punctuation: 'puntuación',
+  pronunciation: 'pronunciación',
 };

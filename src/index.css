@@ -46,6 +46,10 @@
   --animate-parpadeo: parpadeo 5s ease-in-out infinite;
   --animate-puntear: puntear 1.2s ease-in-out infinite;
   --animate-revelar: revelar 1s cubic-bezier(0.74, 0, 0.11, 0.96);
+  --animate-aletear: aletear 0.32s ease-in-out infinite;
+  --animate-saludar: saludar 0.9s ease-in-out infinite;
+  --animate-ala-calma: ala-calma 3.4s ease-in-out infinite;
+  --animate-colear: colear 2.6s ease-in-out infinite;
 }
 
 @keyframes entrada {
@@ -179,6 +183,62 @@
   }
   95% {
     transform: scaleY(0.08);
+  }
+}
+
+/*
+  Las alas de Milo.
+
+  Tenía una sola y quieta, que se levantaba de golpe al celebrar. Un pájaro con
+  un ala inmóvil no parece un pájaro, parece un icono. Ahora son tres
+  movimientos distintos según lo que esté haciendo, y el ritmo de cada uno es lo
+  que cuenta la diferencia.
+*/
+
+/* Celebrando: aleteo corto y rápido, como quien no puede estarse quieto. */
+@keyframes aletear {
+  0%,
+  100% {
+    transform: rotate(-38deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+/* Animando: saluda con el ala, más lento y más amplio que el aleteo. */
+@keyframes saludar {
+  0%,
+  100% {
+    transform: rotate(-52deg);
+  }
+  50% {
+    transform: rotate(-18deg);
+  }
+}
+
+/*
+  Quieto: el ala acompaña a la respiración, tres grados y nada más. Si se nota,
+  sobra; lo que se tiene que notar es que no está congelado.
+*/
+@keyframes ala-calma {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+
+/* La cola, que hasta ahora no se movía nunca. */
+@keyframes colear {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(4deg);
   }
 }
 

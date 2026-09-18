@@ -24,6 +24,8 @@ export function Ejercicio(props: PropsEjercicio) {
       return <Traducir {...props} />;
     case 'listen_type':
       return <Dictado {...props} />;
+    case 'minimal_pair':
+      return <ParMinimo {...props} />;
     case 'read_aloud':
     case 'speak_prompt':
       return <Pendiente tipo={props.ejercicio.type} />;
@@ -108,12 +110,15 @@ function BotonOpcion({
   elegida,
   marca,
   onElegir,
+  clase,
 }: {
   texto: string;
   bloqueado: boolean;
   elegida: boolean;
   marca: Marca;
   onElegir: () => void;
+  /** Para colocarla: el par mínimo las pone a lo ancho y escalonadas. */
+  clase?: string;
 }) {
   return (
     <button
@@ -131,6 +136,7 @@ function BotonOpcion({
             ? 'border-marca-600 bg-marca-50 dark:bg-marca-600/20'
             : 'border-[var(--borde)] bg-[var(--superficie)] hover:border-marca-400'),
         marca === 'ninguna' && 'disabled:opacity-60',
+        clase,
       )}
     >
       {texto}
@@ -495,17 +501,7 @@ function Dictado({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
     onCambio(nuevo.trim() ? nuevo : null);
   }
 
-  if (!hayVoz()) {
-    return (
-      <div>
-        <Instruccion>{prompt.instruction_es}</Instruccion>
-        <p className="mt-6 rounded-2xl border border-dashed border-[var(--borde)] p-6 text-center text-sm text-[var(--texto-suave)]">
-          Este navegador no puede leer en voz alta, así que este ejercicio no se puede hacer aquí.
-          Prueba con Chrome, o sáltalo.
-        </p>
-      </div>
-    );
-  }
+  if (!hayVoz()) return <AvisoSinVoz instruccion={prompt.instruction_es} />;
 
   return (
     <div>
@@ -550,6 +546,189 @@ function Dictado({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
         placeholder="Escribe lo que oíste"
         className="mt-6 w-full rounded-xl border border-[var(--borde)] bg-[var(--superficie)] px-4 py-3.5 text-base outline-none focus:border-marca-500 disabled:opacity-60"
       />
+    </div>
+  );
+}
+
+/**
+ * Lo que se enseña cuando el navegador no sabe hablar.
+ *
+ * Está aparte porque lo necesitan todos los ejercicios de oído, y dejar un
+ * botón de altavoz que no suena es peor que decirlo.
+ */
+function AvisoSinVoz({ instruccion }: { instruccion: string }) {
+  return (
+    <div>
+      <Instruccion>{instruccion}</Instruccion>
+      <p className="mt-6 rounded-2xl border border-dashed border-[var(--borde)] p-6 text-center text-sm text-[var(--texto-suave)]">
+        Este navegador no puede leer en voz alta, así que este ejercicio no se puede hacer aquí.
+        Prueba con Chrome, o sáltalo.
+      </p>
+    </div>
+  );
+}
+
+/** Las dos respuestas posibles. El servidor espera justo estos números. */
+const MISMA = 0;
+const DISTINTAS = 1;
+
+/** Lo que se lee en el botón. */
+const ROTULO_PAR = ['La misma palabra', 'Dos palabras distintas'];
+
+/*
+  El mismo texto que el servidor manda en `feedback.correcta` al fallar. No se
+  enseña: se le pasa a `marcaDe`, que corrige comparando por texto, y así el par
+  mínimo se pinta con la misma función que la opción múltiple en vez de con una
+  copia suya. Si allí cambia la redacción, cambia aquí.
+*/
+const TEXTO_CORRECCION_PAR = ['Eran la misma palabra', 'Eran dos palabras distintas'];
+
+/** Silencio entre las dos palabras. Pegadas se oyen como una sola. */
+const PAUSA_MS = 350;
+
+function esperar(ms: number): Promise<void> {
+  return new Promise((resolver) => setTimeout(resolver, ms));
+}
+
+/**
+ * Par mínimo: suenan dos palabras y hay que decir si son la misma.
+ *
+ * Las palabras no se escriben nunca, ni siquiera el sonido en el que hay que
+ * fijarse, que suele nombrarlas («la i de _sheep_»). Ese aviso llega con la
+ * corrección, cuando ya no puede chivar la respuesta.
+ *
+ * Los tres botones de escuchar no son de adorno: cada palabra suelta sirve para
+ * fijarla, y las dos seguidas para compararlas, que es como se oye de verdad la
+ * diferencia entre una vocal larga y una corta.
+ */
+function ParMinimo({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio) {
+  const [elegida, setElegida] = useState<number | null>(null);
+  // Qué se está oyendo ahora mismo, para que el altavoz que vibra sea el suyo.
+  const [fuente, setFuente] = useState<'a' | 'b' | 'par' | null>(null);
+  const [veces, setVeces] = useState(0);
+  const montado = useRef(true);
+  const prompt = ejercicio.prompt as {
+    instruction_es: string;
+    speakA: string;
+    speakB: string;
+    focus_es: string;
+  };
+
+  useEffect(() => {
+    setElegida(null);
+    setVeces(0);
+  }, [ejercicio.code]);
+
+  // Las palabras pueden seguir sonando cuando ya se pasó de ejercicio.
+  useEffect(() => {
+    montado.current = true;
+    return () => {
+      montado.current = false;
+    };
+  }, []);
+
+  const ambas = [prompt.speakA, prompt.speakB];
+  const sonando = fuente !== null;
+
+  async function reproducir(cual: 'a' | 'b' | 'par', velocidad: number) {
+    if (sonando) return;
+    setFuente(cual);
+    setVeces((oidas) => oidas + 1);
+
+    const palabras = cual === 'par' ? ambas : [ambas[cual === 'a' ? 0 : 1]!];
+
+    for (const [indice, palabra] of palabras.entries()) {
+      if (!montado.current) break;
+      // El silencio va en medio, no al final: si no, se espera por nada.
+      if (indice > 0) await esperar(PAUSA_MS);
+      await decir(palabra, { velocidad });
+    }
+
+    if (montado.current) setFuente(null);
+  }
+
+  if (!hayVoz()) return <AvisoSinVoz instruccion={prompt.instruction_es} />;
+
+  return (
+    <div>
+      <Instruccion>{prompt.instruction_es}</Instruccion>
+
+      <div className="mt-6 flex flex-col items-center gap-3">
+        <div className="flex items-center gap-5">
+          {ambas.map((palabra, indice) => (
+            <button
+              key={indice}
+              type="button"
+              onClick={() => void reproducir([palabra], 0.9)}
+              disabled={sonando}
+              // Sin esto se oyen dos botones iguales y no se sabe cuál es cuál.
+              aria-label={`Escuchar la ${indice === 0 ? 'primera' : 'segunda'} palabra`}
+              style={{ animationDelay: `${indice * 80}ms`, animationFillMode: 'backwards' }}
+              className="flex size-20 animate-entrada flex-col items-center justify-center gap-0.5 rounded-full bg-marca-600 text-white shadow-lg transition hover:bg-marca-500 disabled:opacity-70"
+            >
+              <span className="text-2xl" aria-hidden>
+                {sonando ? '🔈' : '🔊'}
+              </span>
+              <span className="text-sm font-bold" aria-hidden>
+                {indice + 1}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => void reproducir(ambas, 0.9)}
+          disabled={sonando}
+          style={{ animationDelay: '160ms', animationFillMode: 'backwards' }}
+          className="animate-entrada rounded-xl border border-[var(--borde)] bg-[var(--superficie)] px-4 py-2.5 text-sm font-bold transition hover:border-marca-400 disabled:opacity-60"
+        >
+          Las dos seguidas
+        </button>
+
+        <button
+          type="button"
+          onClick={() => void reproducir(ambas, 0.55)}
+          disabled={sonando}
+          className="rounded-xl px-4 py-2.5 text-sm font-bold text-marca-600 hover:bg-marca-50 disabled:opacity-60 dark:text-marca-400 dark:hover:bg-marca-900/30"
+        >
+          🐢 Más despacio
+        </button>
+
+        <p className="text-xs text-[var(--texto-suave)]">
+          {veces > 0
+            ? `Las has oído ${veces} ${veces === 1 ? 'vez' : 'veces'}. Repítelas cuantas quieras.`
+            : 'Escúchalas y decide.'}
+        </p>
+      </div>
+
+      <div className="mt-6 grid gap-3">
+        {[MISMA, DISTINTAS].map((valor) => (
+          <BotonOpcion
+            key={valor}
+            texto={ROTULO_PAR[valor]!}
+            bloqueado={bloqueado}
+            elegida={elegida === valor}
+            marca={marcaDe({
+              resultado,
+              texto: TEXTO_CORRECCION_PAR[valor]!,
+              esLaElegida: elegida === valor,
+            })}
+            onElegir={() => {
+              setElegida(valor);
+              onCambio(valor);
+            }}
+            clase="animate-entrada justify-center"
+          />
+        ))}
+      </div>
+
+      {/* Solo al corregir: antes diría qué escuchar, pero nombrando las palabras. */}
+      {resultado && (
+        <p className="mt-4 text-center text-xs text-[var(--texto-suave)]">
+          Lo que distingue este par: {prompt.focus_es}
+        </p>
+      )}
     </div>
   );
 }

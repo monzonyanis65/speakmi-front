@@ -23,6 +23,22 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
   const ojoAbierto = estado !== 'pensando';
   const alaArriba = estado === 'celebrando' || estado === 'animando';
 
+  /**
+   * Cómo se mueven las alas según lo que esté haciendo.
+   *
+   * Tres ritmos distintos: aleteo corto al celebrar, saludo amplio y lento al
+   * animar, y un vaivén de tres grados el resto del tiempo, que acompaña a la
+   * respiración. Cuando escucha se queda quieto a propósito: está atento.
+   */
+  const movimientoAla =
+    estado === 'celebrando'
+      ? 'animate-aletear'
+      : estado === 'animando'
+        ? 'animate-saludar'
+        : estado === 'escuchando' || estado === 'pensando'
+          ? ''
+          : 'animate-ala-calma';
+
   return (
     <svg
       viewBox="0 0 120 120"
@@ -67,10 +83,10 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
         </g>
       )}
 
-      {/* Cola */}
+      {/* Cola. Se balancea sola: antes era lo único del dibujo que no se movía. */}
       <path
         d="M22 78 L4 92 L26 88 Z"
-        className="fill-marca-700"
+        className={cn('fill-marca-700', estado !== 'pensando' && 'animate-colear')}
         style={{ transformOrigin: '24px 82px' }}
       />
 
@@ -80,11 +96,26 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
       {/* Barriga */}
       <ellipse cx="62" cy="74" rx="22" ry="24" className="fill-marca-100" />
 
-      {/* Ala, se levanta al celebrar */}
+      {/*
+        Las dos alas. La de la derecha es más pequeña y más oscura: así se lee
+        como la que queda del lado de allá, y el pájaro deja de verse plano.
+        Van desfasadas y en sentido contrario, porque dos alas perfectamente
+        sincronizadas parecen un mecanismo, no un bicho.
+      */}
+      <g
+        className={cn('origin-[82px_66px]', movimientoAla)}
+        style={{ animationDelay: '0.08s', animationDirection: 'reverse' }}
+      >
+        <ellipse cx="86" cy="68" rx="10" ry="16" className="fill-marca-800" />
+      </g>
+
       <g
         className={cn(
           'origin-[38px_66px] transition-transform duration-300',
-          alaArriba && '-rotate-45',
+          movimientoAla,
+          // Sin animación (escuchando o pensando) el ala se queda levantada si
+          // toca, con la transición de siempre.
+          !movimientoAla && alaArriba && '-rotate-45',
         )}
       >
         <ellipse cx="34" cy="68" rx="12" ry="18" className="fill-marca-700" />
