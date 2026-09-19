@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
-import { decir, hayVoz } from '@/lib/voz';
+import { decir, hayVoz, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
 import type { Correccion, PropsEjercicio } from './tipos';
 
 /**
@@ -459,6 +459,7 @@ function Traducir({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
  * que es lo primero que pide quien está empezando.
  */
 function Dictado({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
+  const voz = useVozInglesa();
   const [valor, setValor] = useState('');
   const [sonando, setSonando] = useState(false);
   const [vecesOida, setVecesOida] = useState(0);
@@ -501,7 +502,17 @@ function Dictado({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
     onCambio(nuevo.trim() ? nuevo : null);
   }
 
-  if (!hayVoz()) return <AvisoSinVoz instruccion={prompt.instruction_es} />;
+  if (voz !== 'si') {
+    // Mientras se averigua no se enseña nada: la lista de voces tarda segundos
+    // y un aviso que aparece y se va solo es peor que esperar.
+    if (voz === 'buscando') return <Instruccion>{prompt.instruction_es}</Instruccion>;
+    return (
+      <AvisoSinVoz
+        instruccion={prompt.instruction_es}
+        motivo={voz === 'sinNavegador' ? 'navegador' : 'idioma'}
+      />
+    );
+  }
 
   return (
     <div>
@@ -556,16 +567,74 @@ function Dictado({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
  * Está aparte porque lo necesitan todos los ejercicios de oído, y dejar un
  * botón de altavoz que no suena es peor que decirlo.
  */
-function AvisoSinVoz({ instruccion }: { instruccion: string }) {
+/**
+ * Qué se ve cuando este equipo no puede reproducir inglés.
+ *
+ * Son dos casos distintos y conviene no confundirlos: o el navegador no sabe
+ * hablar, o sabe pero no tiene ninguna voz inglesa instalada. El segundo es el
+ * corriente en un Windows en español, y tiene arreglo en tres toques, así que
+ * se explica en vez de mandar a cambiar de navegador.
+ */
+function AvisoSinVoz({
+  instruccion,
+  motivo,
+}: {
+  instruccion: string;
+  motivo: 'navegador' | 'idioma';
+}) {
   return (
     <div>
       <Instruccion>{instruccion}</Instruccion>
-      <p className="mt-6 rounded-2xl border border-dashed border-[var(--borde)] p-6 text-center text-sm text-[var(--texto-suave)]">
-        Este navegador no puede leer en voz alta, así que este ejercicio no se puede hacer aquí.
-        Prueba con Chrome, o sáltalo.
-      </p>
+      <div className="mt-6 rounded-2xl border border-dashed border-[var(--borde)] p-6 text-center text-sm text-[var(--texto-suave)]">
+        {motivo === 'navegador' ? (
+          <p>
+            Este navegador no puede leer en voz alta, así que este ejercicio no se puede hacer aquí.
+            Prueba con Chrome, o sáltalo.
+          </p>
+        ) : (
+          <>
+            <p className="font-medium text-[var(--texto)]">
+              No hay ninguna voz en inglés en este equipo.
+            </p>
+            <p className="mt-2">
+              No lo leemos con una voz española a propósito: pronunciaría mal y aprenderías el
+              sonido equivocado.
+            </p>
+            <p className="mt-2">
+              En Windows: Configuración → Hora e idioma → Voz → Agregar voces. Mientras tanto,
+              sáltalo.
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
+}
+
+/**
+ * ¿Se puede reproducir inglés aquí? Se resuelve una vez y se recuerda.
+ *
+ * Preguntarlo es asíncrono porque la lista de voces tarda segundos en llegar,
+ * y mientras tanto no se puede decidir qué enseñar.
+ */
+type EstadoVoz = 'buscando' | 'si' | 'sinNavegador' | 'sinIdioma';
+
+function useVozInglesa(): EstadoVoz {
+  // Se arranca con lo que ya se sabe. Si la lista está publicada, y lo está
+  // salvo en los primeros segundos, no se pasa nunca por «buscando» y la
+  // pantalla no parpadea.
+  const [estado, setEstado] = useState<EstadoVoz>(() => {
+    if (!hayVoz()) return 'sinNavegador';
+    const ya = vozInglesaYa();
+    return ya === 'si' ? 'si' : ya === 'no' ? 'sinIdioma' : 'buscando';
+  });
+
+  useEffect(() => {
+    if (estado !== 'buscando') return;
+    void hayVozInglesa().then((hay) => setEstado(hay ? 'si' : 'sinIdioma'));
+  }, [estado]);
+
+  return estado;
 }
 
 /** Las dos respuestas posibles. El servidor espera justo estos números. */
@@ -622,6 +691,7 @@ function esperar(ms: number): Promise<void> {
  * diferencia entre una vocal larga y una corta.
  */
 function ParMinimo({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio) {
+  const voz = useVozInglesa();
   const [elegida, setElegida] = useState<number | null>(null);
   // Qué se está oyendo ahora mismo, para que el altavoz que vibra sea el suyo.
   const [fuente, setFuente] = useState<'a' | 'b' | 'par' | null>(null);
@@ -667,7 +737,17 @@ function ParMinimo({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio
     if (montado.current) setFuente(null);
   }
 
-  if (!hayVoz()) return <AvisoSinVoz instruccion={prompt.instruction_es} />;
+  if (voz !== 'si') {
+    // Mientras se averigua no se enseña nada: la lista de voces tarda segundos
+    // y un aviso que aparece y se va solo es peor que esperar.
+    if (voz === 'buscando') return <Instruccion>{prompt.instruction_es}</Instruccion>;
+    return (
+      <AvisoSinVoz
+        instruccion={prompt.instruction_es}
+        motivo={voz === 'sinNavegador' ? 'navegador' : 'idioma'}
+      />
+    );
+  }
 
   return (
     <div>

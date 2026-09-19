@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { NOMBRE_CATEGORIA } from '@/components/ejercicios/tipos';
 import { useContador } from '@/lib/contador';
+import { SelectorDeVoz } from '@/components/SelectorDeVoz';
 
 interface Progreso {
   xpTotal: number;
@@ -97,6 +98,8 @@ export function PanelInicio() {
         <Dato valor={data.xpTotal} etiqueta="XP" icono="⭐" retraso={80} />
         <Dato valor={data.leccionesCompletadas} etiqueta="lecciones" icono="📘" retraso={160} />
       </div>
+
+      <SelectorDeVoz />
 
       {(debilidad ?? flojo) && (
         <div className="rounded-2xl border border-[var(--borde)] bg-[var(--superficie)] p-4">
