@@ -50,6 +50,21 @@
   --animate-saludar: saludar 0.9s ease-in-out infinite;
   --animate-ala-calma: ala-calma 3.4s ease-in-out infinite;
   --animate-colear: colear 2.6s ease-in-out infinite;
+
+  /*
+    Gestos nuevos de Milo. Los ciclos largos son de reposo a propósito: un
+    microgesto que se repite cada 3 segundos se lee como un tic, y a los 11
+    segundos ya no se percibe el bucle. Lo que reacciona sigue por debajo de
+    0.4s.
+  */
+  --animate-desanimo: desanimo 4s ease-in-out infinite;
+  --animate-respingo: respingo 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-pavoneo: pavoneo 2.6s ease-in-out infinite;
+  --animate-dormir: dormir 5.5s ease-in-out infinite;
+  --animate-ala-baja: ala-baja 4s ease-in-out infinite;
+  --animate-parpadeo-lento: parpadeo-lento 7.5s ease-in-out infinite;
+  --animate-inclinar-cabeza: inclinar-cabeza 11s ease-in-out infinite;
+  --animate-mirada: mirada 7s ease-in-out infinite;
 }
 
 @keyframes entrada {
@@ -305,6 +320,163 @@
   to {
     transform: translateY(105vh) rotate(720deg);
     opacity: 0;
+  }
+}
+
+/*
+  Los estados nuevos de Milo: fallar, sorprenderse, presumir y dormirse.
+
+  Todos comparten una regla: el gesto vive en una capa distinta de la que
+  respira. Así, al cambiar de estado solo se reinicia la capa que de verdad
+  cambia y el aliento no se corta a media inspiración, que era lo que hacía
+  que los cambios se vieran como un salto.
+*/
+
+/*
+  Triste: se hunde y se inclina un grado, nada más.
+
+  La tentación era caer tres o cuatro píxeles y ladear la cabeza. Fallar una
+  pregunta no es un castigo, es un «uy»: si la mascota se derrumba, la persona
+  deja de arriesgar. Por eso el gesto se queda en el umbral de lo que se nota.
+*/
+@keyframes desanimo {
+  0%,
+  100% {
+    transform: translateY(1.5px) rotate(1deg);
+  }
+  50% {
+    transform: translateY(3px) rotate(1deg);
+  }
+}
+
+/*
+  Sorprendido: un respingo hacia atrás y ya está.
+
+  Es la única animación de Milo que no se repite. Una sorpresa que se repite en
+  bucle deja de ser una sorpresa a la segunda vuelta, así que se reproduce una
+  vez y lo que queda vivo son los ciclos de reposo, que nunca se pararon.
+*/
+@keyframes respingo {
+  0% {
+    transform: translate(0, 0);
+  }
+  35% {
+    transform: translate(-5px, -4px);
+  }
+  70% {
+    transform: translate(-1px, 0);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+/*
+  Orgulloso: saca pecho. El ensanchado es de un 2,5% y va acompañado de una
+  inclinación hacia atrás constante, porque solo con la escala parecía que
+  respiraba fuerte en vez de presumir.
+*/
+@keyframes pavoneo {
+  0%,
+  100% {
+    transform: rotate(-1.5deg) translateY(0) scaleX(1);
+  }
+  50% {
+    transform: rotate(-1.5deg) translateY(-2px) scaleX(1.025);
+  }
+}
+
+/*
+  Durmiendo: el mismo aliento, más lento y más hondo.
+
+  Dormir no es otra animación, es la de estar despierto cambiada de ritmo. Se
+  reconoce como sueño justo porque el patrón es el de siempre a la mitad de
+  velocidad.
+*/
+@keyframes dormir {
+  0%,
+  100% {
+    transform: scale(1) translateY(0);
+  }
+  50% {
+    transform: scale(1.035) translateY(-2.5px);
+  }
+}
+
+/* Alas caídas: el vaivén de siempre, pero cuatro grados más abajo y más lento. */
+@keyframes ala-baja {
+  0%,
+  100% {
+    transform: rotate(12deg);
+  }
+  50% {
+    transform: rotate(16deg);
+  }
+}
+
+/*
+  Parpadeo pesado, para cuando algo ha salido mal. Mismo gesto que el normal
+  pero el ojo tarda en volver a abrirse: esa demora es la que se lee como
+  desánimo, sin necesidad de cambiar la cara.
+*/
+@keyframes parpadeo-lento {
+  0%,
+  86%,
+  100% {
+    transform: scaleY(1);
+  }
+  91%,
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+
+/*
+  La cabeza se ladea sola cada tanto.
+
+  No depende del estado a propósito: es lo que hace que Milo parezca atender a
+  algo en vez de estar en pausa. El ciclo es largo y el gesto ocupa solo su
+  último tercio, así que no cae nunca en el mismo punto que la respiración ni
+  que el parpadeo y no se percibe el bucle.
+*/
+@keyframes inclinar-cabeza {
+  0%,
+  55%,
+  100% {
+    transform: rotate(0deg);
+  }
+  62%,
+  72% {
+    transform: rotate(-3.5deg);
+  }
+  84% {
+    transform: rotate(1.5deg);
+  }
+}
+
+/*
+  La mirada: las pupilas se mueven dos píxeles dentro del ojo.
+
+  Es el truco más barato que más vida da, y funciona por el desfase: 7 segundos
+  contra los 5 del parpadeo, así que mirar y parpadear casi nunca coinciden y
+  el conjunto no se siente programado. Con el mismo ciclo parecería un muñeco.
+*/
+@keyframes mirada {
+  0%,
+  18%,
+  100% {
+    transform: translate(0, 0);
+  }
+  26%,
+  40% {
+    transform: translate(1.8px, 0.4px);
+  }
+  52%,
+  66% {
+    transform: translate(-1.8px, -0.3px);
+  }
+  80% {
+    transform: translate(0.6px, 0.8px);
   }
 }
 
