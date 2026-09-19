@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
-import { escuchar, estaDisponible, type SesionEscucha } from '@/lib/reconocimiento';
+import { escuchar, estaDisponible, type Escuchado, type SesionEscucha } from '@/lib/reconocimiento';
 
 interface PalabraLeida {
   wordIndex: number;
@@ -67,7 +67,7 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     const abierta = escuchar({
       idioma: 'en-US',
       onParcial: setParcial,
-      onFinal: (texto) => void evaluar(texto),
+      onFinal: (oido) => void evaluar(oido),
       onError: (motivo) =>
         setError(
           motivo === 'not-allowed'
@@ -90,10 +90,10 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     setEstado('evaluando');
   }
 
-  async function evaluar(transcripcion: string) {
+  async function evaluar(oido: Escuchado) {
     if (yaEvaluado.current) return;
 
-    if (!transcripcion.trim()) {
+    if (!oido.texto.trim()) {
       // Puede llegar vacío si se corta antes de que el reconocedor entregue algo.
       // No se marca como evaluado: si el texto llega después, todavía cuenta.
       setError('No te escuchamos. Acércate al micrófono e inténtalo otra vez.');
@@ -107,7 +107,11 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     try {
       const resultado = await api.post<Informe>('/speech/read-aloud', {
         referenceText,
-        transcript: transcripcion,
+        transcript: oido.texto,
+        // El reconocedor entrega varias versiones de lo mismo. Aquí no se sabe
+        // cuál es la buena; el servidor sí, porque tiene el texto que había que
+        // leer, así que se le mandan todas y él se queda con la que encaja.
+        alternatives: oido.alternativas,
         exerciseCode: ejercicio.code,
         durationMs: Date.now() - inicio.current,
         ...(trickyWords

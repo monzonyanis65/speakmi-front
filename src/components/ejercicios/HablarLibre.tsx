@@ -117,7 +117,9 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
     sesion.current = escuchar({
       idioma: 'en-US',
       onParcial: setParcial,
-      onFinal: (texto) => void evaluar(texto),
+      // Al hablar libre no hay texto de referencia con el que comparar, así
+      // que no hay forma de elegir entre alternativas: se usa la más probable.
+      onFinal: (oido) => void evaluar(oido.texto),
       onError: () => {
         setEstado('listo');
         setError('El micrófono no respondió. Dale permiso al navegador y prueba otra vez.');
