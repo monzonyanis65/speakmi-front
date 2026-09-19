@@ -85,12 +85,17 @@ function codigoActual(unidades: Unidad[]): string | null {
 /**
  * En qué estado se pinta una lección.
  *
- * Lo que queda por delante sale apagado, pero se puede abrir igual. Bloquearlo
- * de verdad sería tratar a un adulto como si no supiera qué quiere repasar.
+ * El curso va en orden: solo se abre la siguiente sin hacer. Lo de más adelante
+ * queda cerrado con candado, a la vista pero sin poder tocarlo.
+ *
+ * Esto se decidió al revés al principio, dejándolo todo abierto para no tratar
+ * a un adulto como si no supiera qué repasar. La contra pesa más: sin orden se
+ * salta uno lo que le cuesta, que es justo lo que había que practicar. Lo ya
+ * hecho sí se puede repetir cuantas veces se quiera.
  */
 function estadoDe(leccion: Leccion, actual: string | null): EstadoNodo {
   if (leccion.completed) return 'hecha';
-  return leccion.code === actual ? 'actual' : 'porHacer';
+  return leccion.code === actual ? 'actual' : 'bloqueada';
 }
 
 /**

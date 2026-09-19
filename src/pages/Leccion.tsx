@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { Ejercicio } from '@/components/ejercicios/Ejercicio';
 import { LeerEnVozAlta } from '@/components/ejercicios/LeerEnVozAlta';
 import { HablarLibre } from '@/components/ejercicios/HablarLibre';
 import { useContador } from '@/lib/contador';
-import { Mascota } from '@/components/Mascota';
+import { Mascota, MascotaConMensaje, type EstadoMascota } from '@/components/Mascota';
 import { Boton } from '@/components/Boton';
 import { Confeti } from '@/components/Confeti';
 import {
@@ -47,6 +47,8 @@ export function Leccion() {
   const { code } = useParams<{ code: string }>();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
+  /** Por qué no se pudo abrir la lección, si es que no se pudo. */
+  const [cerrada, setCerrada] = useState<string | null>(null);
   const [indice, setIndice] = useState(0);
   const [respuesta, setRespuesta] = useState<Respuesta | null>(null);
   const [correccion, setCorreccion] = useState<Correccion | null>(null);
@@ -83,7 +85,17 @@ export function Leccion() {
     void api
       .post<{ sessionId: string }>('/sessions/start', { lessonCode: code })
       .then((r) => setSessionId(r.sessionId))
-      .catch(() => setSessionId(null));
+      .catch((error: unknown) => {
+        setSessionId(null);
+        // Sin sesión la lección se ve pero no corrige nada: hay que decir por
+        // qué. El caso corriente es haber llegado aquí escribiendo la
+        // dirección de una lección que todavía está cerrada.
+        setCerrada(
+          error instanceof ApiError
+            ? error.message
+            : 'No pudimos abrir esta lección. Inténtalo otra vez.',
+        );
+      });
   }, [code, sessionId]);
 
   const ejercicios = data?.exercises ?? [];
@@ -164,6 +176,17 @@ export function Leccion() {
   if (isPending) return <Centrado>Cargando la lección…</Centrado>;
   if (isError || !data) return <Centrado>No pudimos cargar la lección.</Centrado>;
 
+  if (cerrada) {
+    return (
+      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10">
+        <MascotaConMensaje estado="pensando" mensaje={cerrada} />
+        <Boton tamano="grande" onClick={() => navegar('/ruta')} className="mt-8">
+          VOLVER A MI RUTA
+        </Boton>
+      </div>
+    );
+  }
+
   if (resumen) return <PantallaResumen resumen={resumen} onSalir={() => navegar('/ruta')} />;
 
   if (!ejercicio) return <Centrado>Esta lección no tiene ejercicios todavía.</Centrado>;
@@ -242,7 +265,11 @@ export function Leccion() {
       </main>
 
       {correccion && (
-        <HojaCorreccion correccion={correccion} yaSeVeArriba={seMarcaEnElEjercicio(ejercicio)} />
+        <HojaCorreccion
+          correccion={correccion}
+          yaSeVeArriba={seMarcaEnElEjercicio(ejercicio)}
+          dificultad={ejercicio.difficulty}
+        />
       )}
 
       <div className="sticky bottom-0 bg-[var(--fondo)] py-4">
@@ -297,9 +324,11 @@ function seMarcaEnElEjercicio(ejercicio: {
 function HojaCorreccion({
   correccion,
   yaSeVeArriba,
+  dificultad,
 }: {
   correccion: Correccion;
   yaSeVeArriba: boolean;
+  dificultad: number;
 }) {
   const { isCorrect, feedback } = correccion;
   const [verPorque, setVerPorque] = useState(false);
@@ -318,7 +347,13 @@ function HojaCorreccion({
       )}
     >
       <div className="flex items-center gap-3">
-        <Mascota estado={isCorrect ? 'celebrando' : 'pensando'} tamano={52} className="shrink-0" />
+        {/*
+          Milo reacciona a lo que pasó, no siempre igual. Presume solo cuando
+          el ejercicio era difícil: felicitar lo mismo por lo fácil y por lo
+          difícil hace que la felicitación no signifique nada. Y al fallar se
+          entristece un poco, que es un «uy», no un castigo.
+        */}
+        <Mascota estado={reaccionA(correccion, dificultad)} tamano={52} className="shrink-0" />
         <p
           className={cn(
             'text-lg font-extrabold',
@@ -373,6 +408,14 @@ function HojaCorreccion({
 }
 
 /** La frase correcta, marcando qué palabra falló. */
+/** Cómo se lo toma Milo. */
+function reaccionA(correccion: Correccion, dificultad: number): EstadoMascota {
+  if (correccion.isCorrect) return dificultad >= 3 ? 'orgulloso' : 'celebrando';
+  // Casi acertado, solo erratas: ni celebra ni se hunde.
+  if (correccion.score > 0) return 'pensando';
+  return 'triste';
+}
+
 function TextoComparado({ diff }: { diff: Correccion['feedback']['diff'] }) {
   return (
     <span>
