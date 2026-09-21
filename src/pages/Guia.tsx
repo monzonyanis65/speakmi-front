@@ -67,7 +67,7 @@ export function Guia() {
         <button
           type="button"
           onClick={() => navegar(-1)}
-          className="-mr-2 shrink-0 rounded-xl px-3 py-2.5 text-sm text-[var(--texto-suave)] hover:bg-[var(--superficie)]"
+          className="-mr-2 flex min-h-12 shrink-0 items-center rounded-xl px-4 text-sm text-[var(--texto-suave)] hover:bg-[var(--superficie)]"
         >
           Volver
         </button>

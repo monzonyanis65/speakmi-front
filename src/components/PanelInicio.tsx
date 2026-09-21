@@ -1,10 +1,11 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { NOMBRE_CATEGORIA } from '@/components/ejercicios/tipos';
 import { useContador } from '@/lib/contador';
-import { SelectorDeVoz } from '@/components/SelectorDeVoz';
+import { avisarAhora, marcarAvisado, tocaAvisar } from '@/lib/recordatorio';
 
 interface Progreso {
   xpTotal: number;
@@ -30,6 +31,24 @@ interface Progreso {
  */
 export function PanelInicio() {
   const navegar = useNavigate();
+
+  /*
+    El recordatorio diario, cuando toca.
+
+    Va aquí y no en un sitio más general porque este panel solo se pinta en la
+    ruta, que es la pantalla de inicio: es donde se llega al abrir la
+    aplicación, y avisar en cualquier otra sería avisar a mitad de una lección.
+  */
+  useEffect(() => {
+    let hora = '19:00';
+    try {
+      hora = localStorage.getItem('speakmi.recordatorio.hora') ?? hora;
+    } catch {
+      // Sin memoria se usa la hora por defecto.
+    }
+    if (!tocaAvisar(hora)) return;
+    if (avisarAhora('Un rato de inglés y sigues la racha.')) marcarAvisado();
+  }, []);
 
   const { data } = useQuery({
     queryKey: ['progreso'],
@@ -98,8 +117,6 @@ export function PanelInicio() {
         <Dato valor={data.xpTotal} etiqueta="XP" icono="⭐" retraso={80} />
         <Dato valor={data.leccionesCompletadas} etiqueta="lecciones" icono="📘" retraso={160} />
       </div>
-
-      <SelectorDeVoz />
 
       {(debilidad ?? flojo) && (
         <div className="rounded-2xl border border-[var(--borde)] bg-[var(--superficie)] p-4">

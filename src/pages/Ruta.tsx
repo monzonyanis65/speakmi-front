@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
-import { salir } from '@/lib/auth';
 import { useSesion } from '@/store/sesion';
 import { PanelInicio } from '@/components/PanelInicio';
 import { NivelVacio } from '@/components/NivelVacio';
@@ -153,11 +152,6 @@ export function Ruta() {
   // Dónde se retoma. Se calcula una vez para toda la pantalla.
   const actual = codigoActual(data?.units ?? []);
 
-  async function cerrarSesion() {
-    await salir();
-    navegar('/', { replace: true });
-  }
-
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       <header className="flex items-center justify-between gap-3">
@@ -174,10 +168,13 @@ export function Ruta() {
         </div>
         <button
           type="button"
-          onClick={() => void cerrarSesion()}
-          className="-mr-2 shrink-0 rounded-xl px-3 py-2.5 text-sm text-[var(--texto-suave)] hover:bg-[var(--superficie)]"
+          onClick={() => navegar('/menu')}
+          aria-label="Tu cuenta"
+          className="-mr-2 flex min-h-12 shrink-0 items-center rounded-xl px-4 text-sm text-[var(--texto-suave)] hover:bg-[var(--superficie)]"
         >
-          Salir
+          <span aria-hidden className="text-xl">
+            ☰
+          </span>
         </button>
       </header>
 

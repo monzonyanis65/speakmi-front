@@ -1,6 +1,24 @@
 @import 'tailwindcss';
 
 /*
+  `dark:` mira el sistema y también el ajuste manual.
+
+  Sin esto, forzar el tema cambiaría las variables de color pero no las clases
+  `dark:` de Tailwind, y la pantalla quedaría a medio camino: fondo oscuro con
+  bordes claros.
+*/
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-tema='claro']), :root:not([data-tema='claro']) *) {
+      @slot;
+    }
+  }
+  &:where(:root[data-tema='oscuro'], :root[data-tema='oscuro'] *) {
+    @slot;
+  }
+}
+
+/*
  * Tema de Speakmi.
  *
  * Alegre pero no infantil: formas redondas, color vivo y movimiento, sin perder
@@ -490,8 +508,17 @@
   --hueco: #cbd5e1;
 }
 
+/*
+  El tema oscuro, por las dos vías.
+
+  Por defecto manda el sistema, que es lo que espera casi todo el mundo. Pero
+  se puede forzar desde los ajustes poniendo `data-tema` en el html, y entonces
+  esa decisión gana. Hacen falta las dos reglas porque una media query no se
+  puede desactivar desde el marcado: hay que excluir explícitamente el caso de
+  quien pidió claro a mano.
+*/
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-tema='claro']) {
     --fondo: #0f172a;
     --superficie: #1e293b;
     --borde: #334155;
@@ -499,6 +526,15 @@
     --texto-suave: #94a3b8;
     --hueco: #0b1220;
   }
+}
+
+:root[data-tema='oscuro'] {
+  --fondo: #0f172a;
+  --superficie: #1e293b;
+  --borde: #334155;
+  --texto: #f1f5f9;
+  --texto-suave: #94a3b8;
+  --hueco: #0b1220;
 }
 
 html {

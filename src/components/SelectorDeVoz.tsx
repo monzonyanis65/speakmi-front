@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/cn';
+import { usePreferencias } from '@/lib/preferencias';
 import { decir, elegirVoz, hayVoz, listarVoces, vozElegida, type VozDisponible } from '@/lib/voz';
 
 /** Lo que se dice al probar una voz. Corto, y con sonidos que delatan lo malo. */
@@ -20,6 +21,7 @@ export function SelectorDeVoz() {
   const [sonando, setSonando] = useState<string | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [buscando, setBuscando] = useState(true);
+  const { preferencias, guardar } = usePreferencias();
 
   useEffect(() => {
     void (async () => {
@@ -29,10 +31,20 @@ export function SelectorDeVoz() {
     })();
   }, []);
 
+  // La voz guardada en la cuenta gana: se eligió en algún aparato y se espera
+  // encontrarla igual en todos. Si aquí no existe, se ignora sin romper nada.
+  useEffect(() => {
+    const deLaCuenta = preferencias?.ttsVoice;
+    if (!deLaCuenta || deLaCuenta === elegida) return;
+    setElegida(deLaCuenta);
+    elegirVoz(deLaCuenta);
+  }, [preferencias, elegida]);
+
   async function probar(voz: VozDisponible) {
     setSonando(voz.id);
     setElegida(voz.id);
     elegirVoz(voz.id);
+    guardar.mutate({ ttsVoice: voz.id });
     await decir(FRASE_DE_PRUEBA, { vozId: voz.id });
     setSonando(null);
   }

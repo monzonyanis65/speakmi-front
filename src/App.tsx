@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { configurarAuth } from '@/lib/api';
+import { aplicarTema, temaGuardado } from '@/lib/tema';
 import { queryClient } from '@/lib/queryClient';
 import { getToken, recuperarSesion } from '@/lib/auth';
 import { useSesion } from '@/store/sesion';
@@ -13,6 +14,10 @@ import { Bienvenida } from '@/pages/Bienvenida';
 import { Ruta } from '@/pages/Ruta';
 import { Leccion } from '@/pages/Leccion';
 import { Guia } from '@/pages/Guia';
+import { Menu } from '@/pages/Menu';
+import { Ajustes } from '@/pages/Ajustes';
+import { Perfil } from '@/pages/Perfil';
+import { Seguridad } from '@/pages/Seguridad';
 import { Repaso } from '@/pages/Repaso';
 import { Conversar } from '@/pages/Conversar';
 import { AvisoActualizacion } from '@/components/AvisoActualizacion';
@@ -20,6 +25,10 @@ import { AvisoActualizacion } from '@/components/AvisoActualizacion';
 // El cliente de API necesita saber de dónde sacar el token y cómo renovarlo.
 // Se le dice una sola vez, al cargar la aplicación.
 configurarAuth({ token: getToken, renovar: recuperarSesion });
+
+// El tema, antes de pintar nada. Aplicarlo dentro de un componente deja ver un
+// fogonazo claro antes de oscurecerse, que en una habitación a oscuras molesta.
+aplicarTema(temaGuardado());
 
 /**
  * Orden de las pantallas:
@@ -95,6 +104,38 @@ export default function App() {
             element={
               <SoloConSesion>
                 <Leccion />
+              </SoloConSesion>
+            }
+          />
+          <Route
+            path="/menu"
+            element={
+              <SoloConSesion>
+                <Menu />
+              </SoloConSesion>
+            }
+          />
+          <Route
+            path="/perfil"
+            element={
+              <SoloConSesion>
+                <Perfil />
+              </SoloConSesion>
+            }
+          />
+          <Route
+            path="/ajustes"
+            element={
+              <SoloConSesion>
+                <Ajustes />
+              </SoloConSesion>
+            }
+          />
+          <Route
+            path="/seguridad"
+            element={
+              <SoloConSesion>
+                <Seguridad />
               </SoloConSesion>
             }
           />
