@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { useContador } from '@/lib/contador';
+import { Escaparate } from '@/components/Escaparate';
+import { Mascota } from '@/components/Mascota';
+import type { Atuendo, Especie } from '@/components/mascotas';
 import { Boton } from '@/components/Boton';
 import { MascotaConMensaje } from '@/components/Mascota';
 
@@ -141,6 +144,14 @@ export function Tienda() {
   const clienteConsultas = useQueryClient();
   const [pestana, setPestana] = useState<Pestana>('tienda');
   const [recienComprado, setRecienComprado] = useState<string | null>(null);
+  /*
+    Lo que se está probando en el escaparate.
+
+    Es aparte de lo que se lleva puesto: aquí se mira sin comprometerse, como
+    quien se prueba algo delante del espejo. Al entrar se enseña lo puesto, que
+    es el punto de partida honesto.
+  */
+  const [probando, setProbando] = useState<{ especie?: Especie; atuendo?: Atuendo | null }>({});
 
   const catalogo = useQuery({
     queryKey: ['tienda', 'catalogo'],
@@ -187,6 +198,31 @@ export function Tienda() {
   });
 
   const articulos = useMemo(() => catalogo.data?.items ?? [], [catalogo.data]);
+
+  /**
+   * Qué enseña el escaparate ahora mismo.
+   *
+   * Por defecto, lo que se lleva puesto. Si se está probando algo, eso. Y el
+   * pie explica en palabras lo que la figura ya enseña, que hace falta para
+   * quien no ve la pantalla.
+   */
+  const enEscaparate = useMemo(() => {
+    const puesta = (cartera.data?.equipped.mascota ?? 'PET_MILO') as Especie;
+    const ropaPuesta = (cartera.data?.equipped.atuendo ?? null) as Atuendo | null;
+
+    const especie = probando.especie ?? puesta;
+    const atuendo = probando.atuendo !== undefined ? probando.atuendo : ropaPuesta;
+
+    const cambiado = especie !== puesta || atuendo !== ropaPuesta;
+    return {
+      especie,
+      atuendo,
+      cambiado,
+      pie: cambiado
+        ? 'Lo estás probando. Se queda si lo compras y te lo pones.'
+        : 'Lo que llevas ahora',
+    };
+  }, [cartera.data, probando]);
 
   /** Cuánto tienes de cada cosa, por código, para no recorrer la lista en cada tarjeta. */
   const cantidades = useMemo(() => {
@@ -276,6 +312,38 @@ export function Tienda() {
         ))}
       </div>
 
+      {/*
+        El escaparate. Antes aquí solo había un emoji por artículo, y comprar un
+        animal era comprar a ciegas: el emoji del sistema no se parece en nada
+        al que luego acompaña en la aplicación.
+      */}
+      <div className="mt-4">
+        <Escaparate
+          especie={enEscaparate.especie}
+          atuendo={enEscaparate.atuendo}
+          pie={enEscaparate.pie}
+        />
+
+        {enEscaparate.cambiado && (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setProbando((antes) => ({ ...antes, atuendo: null }))}
+              className="min-h-12 rounded-xl border border-[var(--borde)] text-sm font-bold hover:border-marca-400"
+            >
+              Sin ropa
+            </button>
+            <button
+              type="button"
+              onClick={() => setProbando({})}
+              className="min-h-12 rounded-xl border border-[var(--borde)] text-sm font-bold hover:border-marca-400"
+            >
+              Volver a lo mío
+            </button>
+          </div>
+        )}
+      </div>
+
       {pestana === 'tienda' ? (
         <div id="panel-tienda" role="tabpanel" aria-labelledby="pestana-tienda">
           {/*
@@ -341,6 +409,19 @@ export function Tienda() {
                         ? explicarCompra(comprar.error, articulo, monedas)
                         : null
                     }
+                    especieBase={enEscaparate.especie}
+                    alProbar={
+                      // Los poderes no se ven: un congelado no tiene aspecto.
+                      articulo.kind === 'mascota'
+                        ? () => setProbando({ especie: articulo.code as Especie })
+                        : articulo.kind === 'atuendo'
+                          ? () =>
+                              setProbando((antes) => ({
+                                ...antes,
+                                atuendo: articulo.code as Atuendo,
+                              }))
+                          : null
+                    }
                     alComprar={() => comprar.mutate(articulo.code)}
                   />
                 ))}
@@ -384,6 +465,8 @@ function TarjetaArticulo({
   comprando,
   error,
   alComprar,
+  alProbar,
+  especieBase,
 }: {
   articulo: ArticuloTienda;
   cantidad: number;
@@ -392,6 +475,10 @@ function TarjetaArticulo({
   recienComprado: boolean;
   comprando: boolean;
   error: string | null;
+  /** Enseñarlo en el escaparate sin comprarlo. Nulo para lo que no se ve. */
+  alProbar: (() => void) | null;
+  /** Sobre quién se enseña la ropa: la que se lleva puesta. */
+  especieBase: Especie;
   alComprar: () => void;
 }) {
   const consumible = esConsumible(articulo.kind);
@@ -408,9 +495,33 @@ function TarjetaArticulo({
       )}
       style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
     >
-      <span aria-hidden className="text-4xl leading-none">
-        {articulo.emoji}
-      </span>
+      {/*
+        La miniatura es el animal de verdad, no el emoji del sistema.
+        Un 🦊 no se parece en nada al zorro que luego acompaña en la aplicación,
+        y comprarlo por el emoji es comprar otra cosa. La ropa se enseña puesta
+        sobre la mascota que se lleva, que es cómo se va a ver.
+      */}
+      {alProbar ? (
+        <button
+          type="button"
+          onClick={alProbar}
+          aria-label={`Ver cómo queda ${articulo.nameEs}`}
+          className="grid size-14 shrink-0 place-items-center rounded-xl transition hover:bg-[var(--fondo)]"
+        >
+          {articulo.kind === 'mascota' ? (
+            <Mascota especie={articulo.code as Especie} atuendo={null} tamano={52} />
+          ) : (
+            <Mascota especie={especieBase} atuendo={articulo.code as Atuendo} tamano={52} />
+          )}
+        </button>
+      ) : (
+        <span
+          aria-hidden
+          className="grid size-14 shrink-0 place-items-center text-4xl leading-none"
+        >
+          {articulo.emoji}
+        </span>
+      )}
 
       <div className="min-w-0 flex-1">
         <h3 className="font-bold leading-tight">{articulo.nameEs}</h3>

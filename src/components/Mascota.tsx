@@ -69,7 +69,17 @@ export function Mascota({ estado = 'neutral', especie, atuendo, tamano = 120, cl
   const cual = especie ?? puesto.especie;
   const prenda = atuendo === undefined ? puesto.atuendo : atuendo;
 
-  const animal = ESPECIES[cual];
+  /*
+    Si la especie no se reconoce, sale Milo.
+
+    Pasa de verdad: el servidor y el navegador se despliegan por separado, así
+    que el catálogo puede ofrecer un animal que esta versión de la aplicación
+    todavía no sabe dibujar. Antes eso dejaba la pantalla en blanco con un
+    «cannot read properties of undefined»; ahora se ve el de siempre, que es
+    feo pero no rompe nada.
+  */
+  const animal = ESPECIES[cual] ?? ESPECIES.PET_MILO;
+  const prendaConocida = prenda && prenda in NOMBRE_ATUENDO ? prenda : null;
   const ojoAbierto = estado !== 'pensando' && estado !== 'durmiendo';
   const alaArriba = estado === 'celebrando' || estado === 'animando';
   // La boca se abre al hablar y también al sorprenderse, que es media sorpresa.
@@ -168,7 +178,11 @@ export function Mascota({ estado = 'neutral', especie, atuendo, tamano = 120, cl
       width={tamano}
       height={tamano}
       role="img"
-      aria-label={prenda ? `${animal.etiqueta}, con ${NOMBRE_ATUENDO[prenda]}` : animal.etiqueta}
+      aria-label={
+        prendaConocida
+          ? `${animal.etiqueta}, con ${NOMBRE_ATUENDO[prendaConocida]}`
+          : animal.etiqueta
+      }
       className={cn('select-none', gestoCuerpo, className)}
     >
       {/* Ondas de sonido: solo cuando está escuchando */}
@@ -382,7 +396,7 @@ export function Mascota({ estado = 'neutral', especie, atuendo, tamano = 120, cl
             quedaría clavado mientras la cabeza gira debajo, que es exactamente
             el efecto de pegatina que costó tanto quitar.
           */}
-          {prenda && <CapaAtuendo atuendo={prenda} anclajes={animal.anclajes} />}
+          {prendaConocida && <CapaAtuendo atuendo={prendaConocida} anclajes={animal.anclajes} />}
         </g>
 
         {/* Patas */}
