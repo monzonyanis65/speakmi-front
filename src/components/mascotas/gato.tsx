@@ -60,25 +60,25 @@ export const GATO: DefinicionEspecie = {
     </>
   ),
 
+  hocico: <path d="M56 49 L64 49 L60 54 Z" className="fill-pink-400" />,
+
   bocaCerrada: (
-    <>
-      <path d="M56 49 L64 49 L60 54 Z" className="fill-pink-400" />
-      <path
-        d="M60 54 L60 56 M60 56 Q55 60 51 55 M60 56 Q65 60 69 55"
-        fill="none"
-        className="stroke-slate-700"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </>
+    <path
+      d="M60 54 L60 56 M60 56 Q55 60 51 55 M60 56 Q65 60 69 55"
+      fill="none"
+      className="stroke-slate-700"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
   ),
   bocaAbierta: (
     <>
-      <path d="M56 49 L64 49 L60 54 Z" className="fill-pink-400" />
       <ellipse cx="60" cy="60" rx="7" ry="5" className="fill-pink-400" />
       <ellipse cx="60" cy="62" rx="3.5" ry="2.5" className="fill-pink-200" />
     </>
   ),
+  // Justo debajo de la nariz: la boca de un gato cuelga de ahí.
+  origenBoca: '60px 55px',
 
   patas: (
     <>

@@ -100,21 +100,46 @@ export function PanelInicio() {
         </button>
       )}
 
+      {/*
+        Llamar va primero y escribir en segundo plano, no al revés.
+        Hablar es lo que cuesta y lo que se evita; ponerlo delante es la única
+        forma de que se haga. Quien no pueda hablar ahora tiene la otra al lado.
+      */}
+      <button
+        type="button"
+        onClick={() => navegar('/llamada')}
+        className="boton-3d flex animate-entrada items-center gap-4 rounded-2xl border-marca-800 bg-marca-600 p-4 text-left text-white hover:bg-marca-500"
+      >
+        <span className="text-2xl" aria-hidden>
+          📞
+        </span>
+        <span className="flex-1">
+          <span className="block font-bold">Llamar a {nombre}</span>
+          <span className="block text-sm text-marca-100">
+            Una conversación hablada, en inglés. Te corrige al colgar.
+          </span>
+        </span>
+        <span aria-hidden>›</span>
+      </button>
+
       <button
         type="button"
         onClick={() => navegar('/conversar')}
-        className="boton-3d flex animate-entrada items-center gap-4 rounded-2xl border-marca-800 bg-marca-600 p-4 text-left text-white hover:bg-marca-500"
+        style={{ animationDelay: '60ms', animationFillMode: 'backwards' }}
+        className="flex animate-entrada items-center gap-4 rounded-2xl border-2 border-[var(--borde)] bg-[var(--superficie)] p-4 text-left"
       >
         <span className="text-2xl" aria-hidden>
           💬
         </span>
         <span className="flex-1">
-          <span className="block font-bold">Conversar con {nombre}</span>
-          <span className="block text-sm text-marca-100">
-            Habla de lo que quieras. Te corrige al final, no mientras hablas.
+          <span className="block font-bold">Conversar escribiendo</span>
+          <span className="block text-sm text-[var(--texto-suave)]">
+            Si ahora no puedes hablar en voz alta.
           </span>
         </span>
-        <span aria-hidden>›</span>
+        <span aria-hidden className="text-[var(--texto-suave)]">
+          ›
+        </span>
       </button>
 
       <div className="grid grid-cols-4 gap-2">

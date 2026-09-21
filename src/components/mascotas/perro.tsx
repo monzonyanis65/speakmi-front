@@ -49,25 +49,26 @@ export const PERRO: DefinicionEspecie = {
     </>
   ),
 
+  hocico: <ellipse cx="60" cy="48" rx="5.5" ry="4" className="fill-slate-900" />,
+
   bocaCerrada: (
-    <>
-      <ellipse cx="60" cy="48" rx="5.5" ry="4" className="fill-slate-900" />
-      <path
-        d="M60 52 L60 55 M60 55 Q54 61 49 55 M60 55 Q66 61 71 55"
-        fill="none"
-        className="stroke-slate-800"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </>
+    <path
+      d="M60 52 L60 55 M60 55 Q54 61 49 55 M60 55 Q66 61 71 55"
+      fill="none"
+      className="stroke-slate-800"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
   ),
   bocaAbierta: (
     <>
-      <ellipse cx="60" cy="48" rx="5.5" ry="4" className="fill-slate-900" />
       <path d="M48 56 Q60 72 72 56 Z" className="fill-rose-300" />
       <path d="M55 64 Q60 74 65 64 Z" className="fill-rose-400" />
     </>
   ),
+  // Debajo del morro. Es el hocico más largo de los cinco, así que aquí bajar
+  // la bisagra dos píxeles de más se nota: la lengua se le saldría de la cara.
+  origenBoca: '60px 54px',
 
   patas: (
     <>

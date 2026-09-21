@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import { Mascota, type Atuendo, type Especie, type EstadoMascota } from './Mascota';
+import { ESPECIES as CATALOGO } from './mascotas';
 
 /**
  * Milo tiene que moverse siempre, y moverse distinto según lo que hace.
@@ -45,6 +46,7 @@ const TODOS: EstadoMascota[] = [
   'sorprendido',
   'orgulloso',
   'durmiendo',
+  'hablando',
 ];
 
 describe('Milo se mueve', () => {
@@ -292,7 +294,7 @@ describe('cada especie es otro animal', () => {
     expect(etiquetas[4]).toContain('zorro');
   });
 
-  it('las cinco se mueven exactamente igual en los diez estados', () => {
+  it('las cinco se mueven exactamente igual en los once estados', () => {
     // La comparación es contra Milo a propósito: es el que llevan vigilando
     // todas las pruebas de arriba, así que heredar su movimiento es heredar
     // también todo lo que ya se comprobó de él.
@@ -416,5 +418,210 @@ describe('la mascota lleva atuendos', () => {
     const etiqueta = container.querySelector('svg')?.getAttribute('aria-label') ?? '';
     expect(etiqueta).toContain('perro');
     expect(etiqueta).toContain('corona');
+  });
+});
+
+/**
+ * Hablar.
+ *
+ * La pantalla de llamada es la única en la que se mira a la mascota fijamente y
+ * durante minutos, así que es donde cualquier atajo se nota. Dos cosas se
+ * vigilan aquí y ninguna se ve en una captura fija:
+ *
+ * - Que la boca se DEFORME en vez de cambiarse por otra. Cruzar dos bocas fijas
+ *   a golpes se lee como un pico que se abre y se cierra, y eso es una
+ *   marioneta, no alguien hablando.
+ * - Que el alto, el ancho y la cabeza vayan a tres ritmos distintos. Si los tres
+ *   cayeran en el mismo ciclo, la cara repetiría la misma forma siete veces por
+ *   segundo, que es exactamente el metrónomo que se quiere evitar.
+ */
+describe('Milo habla', () => {
+  const CAPAS_HABLA = ['animate-hablar', 'animate-hablar-ancho', 'animate-hablar-cabeza'];
+
+  it('mueve la boca, y la mueve en dos ejes a la vez', () => {
+    const habla = partesAnimadas('hablando');
+    expect(habla).toContain('animate-hablar');
+    expect(habla).toContain('animate-hablar-ancho');
+  });
+
+  it('las tres capas del habla son tres animaciones distintas, no una repetida', () => {
+    // Tres clases distintas es lo que garantiza tres duraciones distintas: si
+    // alguien las unificara «para simplificar», la cara volvería a repetirse.
+    expect(new Set(CAPAS_HABLA).size).toBe(3);
+    const habla = partesAnimadas('hablando');
+    for (const capa of CAPAS_HABLA) {
+      expect(habla, `hablando debería tener ${capa}`).toContain(capa);
+    }
+  });
+
+  it('la cabeza acompaña, además de seguir ladeándose sola', () => {
+    const habla = partesAnimadas('hablando');
+    expect(habla).toContain('animate-hablar-cabeza');
+    // Las dos a la vez y en capas distintas: el ladeo largo no se pierde por
+    // hablar, y el acompañamiento no lo sustituye.
+    expect(habla).toContain('animate-inclinar-cabeza');
+  });
+
+  it('hablar no congela lo demás: parpadea, mira, respira y colea', () => {
+    const habla = partesAnimadas('hablando');
+    expect(habla).toContain('animate-parpadeo');
+    expect(habla).toContain('animate-mirada');
+    expect(habla).toContain('animate-respirar');
+    expect(habla).toContain('animate-colear');
+    expect(habla.filter((a) => a === 'animate-ala-calma')).toHaveLength(2);
+  });
+
+  it('las cinco especies hablan, no solo Milo', () => {
+    for (const especie of ESPECIES) {
+      const habla = partesAnimadas('hablando', especie);
+      for (const capa of CAPAS_HABLA) {
+        expect(habla, `${especie} no mueve la boca al hablar (${capa})`).toContain(capa);
+      }
+    }
+  });
+
+  it('la boca se deforma, no se cambia por otra', () => {
+    // La boca abierta sigue montada y la cerrada apagada, igual que al celebrar:
+    // lo que se anima es la forma de la primera, no el relevo entre las dos.
+    for (const especie of ESPECIES) {
+      const { container } = render(<Mascota estado="hablando" especie={especie} />);
+      const mandibula = container.querySelector('.animate-hablar');
+      expect(mandibula, `${especie} sin capa de mandíbula`).not.toBeNull();
+      expect(
+        mandibula?.querySelector('.animate-hablar-ancho'),
+        `${especie} mueve la boca en un solo eje`,
+      ).not.toBeNull();
+      expect(container.innerHTML).toContain('transition-opacity');
+    }
+  });
+
+  it('cada especie abre la boca por su propia bisagra', () => {
+    // Sin ese punto, la boca no se abre: se desplaza por la cara. Lo declara la
+    // especie porque un pico gira donde se juntan sus dos mitades y un hocico
+    // donde se junta con el morro.
+    for (const especie of ESPECIES) {
+      const { container } = render(<Mascota estado="hablando" especie={especie} />);
+      const mandibula = container.querySelector<SVGGElement>('.animate-hablar');
+      expect(mandibula?.style.transformOrigin, `${especie} abre la boca por donde no es`).toBe(
+        CATALOGO[especie].origenBoca,
+      );
+    }
+  });
+
+  it('el morro no se encoge con la mandíbula', () => {
+    // La nariz de la gata, la del perro y la del zorro se pintan fuera de la
+    // boca justo por esto: dentro, encogerían con ella y la cara se hundiría en
+    // cada sílaba. Sacarlas de la boca no es quitarlas: siguen dibujadas.
+    const morros: Array<[Especie, string]> = [
+      ['PET_GATO', 'M56 49 L64 49 L60 54 Z'],
+      ['PET_PERRO', 'cy="48"'],
+      ['PET_ZORRO', 'M56 52 Q60 48 64 52 Q60 58 56 52 Z'],
+    ];
+    for (const [especie, morro] of morros) {
+      const { container } = render(<Mascota estado="hablando" especie={especie} />);
+      const mandibula = container.querySelector('.animate-hablar');
+      expect(container.innerHTML, `${especie} perdió el morro`).toContain(morro);
+      expect(mandibula?.innerHTML ?? '', `${especie} encoge el morro al hablar`).not.toContain(
+        morro,
+      );
+    }
+  });
+
+  it('hablando no es celebrando, aunque los dos abran la boca', () => {
+    const habla = partesAnimadas('hablando');
+    const celebra = partesAnimadas('celebrando');
+    // Celebrar abre la boca y la deja abierta; hablar la mueve.
+    for (const capa of CAPAS_HABLA) {
+      expect(celebra, `celebrando no debería tener ${capa}`).not.toContain(capa);
+    }
+    // Y hablar no es una fiesta: ni salta, ni aletea, ni suelta estrellitas.
+    expect(habla).not.toContain('animate-saltito');
+    expect(habla).not.toContain('animate-aletear');
+    expect(todasLasClases('hablando')).not.toContain('animate-destello');
+  });
+
+  it('ningún estado anterior mueve la boca por accidente', () => {
+    for (const estado of TODOS) {
+      if (estado === 'hablando') continue;
+      const animaciones = partesAnimadas(estado);
+      for (const capa of CAPAS_HABLA) {
+        expect(animaciones, `${estado} mueve la boca sin hablar (${capa})`).not.toContain(capa);
+      }
+    }
+  });
+
+  it('las cinco hablan igual, y vestirse no les quita el habla', () => {
+    const referencia = partesAnimadas('hablando', 'PET_MILO').sort();
+    for (const especie of ESPECIES) {
+      expect(
+        partesAnimadas('hablando', especie).sort(),
+        `${especie} habla distinto a Milo`,
+      ).toEqual(referencia);
+      for (const atuendo of ATUENDOS) {
+        expect(
+          partesAnimadas('hablando', especie, atuendo).sort(),
+          `${atuendo} altera el habla en ${especie}`,
+        ).toEqual(referencia);
+      }
+    }
+  });
+});
+
+/**
+ * La intensidad.
+ *
+ * Es la puerta por la que entrará el volumen de la voz cuando haya audio. Lo
+ * que se comprueba es que siga siendo una puerta: sin valor, la boca hace su
+ * ciclo de siempre, porque una boca que espera datos no puede quedarse quieta.
+ */
+describe('la boca se puede acompasar con la voz', () => {
+  function apertura(estado: EstadoMascota, intensidad?: number): string | null {
+    const { container } = render(<Mascota estado={estado} intensidad={intensidad} />);
+    const mandibula = container.querySelector<SVGGElement>('.animate-hablar');
+    const declarada = mandibula?.style.getPropertyValue('--boca-apertura') ?? '';
+    return declarada === '' ? null : declarada;
+  }
+
+  it('sin intensidad no se declara nada: sale el ciclo normal', () => {
+    expect(apertura('hablando')).toBeNull();
+    // Y la boca se sigue moviendo, que es lo que importa de ese caso.
+    expect(partesAnimadas('hablando')).toContain('animate-hablar');
+  });
+
+  it('con intensidad, la boca abre tanto como suene la voz', () => {
+    const baja = Number(apertura('hablando', 0.2));
+    const alta = Number(apertura('hablando', 0.9));
+    expect(alta).toBeGreaterThan(baja);
+    expect(alta).toBeLessThanOrEqual(1);
+  });
+
+  it('el silencio no deja la mandíbula clavada', () => {
+    // Un micrófono no lee cero a media palabra: una boca parada del todo no se
+    // lee como silencio, se lee como que la aplicación se ha colgado.
+    const callado = Number(apertura('hablando', 0));
+    expect(callado).toBeGreaterThan(0);
+    expect(callado).toBeLessThan(Number(apertura('hablando', 1)));
+  });
+
+  it('los valores imposibles no rompen la cara', () => {
+    // Un medidor de volumen mal escalado es cuestión de tiempo.
+    expect(apertura('hablando', 5)).toBe(apertura('hablando', 1));
+    expect(apertura('hablando', -3)).toBe(apertura('hablando', 0));
+  });
+
+  it('fuera de hablando la intensidad no pinta nada', () => {
+    for (const estado of TODOS) {
+      if (estado === 'hablando') continue;
+      expect(apertura(estado, 1), `${estado} hace caso a la intensidad`).toBeNull();
+    }
+  });
+
+  it('la intensidad no añade poses, solo cuánto abre', () => {
+    const { container } = render(<Mascota estado="hablando" intensidad={0.4} />);
+    const clases = container.querySelector('.animate-hablar')?.getAttribute('class') ?? '';
+    // Ni una escala fija encima: si la hubiera, al cortarse la animación con
+    // `prefers-reduced-motion` la boca se quedaría deformada en vez de abierta,
+    // que es como se queda al celebrar y es lo que se espera ver.
+    expect(clases.trim()).toBe('animate-hablar');
   });
 });

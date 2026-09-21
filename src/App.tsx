@@ -20,6 +20,7 @@ import { Ajustes } from '@/pages/Ajustes';
 import { Perfil } from '@/pages/Perfil';
 import { Seguridad } from '@/pages/Seguridad';
 import { Tienda } from '@/pages/Tienda';
+import { Llamada } from '@/pages/Llamada';
 import { Repaso } from '@/pages/Repaso';
 import { Conversar } from '@/pages/Conversar';
 import { AvisoActualizacion } from '@/components/AvisoActualizacion';
@@ -163,6 +164,14 @@ export default function App() {
               element={
                 <SoloConSesion>
                   <Repaso />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/llamada"
+              element={
+                <SoloConSesion>
+                  <Llamada />
                 </SoloConSesion>
               }
             />

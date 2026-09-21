@@ -47,25 +47,24 @@ export const ZORRO: DefinicionEspecie = {
     </>
   ),
 
+  hocico: <path d="M56 52 Q60 48 64 52 Q60 58 56 52 Z" className="fill-stone-800" />,
+
   bocaCerrada: (
-    <>
-      <path d="M56 52 Q60 48 64 52 Q60 58 56 52 Z" className="fill-stone-800" />
-      <path
-        d="M60 57 Q55 62 51 58 M60 57 Q65 62 69 58"
-        fill="none"
-        className="stroke-stone-700"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </>
+    <path
+      d="M60 57 Q55 62 51 58 M60 57 Q65 62 69 58"
+      fill="none"
+      className="stroke-stone-700"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
   ),
   bocaAbierta: (
     <>
-      <path d="M56 52 Q60 48 64 52 Q60 58 56 52 Z" className="fill-stone-800" />
       <ellipse cx="60" cy="62" rx="6.5" ry="5" className="fill-stone-800" />
       <ellipse cx="60" cy="64" rx="3" ry="2.2" className="fill-rose-300" />
     </>
   ),
+  origenBoca: '60px 57px',
 
   patas: (
     <>

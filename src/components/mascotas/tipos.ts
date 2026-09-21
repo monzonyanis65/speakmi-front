@@ -55,11 +55,28 @@ export interface PiezasEspecie {
   alaCercana: ReactNode;
   /** Orejas, copete o penachos. Van detrás del cráneo. */
   orejas: ReactNode;
-  /** Cráneo y lo que se pinta debajo de los ojos: hocico, mejillas, discos. */
+  /** Cráneo y lo que se pinta debajo de los ojos: mejillas, discos, antifaz. */
   cabeza: ReactNode;
+  /**
+   * La nariz o el morro: lo de la cara que NO se mueve al abrir la boca.
+   *
+   * Va aparte porque al hablar el esqueleto encoge la boca abierta, y una nariz
+   * dibujada dentro de ella se encogería con la mandíbula. El pico de Milo y el
+   * del búho no tienen nada quieto, así que no lo declaran.
+   */
+  hocico?: ReactNode;
   /** La boca en reposo y la boca hablando: el esqueleto las cruza en opacidad. */
   bocaCerrada: ReactNode;
   bocaAbierta: ReactNode;
+  /**
+   * Dónde tiene la bisagra la mandíbula, en `transform-origin`.
+   *
+   * Es el punto por el que la boca abierta se encoge hasta parecer cerrada. Lo
+   * declara cada especie porque un pico gira donde se juntan sus dos mitades y
+   * un hocico donde se junta con el morro, y errar ese punto hace que al hablar
+   * la boca se desplace por la cara en vez de abrirse.
+   */
+  origenBoca: string;
   /** Patas. Fuera de la cabeza, no se ladean. */
   patas: ReactNode;
 }

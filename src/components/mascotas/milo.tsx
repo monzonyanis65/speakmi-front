@@ -39,6 +39,9 @@ export const MILO: DefinicionEspecie = {
       <path d="M54 52 L66 52 L60 47 Z" className="fill-acento-400" />
     </>
   ),
+  // La bisagra es la línea donde se juntan las dos mitades del pico: encogiendo
+  // desde ahí, las dos se cierran a la vez y el pico nunca se despega de la cara.
+  origenBoca: '60px 52px',
 
   patas: (
     <>

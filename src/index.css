@@ -83,6 +83,16 @@
   --animate-parpadeo-lento: parpadeo-lento 7.5s ease-in-out infinite;
   --animate-inclinar-cabeza: inclinar-cabeza 11s ease-in-out infinite;
   --animate-mirada: mirada 7s ease-in-out infinite;
+
+  /*
+    Hablar. Tres ciclos cortos y de duraciones primas entre sí: 0.4s el alto de
+    la boca, 0.29s el ancho y 0.34s la cabeza. Por separado cada uno es un bucle
+    obvio; al superponerse, la combinación tarda minutos en repetirse, que es
+    lo que hace que no se lea como un metrónomo.
+  */
+  --animate-hablar: hablar 0.4s ease-in-out infinite;
+  --animate-hablar-ancho: hablar-ancho 0.29s ease-in-out infinite;
+  --animate-hablar-cabeza: hablar-cabeza 0.34s ease-in-out infinite;
 }
 
 @keyframes entrada {
@@ -495,6 +505,104 @@
   }
   80% {
     transform: translate(0.6px, 0.8px);
+  }
+}
+
+/*
+  La boca al hablar: el alto.
+
+  Hablar no es abrir y cerrar la boca, es cambiarle la forma muchas veces por
+  segundo. Por eso esto escala la boca abierta en vez de cruzarla con la
+  cerrada: un cruce de dos dibujos fijos se lee como un pico que se abre y se
+  cierra, que es justo el efecto de marioneta que se quiere evitar.
+
+  Los tramos duran distinto a propósito: una sílaba larga y acentuada, otra
+  corta y floja, otra media y una pausa breve al final, como quien pronuncia
+  palabras y no golpes. Son tres aperturas en 0.4s, unas siete y media por
+  segundo, que es el ritmo del habla de verdad.
+
+  Nunca llega a 1: la boca abierta del todo es la de celebrar, y en mitad de
+  una frase esa apertura se ve como un grito.
+
+  `--boca-apertura` la pone quien monta el componente para acompasar la boca
+  con el volumen de la voz. Sin ella vale 1 y sale el ciclo normal.
+*/
+@keyframes hablar {
+  0% {
+    transform: scaleY(calc(var(--boca-apertura, 1) * 0.18));
+  }
+  7% {
+    transform: scaleY(calc(var(--boca-apertura, 1) * 0.86));
+  }
+  20% {
+    transform: scaleY(calc(var(--boca-apertura, 1) * 0.7));
+  }
+  30% {
+    transform: scaleY(calc(var(--boca-apertura, 1) * 0.2));
+  }
+  40% {
+    transform: scaleY(calc(var(--boca-apertura, 1) * 0.52));
+  }
+  50% {
+    transform: scaleY(calc(var(--boca-apertura, 1) * 0.24));
+  }
+  62% {
+    transform: scaleY(calc(var(--boca-apertura, 1) * 0.82));
+  }
+  78% {
+    transform: scaleY(calc(var(--boca-apertura, 1) * 0.3));
+  }
+  88%,
+  100% {
+    transform: scaleY(calc(var(--boca-apertura, 1) * 0.16));
+  }
+}
+
+/*
+  La boca al hablar: el ancho.
+
+  Va en su propia capa y con otra duración porque una boca que solo sube y baja
+  parece una bisagra. Al desfasar el ancho del alto salen las formas que se ven
+  cuadro a cuadro en alguien hablando: óvalo alto en una, ancha y baja en la
+  siguiente, casi una línea en la de después, sin repetir nunca la misma.
+*/
+@keyframes hablar-ancho {
+  0%,
+  100% {
+    transform: scaleX(1.06);
+  }
+  33% {
+    transform: scaleX(0.9);
+  }
+  58% {
+    transform: scaleX(1.14);
+  }
+  80% {
+    transform: scaleX(0.96);
+  }
+}
+
+/*
+  La cabeza al hablar.
+
+  Es la mitad de lo que hace que se lea como hablar: una boca que se mueve sola
+  sobre una cabeza clavada parece una marioneta con la mandíbula suelta. El
+  giro es desde el cuello, así que la barbilla recorre más que la coronilla y
+  el perfil cambia en cada golpe de voz.
+*/
+@keyframes hablar-cabeza {
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  26% {
+    transform: rotate(-1.6deg) translateY(-1.3px);
+  }
+  55% {
+    transform: rotate(1deg) translateY(0.7px);
+  }
+  78% {
+    transform: rotate(-0.6deg) translateY(-0.4px);
   }
 }
 

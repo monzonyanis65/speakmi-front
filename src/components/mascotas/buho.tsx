@@ -57,6 +57,7 @@ export const BUHO: DefinicionEspecie = {
       <path d="M55 52 L65 52 L60 46 Z" className="fill-acento-400" />
     </>
   ),
+  origenBoca: '60px 52px',
 
   patas: (
     <>
