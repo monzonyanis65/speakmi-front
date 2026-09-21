@@ -24,6 +24,12 @@ const ENTRADAS: Entrada[] = [
     a: '/perfil',
   },
   {
+    icono: '🛍️',
+    titulo: 'Tienda',
+    descripcion: 'Gasta tus monedas en mascotas, atuendos y congelados',
+    a: '/tienda',
+  },
+  {
     icono: '⚙️',
     titulo: 'Ajustes',
     descripcion: 'Voz, tema y recordatorios',

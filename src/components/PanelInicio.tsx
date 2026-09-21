@@ -11,7 +11,7 @@ interface Progreso {
   xpTotal: number;
   xpHoy: number;
   leccionesCompletadas: number;
-  racha: { currentDays: number; longestDays: number };
+  racha: { currentDays: number; longestDays: number; freezesAvailable: number };
   repasosPendientes: number;
   dominio: Array<{ skillCode: string; titleEs: string; mastery: number; attempts: number }>;
   debilidades: Array<{
@@ -55,6 +55,15 @@ export function PanelInicio() {
     queryFn: () => api.get<Progreso>('/progress'),
     // Siempre fresco al volver a esta pantalla: si acabas de fallar algo en una
     // lección, el aviso de repaso tiene que aparecer al instante, no en 30 segundos.
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+
+  // La cartera va aparte del progreso: son dos cosas distintas y si una falla
+  // la otra se sigue viendo.
+  const { data: cartera } = useQuery({
+    queryKey: ['cartera'],
+    queryFn: () => api.get<{ coins: number }>('/me/wallet'),
     staleTime: 0,
     refetchOnMount: 'always',
   });
@@ -106,7 +115,7 @@ export function PanelInicio() {
         <span aria-hidden>›</span>
       </button>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-2">
         <Dato
           valor={data.racha.currentDays}
           etiqueta={data.racha.currentDays === 1 ? 'día' : 'días'}
@@ -115,8 +124,24 @@ export function PanelInicio() {
           retraso={0}
         />
         <Dato valor={data.xpTotal} etiqueta="XP" icono="⭐" retraso={80} />
-        <Dato valor={data.leccionesCompletadas} etiqueta="lecciones" icono="📘" retraso={160} />
+        {/* Las monedas llevan a la tienda: verlas y no poder gastarlas frustra. */}
+        <Dato
+          valor={cartera?.coins ?? 0}
+          etiqueta="monedas"
+          icono="🪙"
+          retraso={160}
+          onClick={() => navegar('/tienda')}
+        />
+        <Dato valor={data.leccionesCompletadas} etiqueta="lecciones" icono="📘" retraso={240} />
       </div>
+
+      {/* Solo si tiene alguno: un cero permanente no informa de nada. */}
+      {data.racha.freezesAvailable > 0 && (
+        <p className="text-center text-xs text-[var(--texto-suave)]">
+          ❄️ Tienes {data.racha.freezesAvailable}{' '}
+          {data.racha.freezesAvailable === 1 ? 'congelado' : 'congelados'} para salvar la racha
+        </p>
+      )}
 
       {(debilidad ?? flojo) && (
         <div className="rounded-2xl border border-[var(--borde)] bg-[var(--superficie)] p-4">
@@ -182,18 +207,27 @@ function Dato({
   icono,
   retraso,
   vivo = false,
+  onClick,
 }: {
   valor: number;
   etiqueta: string;
   icono: string;
   retraso: number;
   vivo?: boolean;
+  onClick?: () => void;
 }) {
   const contado = useContador(valor);
+  // Con `onClick` se pinta como botón de verdad, no como un div que escucha
+  // toques: así se llega con el teclado y el lector de pantalla lo anuncia.
+  const Caja = onClick ? 'button' : 'div';
 
   return (
-    <div
-      className="animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-3 text-center"
+    <Caja
+      {...(onClick ? { type: 'button' as const, onClick } : {})}
+      className={cn(
+        'animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-3 text-center',
+        onClick && 'boton-3d',
+      )}
       style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
     >
       {/* La llama solo late si la racha está viva. Un fuego apagado no parpadea. */}
@@ -205,6 +239,6 @@ function Dato({
         <span aria-hidden>{contado}</span>
       </p>
       <p className="text-xs text-[var(--texto-suave)]">{etiqueta}</p>
-    </div>
+    </Caja>
   );
 }

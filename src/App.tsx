@@ -18,6 +18,7 @@ import { Menu } from '@/pages/Menu';
 import { Ajustes } from '@/pages/Ajustes';
 import { Perfil } from '@/pages/Perfil';
 import { Seguridad } from '@/pages/Seguridad';
+import { Tienda } from '@/pages/Tienda';
 import { Repaso } from '@/pages/Repaso';
 import { Conversar } from '@/pages/Conversar';
 import { AvisoActualizacion } from '@/components/AvisoActualizacion';
@@ -128,6 +129,14 @@ export default function App() {
             element={
               <SoloConSesion>
                 <Ajustes />
+              </SoloConSesion>
+            }
+          />
+          <Route
+            path="/tienda"
+            element={
+              <SoloConSesion>
+                <Tienda />
               </SoloConSesion>
             }
           />
