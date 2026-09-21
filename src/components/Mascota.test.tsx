@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
-import { Mascota, type EstadoMascota } from './Mascota';
+import { Mascota, type Atuendo, type Especie, type EstadoMascota } from './Mascota';
 
 /**
  * Milo tiene que moverse siempre, y moverse distinto según lo que hace.
@@ -11,8 +11,8 @@ import { Mascota, type EstadoMascota } from './Mascota';
  * personaje, y eso no se nota en ninguna prueba de las normales.
  */
 
-function partesAnimadas(estado: EstadoMascota): string[] {
-  const { container } = render(<Mascota estado={estado} />);
+function partesAnimadas(estado: EstadoMascota, especie?: Especie, atuendo?: Atuendo): string[] {
+  const { container } = render(<Mascota estado={estado} especie={especie} atuendo={atuendo} />);
   const svg = container.querySelector('svg');
   const clases: string[] = [];
 
@@ -29,8 +29,8 @@ function partesAnimadas(estado: EstadoMascota): string[] {
 }
 
 /** Todas las clases del dibujo, para lo que no es una animación: poses y opacidad. */
-function todasLasClases(estado: EstadoMascota): string {
-  const { container } = render(<Mascota estado={estado} />);
+function todasLasClases(estado: EstadoMascota, especie?: Especie, atuendo?: Atuendo): string {
+  const { container } = render(<Mascota estado={estado} especie={especie} atuendo={atuendo} />);
   return container.innerHTML;
 }
 
@@ -237,5 +237,184 @@ describe('Milo no se corta al cambiar de estado', () => {
       expect(marcado).toContain('M54 50 L66 50 L60 58 Z');
       expect(marcado).toContain('M54 52 L66 52 L60 62 Z');
     }
+  });
+});
+
+const ESPECIES: Especie[] = ['PET_MILO', 'PET_GATO', 'PET_PERRO', 'PET_BUHO', 'PET_ZORRO'];
+const ATUENDOS: Atuendo[] = ['OUTFIT_GORRO', 'OUTFIT_BUFANDA', 'OUTFIT_GAFAS', 'OUTFIT_CORONA'];
+
+/**
+ * Cinco animales, un solo esqueleto.
+ *
+ * El riesgo de tener varias especies no es que una se vea fea: es que una se
+ * quede a medio animar. Si las formas y el movimiento no estuvieran separados,
+ * bastaría con olvidar una clase en el zorro para que solo el zorro dejara de
+ * respirar, y eso no lo detecta ninguna prueba que mire a Milo.
+ */
+describe('cada especie es otro animal', () => {
+  it('sin decir nada sale Milo, exactamente igual que antes', () => {
+    for (const estado of TODOS) {
+      expect(todasLasClases(estado), `${estado} cambió al no pasar especie`).toBe(
+        todasLasClases(estado, 'PET_MILO'),
+      );
+    }
+    // Y sigue siendo el pájaro de siempre: copete, cuerpo índigo y pico.
+    const milo = todasLasClases('neutral');
+    expect(milo).toContain('M52 32 Q58 18 66 30 Q60 26 52 32 Z');
+    expect(milo).toContain('fill-marca-600');
+    expect(milo).toContain('M54 50 L66 50 L60 58 Z');
+  });
+
+  it('las cinco se pintan distinto, no es la misma silueta repintada', () => {
+    const dibujos = ESPECIES.map((especie) => todasLasClases('neutral', especie));
+    for (let i = 0; i < dibujos.length; i++) {
+      for (let j = i + 1; j < dibujos.length; j++) {
+        expect(dibujos[i], `${ESPECIES[i]} y ${ESPECIES[j]} se dibujan igual`).not.toBe(dibujos[j]);
+      }
+    }
+    // Y cada una lleva su color, que es lo primero que se ve de lejos.
+    expect(dibujos[1]).toContain('fill-slate-400');
+    expect(dibujos[2]).toContain('fill-amber-500');
+    expect(dibujos[3]).toContain('fill-teal-600');
+    expect(dibujos[4]).toContain('fill-orange-500');
+  });
+
+  it('el lector de pantalla dice qué animal es, no siempre «Milo»', () => {
+    const etiquetas = ESPECIES.map((especie) => {
+      const { container } = render(<Mascota especie={especie} />);
+      return container.querySelector('svg')?.getAttribute('aria-label') ?? '';
+    });
+    expect(new Set(etiquetas).size).toBe(ESPECIES.length);
+    expect(etiquetas[0]).toContain('pájaro');
+    expect(etiquetas[1]).toContain('gata');
+    expect(etiquetas[2]).toContain('perro');
+    expect(etiquetas[3]).toContain('búho');
+    expect(etiquetas[4]).toContain('zorro');
+  });
+
+  it('las cinco se mueven exactamente igual en los diez estados', () => {
+    // La comparación es contra Milo a propósito: es el que llevan vigilando
+    // todas las pruebas de arriba, así que heredar su movimiento es heredar
+    // también todo lo que ya se comprobó de él.
+    for (const estado of TODOS) {
+      const referencia = partesAnimadas(estado, 'PET_MILO').sort();
+      for (const especie of ESPECIES) {
+        expect(
+          partesAnimadas(estado, especie).sort(),
+          `${especie} se mueve distinto a Milo en ${estado}`,
+        ).toEqual(referencia);
+      }
+    }
+  });
+
+  it('ninguna especie se queda congelada salvo pensando', () => {
+    for (const especie of ESPECIES) {
+      for (const estado of TODOS) {
+        const animaciones = partesAnimadas(estado, especie);
+        if (estado === 'pensando') {
+          expect(animaciones, `${especie} debería estar quieto al pensar`).toHaveLength(0);
+        } else {
+          expect(animaciones.length, `${especie} no mueve nada en ${estado}`).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it('todas cruzan la boca en opacidad en vez de sustituirla', () => {
+    // Cada animal tiene su hocico, pero el truco del cruce es del esqueleto:
+    // si una especie se saltara la capa apagada, esa boca aparecería de golpe.
+    for (const especie of ESPECIES) {
+      const cerrada = todasLasClases('neutral', especie);
+      const abierta = todasLasClases('animando', especie);
+      expect(cerrada, `${especie} sin cruce de opacidad`).toContain('transition-opacity');
+      // La boca abierta ya está montada aunque no se vea, y al revés.
+      expect(cerrada).toContain('opacity-0');
+      expect(abierta).toContain('opacity-0');
+    }
+  });
+});
+
+/**
+ * La ropa.
+ *
+ * Dos cosas pueden salir mal y ninguna se ve en una captura fija: que un gorro
+ * pensado para el pájaro quede torcido en el búho, y que la cabeza se ladee
+ * dejando el gorro clavado en el aire. Lo segundo solo se evita colgando la
+ * ropa de la capa que se ladea, y eso es lo que se comprueba aquí.
+ */
+describe('la mascota lleva atuendos', () => {
+  it('sin atuendo no se dibuja ropa de ninguna clase', () => {
+    for (const especie of ESPECIES) {
+      const { container } = render(<Mascota especie={especie} />);
+      const cabeza = container.querySelector('.animate-inclinar-cabeza');
+      expect(cabeza?.querySelector('g[aria-hidden="true"]')).toBeNull();
+    }
+  });
+
+  it('los cuatro atuendos se dibujan sobre las cinco especies', () => {
+    for (const especie of ESPECIES) {
+      const desnudo = todasLasClases('neutral', especie);
+      for (const atuendo of ATUENDOS) {
+        const vestido = todasLasClases('neutral', especie, atuendo);
+        expect(vestido, `${atuendo} no se dibuja en ${especie}`).not.toBe(desnudo);
+        expect(vestido.length).toBeGreaterThan(desnudo.length);
+      }
+    }
+  });
+
+  it('los cuatro atuendos son cuatro prendas distintas', () => {
+    const prendas = ATUENDOS.map((atuendo) => todasLasClases('neutral', 'PET_GATO', atuendo));
+    expect(new Set(prendas).size).toBe(ATUENDOS.length);
+  });
+
+  it('la ropa cuelga de la cabeza, así que se ladea con ella', () => {
+    for (const especie of ESPECIES) {
+      for (const atuendo of ATUENDOS) {
+        const { container } = render(<Mascota especie={especie} atuendo={atuendo} />);
+        const cabeza = container.querySelector('.animate-inclinar-cabeza');
+        expect(
+          cabeza?.querySelector('g[aria-hidden="true"]'),
+          `${atuendo} fuera de la capa que se ladea en ${especie}`,
+        ).not.toBeNull();
+      }
+    }
+  });
+
+  it('vestirse no le quita ni una animación a ningún estado', () => {
+    for (const estado of TODOS) {
+      const desnudo = partesAnimadas(estado, 'PET_ZORRO').sort();
+      for (const atuendo of ATUENDOS) {
+        expect(
+          partesAnimadas(estado, 'PET_ZORRO', atuendo).sort(),
+          `${atuendo} altera el movimiento en ${estado}`,
+        ).toEqual(desnudo);
+      }
+    }
+  });
+
+  it('las gafas caen sobre los ojos en las cinco, que están siempre en el mismo sitio', () => {
+    for (const especie of ESPECIES) {
+      const marcado = todasLasClases('neutral', especie, 'OUTFIT_GAFAS');
+      // Las dos lentes, ancladas a los ojos y no al ancho de la cabeza.
+      expect(marcado, `gafas descolocadas en ${especie}`).toContain('x="38.5"');
+      expect(marcado).toContain('x="60.5"');
+    }
+  });
+
+  it('el gorro se ensancha en el búho, que es el que tiene la cabeza más ancha', () => {
+    // Si la prenda no midiera la cabeza, estos dos dibujos serían idénticos y
+    // al búho le quedaría pequeño el gorro.
+    const { container: conGato } = render(<Mascota especie="PET_GATO" atuendo="OUTFIT_GORRO" />);
+    const { container: conBuho } = render(<Mascota especie="PET_BUHO" atuendo="OUTFIT_GORRO" />);
+    const ala = (raiz: HTMLElement) =>
+      raiz.querySelector('.animate-inclinar-cabeza g[aria-hidden="true"] path')?.getAttribute('d');
+    expect(ala(conGato)).not.toBe(ala(conBuho));
+  });
+
+  it('la etiqueta accesible dice también lo que lleva puesto', () => {
+    const { container } = render(<Mascota especie="PET_PERRO" atuendo="OUTFIT_CORONA" />);
+    const etiqueta = container.querySelector('svg')?.getAttribute('aria-label') ?? '';
+    expect(etiqueta).toContain('perro');
+    expect(etiqueta).toContain('corona');
   });
 });

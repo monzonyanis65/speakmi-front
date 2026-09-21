@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { NOMBRE_CATEGORIA } from '@/components/ejercicios/tipos';
 import { useContador } from '@/lib/contador';
+import { useNombreMascota } from '@/lib/mascota-contexto';
 import { avisarAhora, marcarAvisado, tocaAvisar } from '@/lib/recordatorio';
 
 interface Progreso {
@@ -31,6 +32,7 @@ interface Progreso {
  */
 export function PanelInicio() {
   const navegar = useNavigate();
+  const nombre = useNombreMascota();
 
   /*
     El recordatorio diario, cuando toca.
@@ -107,7 +109,7 @@ export function PanelInicio() {
           💬
         </span>
         <span className="flex-1">
-          <span className="block font-bold">Conversar con Milo</span>
+          <span className="block font-bold">Conversar con {nombre}</span>
           <span className="block text-sm text-marca-100">
             Habla de lo que quieras. Te corrige al final, no mientras hablas.
           </span>

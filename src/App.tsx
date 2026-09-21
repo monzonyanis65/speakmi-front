@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { configurarAuth } from '@/lib/api';
 import { aplicarTema, temaGuardado } from '@/lib/tema';
+import { ProveedorMascota } from '@/lib/mascota-equipada';
 import { queryClient } from '@/lib/queryClient';
 import { getToken, recuperarSesion } from '@/lib/auth';
 import { useSesion } from '@/store/sesion';
@@ -64,119 +65,121 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<SoloVisitantes />} />
-          <Route path="/recuperar" element={<OlvideClave />} />
-          <Route
-            path="/empezar"
-            element={
-              <SoloConSesion>
-                <ComoEmpezar />
-              </SoloConSesion>
-            }
-          />
-          <Route
-            path="/prueba"
-            element={
-              <SoloConSesion>
-                <Prueba />
-              </SoloConSesion>
-            }
-          />
-          <Route
-            path="/nivel"
-            element={
-              <SoloConSesion>
-                <Bienvenida />
-              </SoloConSesion>
-            }
-          />
-          <Route
-            path="/ruta"
-            element={
-              <SoloConSesion>
-                <Ruta />
-              </SoloConSesion>
-            }
-          />
-          <Route
-            path="/leccion/:code"
-            element={
-              <SoloConSesion>
-                <Leccion />
-              </SoloConSesion>
-            }
-          />
-          <Route
-            path="/menu"
-            element={
-              <SoloConSesion>
-                <Menu />
-              </SoloConSesion>
-            }
-          />
-          <Route
-            path="/perfil"
-            element={
-              <SoloConSesion>
-                <Perfil />
-              </SoloConSesion>
-            }
-          />
-          <Route
-            path="/ajustes"
-            element={
-              <SoloConSesion>
-                <Ajustes />
-              </SoloConSesion>
-            }
-          />
-          <Route
-            path="/tienda"
-            element={
-              <SoloConSesion>
-                <Tienda />
-              </SoloConSesion>
-            }
-          />
-          <Route
-            path="/seguridad"
-            element={
-              <SoloConSesion>
-                <Seguridad />
-              </SoloConSesion>
-            }
-          />
-          <Route
-            path="/guia/:code"
-            element={
-              <SoloConSesion>
-                <Guia />
-              </SoloConSesion>
-            }
-          />
-          <Route
-            path="/repaso"
-            element={
-              <SoloConSesion>
-                <Repaso />
-              </SoloConSesion>
-            }
-          />
-          <Route
-            path="/conversar"
-            element={
-              <SoloConSesion>
-                <Conversar />
-              </SoloConSesion>
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        {/* Fuera de las rutas: el aviso vale para cualquier pantalla. */}
-        <AvisoActualizacion />
-      </BrowserRouter>
+      <ProveedorMascota>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<SoloVisitantes />} />
+            <Route path="/recuperar" element={<OlvideClave />} />
+            <Route
+              path="/empezar"
+              element={
+                <SoloConSesion>
+                  <ComoEmpezar />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/prueba"
+              element={
+                <SoloConSesion>
+                  <Prueba />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/nivel"
+              element={
+                <SoloConSesion>
+                  <Bienvenida />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/ruta"
+              element={
+                <SoloConSesion>
+                  <Ruta />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/leccion/:code"
+              element={
+                <SoloConSesion>
+                  <Leccion />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/menu"
+              element={
+                <SoloConSesion>
+                  <Menu />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/perfil"
+              element={
+                <SoloConSesion>
+                  <Perfil />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/ajustes"
+              element={
+                <SoloConSesion>
+                  <Ajustes />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/tienda"
+              element={
+                <SoloConSesion>
+                  <Tienda />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/seguridad"
+              element={
+                <SoloConSesion>
+                  <Seguridad />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/guia/:code"
+              element={
+                <SoloConSesion>
+                  <Guia />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/repaso"
+              element={
+                <SoloConSesion>
+                  <Repaso />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/conversar"
+              element={
+                <SoloConSesion>
+                  <Conversar />
+                </SoloConSesion>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          {/* Fuera de las rutas: el aviso vale para cualquier pantalla. */}
+          <AvisoActualizacion />
+        </BrowserRouter>
+      </ProveedorMascota>
     </QueryClientProvider>
   );
 }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { useNombreMascota } from '@/lib/mascota-contexto';
 import { Boton } from '@/components/Boton';
 import { Mascota } from '@/components/Mascota';
 import { NOMBRE_CATEGORIA } from '@/components/ejercicios/tipos';
@@ -54,6 +55,7 @@ export function Conversar() {
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [texto, setTexto] = useState('');
   const [pensando, setPensando] = useState(false);
+  const nombre = useNombreMascota();
   const [error, setError] = useState<string | null>(null);
   const [resumen, setResumen] = useState<{ resumen: Resumen; correcciones: Correccion[] } | null>(
     null,
@@ -314,7 +316,7 @@ export function Conversar() {
               <span
                 className="inline-flex items-end gap-1"
                 role="status"
-                aria-label="Milo está pensando"
+                aria-label={`${nombre} está pensando`}
               >
                 <Punto retraso="0s" />
                 <Punto retraso="0.15s" />

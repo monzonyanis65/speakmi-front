@@ -1,4 +1,6 @@
 import { cn } from '@/lib/cn';
+import { CapaAtuendo, ESPECIES, NOMBRE_ATUENDO, type Atuendo, type Especie } from './mascotas';
+import { useMascotaEquipada } from '@/lib/mascota-contexto';
 
 export type EstadoMascota =
   | 'neutral'
@@ -12,17 +14,29 @@ export type EstadoMascota =
   | 'orgulloso'
   | 'durmiendo';
 
+export type { Atuendo, Especie };
+
 interface Props {
   estado?: EstadoMascota;
+  /** Qué animal es. Por defecto Milo, que es quien sale en todas las pantallas. */
+  especie?: Especie;
+  /** Lo que lleva puesto, si lleva algo. */
+  atuendo?: Atuendo | null;
   tamano?: number;
   className?: string;
 }
 
 /**
- * Milo, el pájaro de Speakmi.
+ * La mascota de Speakmi.
  *
- * Es un mynah, el ave que mejor imita la voz humana, que es justo lo que hace
- * la app: escucha cómo hablas y te devuelve cómo deberías sonar.
+ * Este archivo es el esqueleto del movimiento, y solo eso. Las formas de cada
+ * animal viven en `mascotas/`, y la razón de separarlo es que el movimiento es
+ * lo caro: diez estados, cuatro ritmos de ala, dos parpadeos y cuatro capas que
+ * no pueden reiniciarse al cambiar de estado. Copiar eso cinco veces sería
+ * garantizar que dentro de un mes cada animal se mueve un poco distinto.
+ *
+ * Así, una especie nueva es una bolsa de elipses y curvas quietas, y hereda
+ * gratis los diez estados y el vestuario entero.
  *
  * Está dibujado con formas simples a propósito. Cada parte se anima por separado
  * según el estado, así que un solo personaje sirve para celebrar, escuchar o
@@ -32,7 +46,7 @@ interface Props {
  *
  *   svg          -> el gesto del estado (salta, late, se hunde, presume)
  *   g aliento    -> respirar o dormir, que nunca se detiene salvo al pensar
- *   g cabeza     -> el ladeo ocasional, que no depende del estado
+ *   g cabeza     -> el ladeo ocasional, que no depende del estado, y la ropa
  *   g ojos       -> abrir más, parpadear y mirar, cada uno en su propio nivel
  *
  * Separarlas es lo que hace que cambiar de estado no se vea como un corte:
@@ -40,10 +54,25 @@ interface Props {
  * aliento, el ladeo y la mirada siguen donde estaban. Cuando todo colgaba del
  * mismo elemento, cualquier cambio cortaba la respiración a media inspiración.
  */
-export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) {
+export function Mascota({ estado = 'neutral', especie, atuendo, tamano = 120, className }: Props) {
+  /*
+    Sin decir cuál, se usa la que la persona lleva puesta.
+    Así ninguna pantalla tiene que acordarse de pasarla: quien compra un gato lo
+    ve en todas, y las pruebas de componentes, que no montan el proveedor,
+    siguen viendo a Milo sin tocar nada.
+
+    `undefined` y `null` no significan lo mismo en `atuendo`: sin nada es «lo
+    que lleve puesto», y `null` expreso es «este sitio va sin ropa», que es lo
+    que necesita la tienda para enseñar cómo queda cada prenda.
+  */
+  const puesto = useMascotaEquipada();
+  const cual = especie ?? puesto.especie;
+  const prenda = atuendo === undefined ? puesto.atuendo : atuendo;
+
+  const animal = ESPECIES[cual];
   const ojoAbierto = estado !== 'pensando' && estado !== 'durmiendo';
   const alaArriba = estado === 'celebrando' || estado === 'animando';
-  // El pico se abre al hablar y también al sorprenderse, que es media sorpresa.
+  // La boca se abre al hablar y también al sorprenderse, que es media sorpresa.
   const picoAbierto = alaArriba || estado === 'sorprendido';
   // Pensando es el único estado quieto de verdad: los demás siempre respiran.
   const enReposoVivo = estado !== 'pensando';
@@ -74,7 +103,7 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
    *
    * Es el mismo valor para casi todos los estados justo para que React no
    * cambie la clase y el navegador no reinicie el ciclo: al pasar de neutral a
-   * celebrando, Milo sigue respirando en el mismo punto en el que estaba.
+   * celebrando, la mascota sigue respirando en el mismo punto en el que estaba.
    */
   const aliento =
     estado === 'pensando' ? '' : estado === 'durmiendo' ? 'animate-dormir' : 'animate-respirar';
@@ -139,7 +168,7 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
       width={tamano}
       height={tamano}
       role="img"
-      aria-label="Milo, el pájaro de Speakmi"
+      aria-label={prenda ? `${animal.etiqueta}, con ${NOMBRE_ATUENDO[prenda]}` : animal.etiqueta}
       className={cn('select-none', gestoCuerpo, className)}
     >
       {/* Ondas de sonido: solo cuando está escuchando */}
@@ -170,33 +199,32 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
       )}
 
       {/*
-        La capa que respira. Envuelve al pájaro entero menos los adornos, que no
+        La capa que respira. Envuelve al animal entero menos los adornos, que no
         tienen por qué inflarse con él. El origen es el centro del lienzo porque
         antes la escala colgaba del propio <svg>, y ahí el navegador la aplica
-        desde el centro: sin fijarlo, Milo respiraría desde la esquina.
+        desde el centro: sin fijarlo, respiraría desde la esquina.
       */}
       <g className={cn('origin-[60px_60px]', aliento)}>
-        {/* Cola. Se balancea sola: antes era lo único del dibujo que no se movía. */}
-        <path
-          d="M22 78 L4 92 L26 88 Z"
-          className={cn(
-            'fill-marca-700',
-            estado !== 'pensando' && estado !== 'durmiendo' && 'animate-colear',
-          )}
-          style={{ transformOrigin: '24px 82px' }}
-        />
+        {/*
+          Cola. Se balancea sola: antes era lo único del dibujo que no se movía.
+          El giro lo pone esta capa y la forma la pone la especie, porque una
+          cola de zorro pesa donde no pesa una de pájaro y pide otro pivote.
+        */}
+        <g
+          className={cn(estado !== 'pensando' && estado !== 'durmiendo' && 'animate-colear')}
+          style={{ transformOrigin: animal.origenCola }}
+        >
+          {animal.cola}
+        </g>
 
-        {/* Cuerpo */}
-        <ellipse cx="60" cy="66" rx="34" ry="36" className="fill-marca-600" />
-
-        {/* Barriga */}
-        <ellipse cx="62" cy="74" rx="22" ry="24" className="fill-marca-100" />
+        {/* Cuerpo y barriga */}
+        {animal.cuerpo}
 
         {/*
-          Las dos alas. La de la derecha es más pequeña y más oscura: así se lee
-          como la que queda del lado de allá, y el pájaro deja de verse plano.
-          Van desfasadas y en sentido contrario, porque dos alas perfectamente
-          sincronizadas parecen un mecanismo, no un bicho.
+          Los dos miembros de delante. El de la derecha es más pequeño y más
+          oscuro: así se lee como el que queda del lado de allá, y el animal deja
+          de verse plano. Van desfasados y en sentido contrario, porque dos alas
+          perfectamente sincronizadas parecen un mecanismo, no un bicho.
         */}
         <g
           className={cn(
@@ -208,7 +236,7 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
           )}
           style={{ animationDelay: '0.08s', animationDirection: 'reverse' }}
         >
-          <ellipse cx="86" cy="68" rx="10" ry="16" className="fill-marca-800" />
+          {animal.alaLejana}
         </g>
 
         <g
@@ -222,26 +250,26 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
             !movimientoAlaCercana && poseAlaCercana,
           )}
         >
-          <ellipse cx="34" cy="68" rx="12" ry="18" className="fill-marca-700" />
+          {animal.alaCercana}
         </g>
 
         {/*
           La cabeza y la cara, que se ladean solas cada once segundos.
 
-          No depende del estado y es deliberado: es el gesto que hace que Milo
-          parezca estar atendiendo a algo en vez de esperando a que le den
-          cuerda. El origen está en el cuello, no en la cabeza, para que gire
+          No depende del estado y es deliberado: es el gesto que hace que la
+          mascota parezca estar atendiendo a algo en vez de esperando a que le
+          den cuerda. El origen está en el cuello, no en la cabeza, para que gire
           como si tuviera una y no como una pegatina rotando sobre sí misma.
         */}
         <g
           className={cn(enReposoVivo && 'animate-inclinar-cabeza')}
-          style={{ transformOrigin: '60px 66px' }}
+          style={{ transformOrigin: `60px ${animal.anclajes.cuello}px` }}
         >
-          {/* Copete */}
-          <path d="M52 32 Q58 18 66 30 Q60 26 52 32 Z" className="fill-marca-700" />
+          {/* Orejas, penachos o copete: detrás del cráneo para que asomen. */}
+          {animal.orejas}
 
-          {/* Cabeza */}
-          <circle cx="60" cy="42" r="26" className="fill-marca-600" />
+          {/* Cráneo, y lo que va debajo de los ojos: hocico, mejillas, discos. */}
+          {animal.cabeza}
 
           {/*
             Los ojos van en tres capas superpuestas y cada una hace una cosa:
@@ -252,6 +280,10 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
             mismo elemento la animación se queda con la propiedad: mientras
             corre, la transición de esa misma propiedad se ignora y la sorpresa
             aparecería de golpe. En capas, cada una manda en lo suyo.
+
+            Los ojos son idénticos en las cinco especies, y no por pereza: son la
+            parte que más se mira y la única con tres ciclos encima. Si cada
+            animal moviera los suyos, cada animal tendría su forma de romperse.
           */}
           <g
             className={cn(
@@ -321,41 +353,40 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
           </g>
 
           {/*
-            Pico. Las dos versiones están siempre puestas y se cruzan en
+            La boca. Las dos versiones están siempre puestas y se cruzan en
             opacidad; antes se sustituía una por otra y el pico aparecía de
             golpe justo cuando empezaba a hablar, que es cuando más se ve.
           */}
-          <path
-            d="M54 50 L66 50 L60 58 Z"
+          <g
             className={cn(
-              'fill-acento-500 transition-opacity duration-200',
+              'transition-opacity duration-200',
               picoAbierto ? 'opacity-0' : 'opacity-100',
             )}
-          />
+          >
+            {animal.bocaCerrada}
+          </g>
           <g
             className={cn(
               'transition-opacity duration-200',
               picoAbierto ? 'opacity-100' : 'opacity-0',
             )}
           >
-            <path d="M54 52 L66 52 L60 62 Z" className="fill-acento-500" />
-            <path d="M54 52 L66 52 L60 47 Z" className="fill-acento-400" />
+            {animal.bocaAbierta}
           </g>
+
+          {/*
+            La ropa, lo último de la capa de la cabeza.
+
+            Cuelga de aquí y no del svg por una razón sola: esta capa es la que
+            se ladea, así que el gorro se ladea con ella. Colgado más arriba se
+            quedaría clavado mientras la cabeza gira debajo, que es exactamente
+            el efecto de pegatina que costó tanto quitar.
+          */}
+          {prenda && <CapaAtuendo atuendo={prenda} anclajes={animal.anclajes} />}
         </g>
 
         {/* Patas */}
-        <path
-          d="M52 100 L52 108 M46 108 L58 108"
-          stroke="#f59e0b"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-        <path
-          d="M68 100 L68 108 M62 108 L74 108"
-          stroke="#f59e0b"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
+        {animal.patas}
       </g>
 
       {/* Estrellitas al celebrar */}
@@ -412,19 +443,32 @@ export function Mascota({ estado = 'neutral', tamano = 120, className }: Props) 
   );
 }
 
-/** Milo diciendo algo, para las pantallas donde acompaña con un mensaje. */
+/** La mascota diciendo algo, para las pantallas donde acompaña con un mensaje. */
 export function MascotaConMensaje({
   estado = 'neutral',
+  // Sin valor por defecto a propósito: poniendo 'PET_MILO' aquí se le pasaría
+  // a `Mascota` una especie expresa, y entonces ya no miraría la que la persona
+  // lleva puesta. Un defecto puesto por comodidad que anula la elección.
+  especie,
+  atuendo,
   mensaje,
   tamano = 90,
 }: {
   estado?: EstadoMascota;
+  especie?: Especie;
+  atuendo?: Atuendo | null;
   mensaje: string;
   tamano?: number;
 }) {
   return (
     <div className="flex items-end gap-3">
-      <Mascota estado={estado} tamano={tamano} className="shrink-0" />
+      <Mascota
+        estado={estado}
+        especie={especie}
+        atuendo={atuendo}
+        tamano={tamano}
+        className="shrink-0"
+      />
       <div className="relative mb-4 flex-1 animate-entrada rounded-2xl border-2 border-[var(--borde)] bg-[var(--superficie)] px-4 py-3">
         {/* Pico del bocadillo */}
         <span className="absolute -left-2 bottom-4 size-3 rotate-45 border-b-2 border-l-2 border-[var(--borde)] bg-[var(--superficie)]" />
