@@ -102,11 +102,45 @@ describe('Milo con física', () => {
     render(<MiloVivo />);
     // El grupo del cuerpo es el que respira: escala distinto en cada eje, que
     // es lo que conserva el volumen en vez de hincharlo como un globo.
-    const cuerpo = document.querySelector('svg > g') as SVGGElement | null;
+    // Es `g > g` y no `g`: el de fuera es la capa de la vuelta, que en reposo
+    // no transforma nada. El que respira es el de dentro.
+    const cuerpo = document.querySelector('svg > g > g') as SVGGElement | null;
     expect(cuerpo).not.toBeNull();
 
     const estilo = cuerpo!.getAttribute('style') ?? '';
     expect(estilo).toMatch(/scale-?[xX]|--motion/);
+  });
+
+  /*
+    El guardián del fallo más caro de este archivo.
+
+    La librería marca lo que anima con `transform-box: fill-box`, y con eso un
+    pivote escrito en píxeles deja de contarse desde el lienzo y pasa a contarse
+    desde el borde de cada pieza. Estuvo así y, medido en el navegador, la
+    cabeza giraba alrededor de un punto que caía fuera del cráneo y el ojo se
+    estrechaba alrededor de un punto a 50 píxeles de sí mismo. Se veía casi
+    bien, que es lo que lo hizo durar.
+  */
+  it('todos los pivotes van en porcentaje, nunca en píxeles', () => {
+    const { container } = render(<MiloVivo />);
+    // Se miran solo los dos primeros valores: el tercero es la z, que el
+    // navegador escribe siempre como `0px` y no dice nada de nuestro pivote.
+    const origenes = [...container.innerHTML.matchAll(/transform-origin:\s*([^;"]+)/g)].map((m) =>
+      m[1]!.trim().split(/\s+/),
+    );
+    expect(origenes.length).toBeGreaterThan(3);
+
+    const enPixeles = origenes.filter(([x, y]) => x?.endsWith('px') || y?.endsWith('px'));
+    expect(enPixeles).toEqual([]);
+  });
+
+  it('tiene cara y nuca: puede darse la vuelta entera', () => {
+    const { container } = render(<MiloVivo />);
+    // Sin una nuca dibujada aparte, la vuelta se queda en un guiño: el cuerpo
+    // se estrecha y al volver a abrirse sigue estando la misma cara.
+    expect(container.querySelectorAll('circle[r="26"]').length).toBe(2);
+    // Y las cejas, que son la mitad del gesto de cualquier mueca.
+    expect(container.querySelectorAll('path[stroke-width="2.6"]').length).toBe(2);
   });
 
   it('acepta el tamaño que se le pida', () => {
