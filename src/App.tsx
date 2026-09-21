@@ -21,6 +21,7 @@ import { Perfil } from '@/pages/Perfil';
 import { Seguridad } from '@/pages/Seguridad';
 import { Tienda } from '@/pages/Tienda';
 import { Llamada } from '@/pages/Llamada';
+import { MiloVivo } from '@/components/MiloVivo';
 import { Repaso } from '@/pages/Repaso';
 import { Conversar } from '@/pages/Conversar';
 import { AvisoActualizacion } from '@/components/AvisoActualizacion';
@@ -183,6 +184,11 @@ export default function App() {
                 </SoloConSesion>
               }
             />
+            {/*
+              Banco de pruebas del Milo con física. No lleva sesión a propósito:
+              es para verlo y compararlo, no una pantalla del producto.
+            */}
+            <Route path="/vivo" element={<MiloVivo />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           {/* Fuera de las rutas: el aviso vale para cualquier pantalla. */}
