@@ -52,22 +52,14 @@
   /* Animaciones. Cortas y con rebote: han de sentirse, no hacerse esperar. */
   --animate-entrada: entrada 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   --animate-subir: subir 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  --animate-saltito: saltito 0.6s ease-in-out infinite;
   --animate-latido: latido 1.4s ease-in-out infinite;
-  --animate-balanceo: balanceo 2s ease-in-out infinite;
   --animate-onda: onda 1.8s ease-out infinite;
   --animate-destello: destello 1.2s ease-in-out infinite;
   --animate-temblor: temblor 0.4s ease-in-out;
   --animate-crecer: crecer 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   --animate-flotar: flotar 2.2s ease-in-out infinite;
-  --animate-respirar: respirar 3.4s ease-in-out infinite;
-  --animate-parpadeo: parpadeo 5s ease-in-out infinite;
   --animate-puntear: puntear 1.2s ease-in-out infinite;
   --animate-revelar: revelar 1s cubic-bezier(0.74, 0, 0.11, 0.96);
-  --animate-aletear: aletear 0.32s ease-in-out infinite;
-  --animate-saludar: saludar 0.9s ease-in-out infinite;
-  --animate-ala-calma: ala-calma 3.4s ease-in-out infinite;
-  --animate-colear: colear 2.6s ease-in-out infinite;
 
   /*
     Gestos nuevos de Milo. Los ciclos largos son de reposo a propósito: un
@@ -75,14 +67,6 @@
     segundos ya no se percibe el bucle. Lo que reacciona sigue por debajo de
     0.4s.
   */
-  --animate-desanimo: desanimo 4s ease-in-out infinite;
-  --animate-respingo: respingo 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  --animate-pavoneo: pavoneo 2.6s ease-in-out infinite;
-  --animate-dormir: dormir 5.5s ease-in-out infinite;
-  --animate-ala-baja: ala-baja 4s ease-in-out infinite;
-  --animate-parpadeo-lento: parpadeo-lento 7.5s ease-in-out infinite;
-  --animate-inclinar-cabeza: inclinar-cabeza 11s ease-in-out infinite;
-  --animate-mirada: mirada 7s ease-in-out infinite;
 
   /*
     Hablar. Tres ciclos cortos y de duraciones primas entre sí: 0.4s el alto de
@@ -90,9 +74,6 @@
     obvio; al superponerse, la combinación tarda minutos en repetirse, que es
     lo que hace que no se lea como un metrónomo.
   */
-  --animate-hablar: hablar 0.4s ease-in-out infinite;
-  --animate-hablar-ancho: hablar-ancho 0.29s ease-in-out infinite;
-  --animate-hablar-cabeza: hablar-cabeza 0.34s ease-in-out infinite;
 }
 
 @keyframes entrada {
@@ -117,19 +98,6 @@
   }
 }
 
-@keyframes saltito {
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-  30% {
-    transform: translateY(-14px) rotate(-5deg);
-  }
-  60% {
-    transform: translateY(-4px) rotate(3deg);
-  }
-}
-
 @keyframes latido {
   0%,
   100% {
@@ -137,16 +105,6 @@
   }
   50% {
     transform: scale(1.06);
-  }
-}
-
-@keyframes balanceo {
-  0%,
-  100% {
-    transform: rotate(-4deg);
-  }
-  50% {
-    transform: rotate(4deg);
   }
 }
 
@@ -199,37 +157,6 @@
 }
 
 /*
-  Milo quieto no está quieto.
-  Un personaje que no se mueve nada se lee como un dibujo pegado; con un
-  movimiento mínimo se lee como alguien esperando. Es deliberadamente pequeño:
-  si se nota, molesta.
-*/
-@keyframes respirar {
-  0%,
-  100% {
-    transform: scale(1) translateY(0);
-  }
-  50% {
-    transform: scale(1.018) translateY(-1.5px);
-  }
-}
-
-/*
-  El parpadeo es lo que más vida da, y lo que menos cuesta. Pasa casi todo el
-  ciclo con el ojo abierto y se cierra en un suspiro, como uno de verdad.
-*/
-@keyframes parpadeo {
-  0%,
-  92%,
-  100% {
-    transform: scaleY(1);
-  }
-  95% {
-    transform: scaleY(0.08);
-  }
-}
-
-/*
   Las alas de Milo.
 
   Tenía una sola y quieta, que se levantaba de golpe al celebrar. Un pájaro con
@@ -237,53 +164,6 @@
   movimientos distintos según lo que esté haciendo, y el ritmo de cada uno es lo
   que cuenta la diferencia.
 */
-
-/* Celebrando: aleteo corto y rápido, como quien no puede estarse quieto. */
-@keyframes aletear {
-  0%,
-  100% {
-    transform: rotate(-38deg);
-  }
-  50% {
-    transform: rotate(4deg);
-  }
-}
-
-/* Animando: saluda con el ala, más lento y más amplio que el aleteo. */
-@keyframes saludar {
-  0%,
-  100% {
-    transform: rotate(-52deg);
-  }
-  50% {
-    transform: rotate(-18deg);
-  }
-}
-
-/*
-  Quieto: el ala acompaña a la respiración, tres grados y nada más. Si se nota,
-  sobra; lo que se tiene que notar es que no está congelado.
-*/
-@keyframes ala-calma {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-  50% {
-    transform: rotate(3deg);
-  }
-}
-
-/* La cola, que hasta ahora no se movía nunca. */
-@keyframes colear {
-  0%,
-  100% {
-    transform: rotate(-3deg);
-  }
-  50% {
-    transform: rotate(4deg);
-  }
-}
 
 /*
   El momento grande: el final de la lección.
@@ -340,17 +220,6 @@
   }
 }
 
-@keyframes caer {
-  from {
-    transform: translateY(-10vh) rotate(0deg);
-    opacity: 1;
-  }
-  to {
-    transform: translateY(105vh) rotate(720deg);
-    opacity: 0;
-  }
-}
-
 /*
   Los estados nuevos de Milo: fallar, sorprenderse, presumir y dormirse.
 
@@ -359,252 +228,6 @@
   cambia y el aliento no se corta a media inspiración, que era lo que hacía
   que los cambios se vieran como un salto.
 */
-
-/*
-  Triste: se hunde y se inclina un grado, nada más.
-
-  La tentación era caer tres o cuatro píxeles y ladear la cabeza. Fallar una
-  pregunta no es un castigo, es un «uy»: si la mascota se derrumba, la persona
-  deja de arriesgar. Por eso el gesto se queda en el umbral de lo que se nota.
-*/
-@keyframes desanimo {
-  0%,
-  100% {
-    transform: translateY(1.5px) rotate(1deg);
-  }
-  50% {
-    transform: translateY(3px) rotate(1deg);
-  }
-}
-
-/*
-  Sorprendido: un respingo hacia atrás y ya está.
-
-  Es la única animación de Milo que no se repite. Una sorpresa que se repite en
-  bucle deja de ser una sorpresa a la segunda vuelta, así que se reproduce una
-  vez y lo que queda vivo son los ciclos de reposo, que nunca se pararon.
-*/
-@keyframes respingo {
-  0% {
-    transform: translate(0, 0);
-  }
-  35% {
-    transform: translate(-5px, -4px);
-  }
-  70% {
-    transform: translate(-1px, 0);
-  }
-  100% {
-    transform: translate(0, 0);
-  }
-}
-
-/*
-  Orgulloso: saca pecho. El ensanchado es de un 2,5% y va acompañado de una
-  inclinación hacia atrás constante, porque solo con la escala parecía que
-  respiraba fuerte en vez de presumir.
-*/
-@keyframes pavoneo {
-  0%,
-  100% {
-    transform: rotate(-1.5deg) translateY(0) scaleX(1);
-  }
-  50% {
-    transform: rotate(-1.5deg) translateY(-2px) scaleX(1.025);
-  }
-}
-
-/*
-  Durmiendo: el mismo aliento, más lento y más hondo.
-
-  Dormir no es otra animación, es la de estar despierto cambiada de ritmo. Se
-  reconoce como sueño justo porque el patrón es el de siempre a la mitad de
-  velocidad.
-*/
-@keyframes dormir {
-  0%,
-  100% {
-    transform: scale(1) translateY(0);
-  }
-  50% {
-    transform: scale(1.035) translateY(-2.5px);
-  }
-}
-
-/* Alas caídas: el vaivén de siempre, pero cuatro grados más abajo y más lento. */
-@keyframes ala-baja {
-  0%,
-  100% {
-    transform: rotate(12deg);
-  }
-  50% {
-    transform: rotate(16deg);
-  }
-}
-
-/*
-  Parpadeo pesado, para cuando algo ha salido mal. Mismo gesto que el normal
-  pero el ojo tarda en volver a abrirse: esa demora es la que se lee como
-  desánimo, sin necesidad de cambiar la cara.
-*/
-@keyframes parpadeo-lento {
-  0%,
-  86%,
-  100% {
-    transform: scaleY(1);
-  }
-  91%,
-  95% {
-    transform: scaleY(0.1);
-  }
-}
-
-/*
-  La cabeza se ladea sola cada tanto.
-
-  No depende del estado a propósito: es lo que hace que Milo parezca atender a
-  algo en vez de estar en pausa. El ciclo es largo y el gesto ocupa solo su
-  último tercio, así que no cae nunca en el mismo punto que la respiración ni
-  que el parpadeo y no se percibe el bucle.
-*/
-@keyframes inclinar-cabeza {
-  0%,
-  55%,
-  100% {
-    transform: rotate(0deg);
-  }
-  62%,
-  72% {
-    transform: rotate(-3.5deg);
-  }
-  84% {
-    transform: rotate(1.5deg);
-  }
-}
-
-/*
-  La mirada: las pupilas se mueven dos píxeles dentro del ojo.
-
-  Es el truco más barato que más vida da, y funciona por el desfase: 7 segundos
-  contra los 5 del parpadeo, así que mirar y parpadear casi nunca coinciden y
-  el conjunto no se siente programado. Con el mismo ciclo parecería un muñeco.
-*/
-@keyframes mirada {
-  0%,
-  18%,
-  100% {
-    transform: translate(0, 0);
-  }
-  26%,
-  40% {
-    transform: translate(1.8px, 0.4px);
-  }
-  52%,
-  66% {
-    transform: translate(-1.8px, -0.3px);
-  }
-  80% {
-    transform: translate(0.6px, 0.8px);
-  }
-}
-
-/*
-  La boca al hablar: el alto.
-
-  Hablar no es abrir y cerrar la boca, es cambiarle la forma muchas veces por
-  segundo. Por eso esto escala la boca abierta en vez de cruzarla con la
-  cerrada: un cruce de dos dibujos fijos se lee como un pico que se abre y se
-  cierra, que es justo el efecto de marioneta que se quiere evitar.
-
-  Los tramos duran distinto a propósito: una sílaba larga y acentuada, otra
-  corta y floja, otra media y una pausa breve al final, como quien pronuncia
-  palabras y no golpes. Son tres aperturas en 0.4s, unas siete y media por
-  segundo, que es el ritmo del habla de verdad.
-
-  Nunca llega a 1: la boca abierta del todo es la de celebrar, y en mitad de
-  una frase esa apertura se ve como un grito.
-
-  `--boca-apertura` la pone quien monta el componente para acompasar la boca
-  con el volumen de la voz. Sin ella vale 1 y sale el ciclo normal.
-*/
-@keyframes hablar {
-  0% {
-    transform: scaleY(calc(var(--boca-apertura, 1) * 0.18));
-  }
-  7% {
-    transform: scaleY(calc(var(--boca-apertura, 1) * 0.86));
-  }
-  20% {
-    transform: scaleY(calc(var(--boca-apertura, 1) * 0.7));
-  }
-  30% {
-    transform: scaleY(calc(var(--boca-apertura, 1) * 0.2));
-  }
-  40% {
-    transform: scaleY(calc(var(--boca-apertura, 1) * 0.52));
-  }
-  50% {
-    transform: scaleY(calc(var(--boca-apertura, 1) * 0.24));
-  }
-  62% {
-    transform: scaleY(calc(var(--boca-apertura, 1) * 0.82));
-  }
-  78% {
-    transform: scaleY(calc(var(--boca-apertura, 1) * 0.3));
-  }
-  88%,
-  100% {
-    transform: scaleY(calc(var(--boca-apertura, 1) * 0.16));
-  }
-}
-
-/*
-  La boca al hablar: el ancho.
-
-  Va en su propia capa y con otra duración porque una boca que solo sube y baja
-  parece una bisagra. Al desfasar el ancho del alto salen las formas que se ven
-  cuadro a cuadro en alguien hablando: óvalo alto en una, ancha y baja en la
-  siguiente, casi una línea en la de después, sin repetir nunca la misma.
-*/
-@keyframes hablar-ancho {
-  0%,
-  100% {
-    transform: scaleX(1.06);
-  }
-  33% {
-    transform: scaleX(0.9);
-  }
-  58% {
-    transform: scaleX(1.14);
-  }
-  80% {
-    transform: scaleX(0.96);
-  }
-}
-
-/*
-  La cabeza al hablar.
-
-  Es la mitad de lo que hace que se lea como hablar: una boca que se mueve sola
-  sobre una cabeza clavada parece una marioneta con la mandíbula suelta. El
-  giro es desde el cuello, así que la barbilla recorre más que la coronilla y
-  el perfil cambia en cada golpe de voz.
-*/
-@keyframes hablar-cabeza {
-  0%,
-  100% {
-    transform: rotate(0deg) translateY(0);
-  }
-  26% {
-    transform: rotate(-1.6deg) translateY(-1.3px);
-  }
-  55% {
-    transform: rotate(1deg) translateY(0.7px);
-  }
-  78% {
-    transform: rotate(-0.6deg) translateY(-0.4px);
-  }
-}
 
 :root {
   --fondo: #f8fafc;
