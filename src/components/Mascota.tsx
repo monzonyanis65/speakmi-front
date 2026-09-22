@@ -328,7 +328,7 @@ export function Mascota({
       // se volvería un metrónomo.
       const donde = Math.random();
       ladeo.set(donde < 0.4 ? -5 : donde < 0.8 ? 5 : 0);
-      reloj = setTimeout(ladear, 2800 + Math.random() * 4200);
+      reloj = setTimeout(ladear, 1800 + Math.random() * 2600);
     };
 
     reloj = setTimeout(ladear, 1200 + Math.random() * 2000);
@@ -461,8 +461,16 @@ export function Mascota({
       const t = tope.current;
       // Cada sílaba es una forma distinta, no un ciclo. De ahí que no se lea
       // como una mandíbula con muelle.
-      bocaAlto.set(1 + (0.15 + Math.random() * 0.75) * t);
-      bocaAncho.set(1 - (0.05 + Math.random() * 0.3) * t);
+      /*
+        El tope de apertura es bajo a propósito. Llegó a estar en 1,88 y en las
+        especies de pico —Milo y el búho— eso no era una boca abriéndose: el
+        pico pasaba a medir treinta unidades sobre una cabeza de cincuenta y dos,
+        entraba entre los ojos por arriba y caía sobre la barriga por abajo. Una
+        daga naranja. La boca de un hocico aguanta más, pero el tope lo tiene que
+        marcar la especie que menos aguanta.
+      */
+      bocaAlto.set(1 + (0.08 + Math.random() * 0.34) * t);
+      bocaAncho.set(1 - (0.04 + Math.random() * 0.22) * t);
       cabezaHabla.set((Math.random() - 0.5) * 3);
       reloj = setTimeout(silaba, 110 + Math.random() * 130);
     };
@@ -553,7 +561,15 @@ export function Mascota({
           ? `${animal.etiqueta}, con ${NOMBRE_ATUENDO[prendaConocida]}`
           : animal.etiqueta
       }
-      className={cn('select-none', className)}
+      /*
+        `overflow-visible` porque el dibujo ocupa el lienzo entero y cualquier
+        pose que suba se recorta contra el borde. Medido: al saltar, al búho le
+        cortaba 30 unidades de cabeza de las 120 del lienzo, penachos incluidos,
+        y no era un rebote del muelle: pasaba también con el movimiento
+        reducido, o sea con la pose quieta. El búho y el zorro se salen incluso
+        en reposo, porque sus orejas ya nacen en el borde.
+      */
+      className={cn('select-none overflow-visible', className)}
     >
       {/* Ondas de sonido: solo cuando está escuchando */}
       {estado === 'escuchando' && (

@@ -178,10 +178,19 @@ export const GESTOS: Record<
     },
     ritmo: 1150,
   },
-  // Celebrar: la pose A es el agachado. Ahí está la anticipación entera.
+  /*
+    Celebrar: la pose A es el agachado. Ahí está la anticipación entera.
+
+    El salto está medido contra el techo del lienzo, no puesto a ojo. La subida
+    no la hace solo el desplazamiento: como la capa pivota en las patas, un
+    estiramiento del 9 % sube la coronilla casi diez unidades por su cuenta.
+    Sumado, al búho y al zorro se les salían más de veinte unidades de cabeza
+    por arriba, con los penachos fuera. Con `overflow-visible` ya no se recortan,
+    pero salirse tanto es pisar lo que haya encima en la pantalla.
+  */
   celebrando: {
     a: {
-      y: 4,
+      y: 3,
       eX: 1.08,
       eY: 0.9,
       giro: 0,
@@ -194,9 +203,9 @@ export const GESTOS: Record<
       cola: 10,
     },
     b: {
-      y: -14,
-      eX: 0.94,
-      eY: 1.09,
+      y: -8,
+      eX: 0.965,
+      eY: 1.05,
       giro: 0,
       alaCercana: 62,
       fueraCercana: 8,
@@ -244,7 +253,7 @@ export const GESTOS: Record<
       eY: 0.99,
       giro: -3,
       alaCercana: 44,
-      fueraCercana: 13,
+      fueraCercana: 8,
       alaLejana: 0,
       cabeza: -3,
       ojo: 1,
@@ -256,7 +265,7 @@ export const GESTOS: Record<
       eY: 1.015,
       giro: 3,
       alaCercana: 96,
-      fueraCercana: 13,
+      fueraCercana: 8,
       alaLejana: 7,
       cabeza: 3,
       ojo: 1,
@@ -324,9 +333,9 @@ export const GESTOS: Record<
   // más. Se queda temblando un poco porque el resorte se pasa de largo.
   sorprendido: {
     a: {
-      y: -6.5,
-      eX: 0.95,
-      eY: 1.075,
+      y: -5,
+      eX: 0.968,
+      eY: 1.042,
       giro: -2,
       alaCercana: 42,
       fueraCercana: 6,
@@ -362,6 +371,7 @@ export const GESTOS: Record<
       eY: 1.022,
       giro: -2,
       alaCercana: -31,
+      fueraCercana: 5,
       alaLejana: 2,
       cabeza: -4,
       ojo: 0.92,
@@ -373,6 +383,7 @@ export const GESTOS: Record<
       eY: 1.005,
       giro: -3,
       alaCercana: -31,
+      fueraCercana: 6,
       alaLejana: -5,
       cabeza: -6,
       ojo: 0.92,

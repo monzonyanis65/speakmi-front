@@ -97,7 +97,15 @@ describe('la coreografía: cada estado se mueve a su manera', () => {
     // salta. La pose A es el agachado y por eso existe.
     const { a, b } = GESTOS.celebrando;
     expect(a.y, 'la pose de carga debería agacharse').toBeGreaterThan(0);
-    expect(b.y, 'la pose de suelta debería despegar').toBeLessThan(-8);
+    expect(b.y, 'la pose de suelta debería despegar').toBeLessThanOrEqual(-6);
+    /*
+      Y no mucho más. El dibujo ocupa el lienzo entero, y la subida no la hace
+      solo esto: como la capa pivota en las patas, el estiramiento sube la
+      coronilla por su cuenta. Sumado, al búho se le salían 23 unidades de
+      cabeza de las 120 del lienzo, penachos fuera.
+    */
+    expect(b.y, 'un salto así se sale de la pantalla').toBeGreaterThanOrEqual(-10);
+    expect(b.eY, 'y el estiramiento del salto también sube la coronilla').toBeLessThan(1.07);
     // Y agacharse es aplastarse: ancho y bajo al cargar, estrecho y alto al
     // saltar. Sin eso el salto parece un ascensor.
     expect(a.eX).toBeGreaterThan(1);
@@ -135,7 +143,7 @@ describe('la coreografía: cada estado se mueve a su manera', () => {
     expect(GESTOS.triste.ritmo).toBeGreaterThan(GESTOS.celebrando.ritmo * 3);
 
     // La sorpresa sí despega: un respingo que no se va del suelo no es respingo.
-    expect(GESTOS.sorprendido.a.y).toBeLessThan(-5);
+    expect(GESTOS.sorprendido.a.y).toBeLessThanOrEqual(-5);
     expect(GESTOS.sorprendido.a.ojo, 'la sorpresa abre los ojos').toBeGreaterThan(1.2);
   });
 
@@ -159,7 +167,10 @@ describe('la coreografía: cada estado se mueve a su manera', () => {
       saludo estuvo girándola 58 grados sin apartarla, y desde fuera no se movía
       nada: lo único visible era una astilla pegada al costado.
     */
-    expect(b.fueraCercana ?? 0, 'un ala pegada al cuerpo no puede saludar').toBeGreaterThan(8);
+    expect(b.fueraCercana ?? 0, 'un ala pegada al cuerpo no puede saludar').toBeGreaterThan(5);
+    // Pero tampoco tanto como para despegarse: a 13 unidades el ala dejaba de
+    // tocar el cuerpo y se leía como un bulto suelto flotando al lado.
+    expect(b.fueraCercana ?? 0, 'un ala despegada tampoco saluda').toBeLessThan(11);
   });
 
   it('dormir es la respiración más honda de todas', () => {
