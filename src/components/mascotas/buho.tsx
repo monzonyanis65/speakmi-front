@@ -33,7 +33,7 @@ export const BUHO: DefinicionEspecie = {
 
   // Alas grandes y pegadas al cuerpo: un búho posado es casi todo ala.
   alaLejana: <ellipse cx="86" cy="66" rx="11" ry="20" className="fill-teal-800" />,
-  alaCercana: <ellipse cx="34" cy="66" rx="13" ry="22" className="fill-teal-700" />,
+  alaCercana: <ellipse cx="32" cy="71" rx="12.5" ry="23" className="fill-teal-700" />,
 
   orejas: (
     <>

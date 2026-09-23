@@ -14,8 +14,29 @@ export const ZORRO: DefinicionEspecie = {
 
   cola: (
     <>
-      <path d="M26 84 C 4 84 0 60 16 52 C 14 70 20 78 30 90 Z" className="fill-orange-600" />
-      <ellipse cx="13" cy="56" rx="7" ry="6" className="fill-orange-50" />
+      {/*
+        La cola arranca en (46,88), bien dentro de la elipse del cuerpo, y el
+        cuerpo se pinta encima: así nace de la silueta en vez de quedar pegada
+        por fuera, que era lo que la hacía leerse como una coma suelta.
+      */}
+      <path
+        d="M46 88 C 28 96 13 92 11 76 C 10 66 12 58 16 53"
+        fill="none"
+        className="stroke-orange-600"
+        strokeWidth="15"
+        strokeLinecap="round"
+      />
+      {/*
+        La punta blanca es el mismo trazo con el mismo grosor, solo que el
+        último tramo: no puede sobresalir de la cola ni despegarse de ella.
+      */}
+      <path
+        d="M11.4 63 C 11 58 13 55 16 53"
+        fill="none"
+        className="stroke-orange-50"
+        strokeWidth="15"
+        strokeLinecap="round"
+      />
     </>
   ),
   origenCola: '28px 86px',

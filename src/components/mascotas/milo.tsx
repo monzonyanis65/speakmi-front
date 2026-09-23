@@ -27,7 +27,7 @@ export const MILO: DefinicionEspecie = {
   // El ala de allá es más pequeña y más oscura: sin esa diferencia el pájaro se
   // ve plano, como recortado en papel.
   alaLejana: <ellipse cx="86" cy="68" rx="10" ry="16" className="fill-marca-800" />,
-  alaCercana: <ellipse cx="34" cy="68" rx="12" ry="18" className="fill-marca-700" />,
+  alaCercana: <ellipse cx="32" cy="72" rx="11" ry="20" className="fill-marca-700" />,
 
   orejas: <path d="M52 32 Q58 18 66 30 Q60 26 52 32 Z" className="fill-marca-700" />,
   cabeza: <circle cx="60" cy="42" r="26" className="fill-marca-600" />,

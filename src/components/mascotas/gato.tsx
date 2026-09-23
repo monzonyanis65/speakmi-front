@@ -13,12 +13,14 @@ export const GATO: DefinicionEspecie = {
   anclajes: { coronilla: 16, anchoCabeza: 26, ojos: 40, cuello: 66 },
 
   // La cola de gato es un trazo, no un triángulo: así el balanceo se lee como
-  // un latigazo suave y no como una aleta rígida.
+  // un latigazo suave y no como una aleta rígida. Arranca dentro del cuerpo y
+  // va un tono más oscura que la pata de acá: con las dos del mismo gris se
+  // fundían en una sola mancha y la pose en jarras no se distinguía.
   cola: (
     <path
-      d="M24 82 C 8 86 2 68 14 58"
+      d="M42 90 C 38 88 32 80 24 82 C 8 86 2 68 14 58"
       fill="none"
-      className="stroke-slate-500"
+      className="stroke-slate-600"
       strokeWidth="7"
       strokeLinecap="round"
     />
@@ -33,7 +35,7 @@ export const GATO: DefinicionEspecie = {
   ),
 
   alaLejana: <ellipse cx="86" cy="70" rx="9" ry="15" className="fill-slate-600" />,
-  alaCercana: <ellipse cx="34" cy="70" rx="11" ry="17" className="fill-slate-500" />,
+  alaCercana: <ellipse cx="32" cy="73" rx="10.5" ry="19" className="fill-slate-500" />,
 
   orejas: (
     <>

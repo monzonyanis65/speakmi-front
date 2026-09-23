@@ -59,26 +59,39 @@ export function CapaAtuendo({
   }
 
   if (atuendo === 'OUTFIT_CORONA') {
-    // Ocho píxeles por debajo de la coronilla: lo justo para que la corona
-    // abrace la cabeza y las orejas de punta asomen por encima de las puntas.
-    const base = coronilla + 8;
+    /*
+      La corona se apoya en la frente, no en lo alto del cráneo.
+
+      Con la base a ocho píxeles de la coronilla y el ancho entero de la cabeza,
+      las puntas subían justo a la franja donde nacen las orejas: en el búho los
+      penachos reaparecían en los huecos entre punta y punta —parecían
+      atravesarla— y en el zorro una oreja salía por la punta de la derecha. Los
+      anclajes estaban bien medidos; lo que faltaba era que la corona contase con
+      las orejas. Bajándola tres píxeles y metiéndola diez por cada lado, todas
+      las orejas de punta —gato, zorro y penachos del búho— pasan POR FUERA del
+      contorno de la corona y se ven enteras por encima, en vez de partidas.
+    */
+    const base = coronilla + 11;
+    const w = ancho - 10;
+    // Las puntas laterales, a cinco píxeles de las esquinas de la diadema.
+    const punta = w - 5;
     return (
       <g aria-hidden="true">
         <path
-          d={`M${60 - ancho + 4} ${base} L${60 - ancho + 10} ${base - 14} L56 ${base - 6} L60 ${base - 18} L64 ${base - 6} L${60 + ancho - 10} ${base - 14} L${60 + ancho - 4} ${base} Z`}
+          d={`M${60 - w} ${base} L${60 - punta} ${base - 11} L55 ${base - 4} L60 ${base - 16} L65 ${base - 4} L${60 + punta} ${base - 11} L${60 + w} ${base} Z`}
           className="fill-acento-400"
         />
         <rect
-          x={60 - ancho + 2}
+          x={60 - w + 2}
           y={base - 2}
-          width={ancho * 2 - 4}
+          width={w * 2 - 4}
           height="7"
           rx="2"
           className="fill-acento-500"
         />
-        <circle cx={60 - ancho + 10} cy={base + 1.5} r="2" className="fill-rose-400" />
+        <circle cx={60 - punta} cy={base + 1.5} r="2" className="fill-rose-400" />
         <circle cx="60" cy={base + 1.5} r="2.2" className="fill-rose-500" />
-        <circle cx={60 + ancho - 10} cy={base + 1.5} r="2" className="fill-rose-400" />
+        <circle cx={60 + punta} cy={base + 1.5} r="2" className="fill-rose-400" />
       </g>
     );
   }
