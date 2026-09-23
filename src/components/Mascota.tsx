@@ -132,6 +132,37 @@ export function Mascota({
   tamano = 120,
   className,
 }: Props) {
+  const quieto = useMenosMovimiento();
+
+  /*
+    Lo que se PINTA no siempre es lo que piden.
+
+    Saludar, celebrar y asustarse son cosas que pasan, no formas de estar: se
+    hacen unas cuantas veces y se acaban. Las pantallas los ponen y se olvidan
+    —y así debe ser, quien pinta una pantalla no tiene por qué acordarse de
+    apagar un gesto—, así que sin esto el personaje se queda saludando el resto
+    de la sesión. Además de raro, deja de significar nada: un saludo permanente
+    ya no saluda a nadie.
+
+    Cuando el gesto se agota, baja al estado tranquilo que diga su coreografía.
+    Si desde fuera cambia el estado, se vuelve a empezar. Los estados que sí son
+    formas de estar —escuchar, dormir, pensar, hablar— no bajan solos, porque
+    ahí el estado dura lo que dure la situación.
+  */
+  const [enEscena, setEnEscena] = useState<EstadoMascota>(estado);
+
+  useEffect(() => {
+    setEnEscena(estado);
+    const { seCalma, veces, ritmo } = GESTOS[estado];
+    if (!seCalma) return;
+
+    // Con movimiento reducido no hay gesto que agotar: se queda en su pose.
+    if (quieto) return;
+
+    const reloj = setTimeout(() => setEnEscena(seCalma), ritmo * (veces ?? 6));
+    return () => clearTimeout(reloj);
+  }, [estado, quieto]);
+
   /*
     Sin decir cuál, se usa la que la persona lleva puesta.
     Así ninguna pantalla tiene que acordarse de pasarla: quien compra un gato lo
@@ -157,14 +188,12 @@ export function Mascota({
   */
   const animal = ESPECIES[cual] ?? ESPECIES.PET_MILO;
   const prendaConocida = prenda && prenda in NOMBRE_ATUENDO ? prenda : null;
-  const ojoAbierto = estado !== 'pensando' && estado !== 'durmiendo';
-  const hablando = estado === 'hablando';
+  const ojoAbierto = enEscena !== 'pensando' && enEscena !== 'durmiendo';
+  const hablando = enEscena === 'hablando';
   // La boca se abre al hablar, al celebrar, al animar y al sorprenderse, que es
   // media sorpresa.
   const picoAbierto =
-    estado === 'celebrando' || estado === 'animando' || estado === 'sorprendido' || hablando;
-
-  const quieto = useMenosMovimiento();
+    enEscena === 'celebrando' || enEscena === 'animando' || enEscena === 'sorprendido' || hablando;
 
   // ---- La pose del cuerpo, un valor por parte.
   const y = useMotionValue(0);
@@ -186,7 +215,7 @@ export function Mascota({
     recorra mucho. La librería vuelve a engancharlo al cambiar la configuración,
     así que basta con pasarle otra.
   */
-  const resorteCuerpo = GESTOS[estado].resorte ?? RESORTE.cuerpo;
+  const resorteCuerpo = GESTOS[enEscena].resorte ?? RESORTE.cuerpo;
   const ys = useSpring(y, resorteCuerpo);
   const eXs = useSpring(eX, resorteCuerpo);
   const eYs = useSpring(eY, resorteCuerpo);
@@ -216,7 +245,7 @@ export function Mascota({
   const enTic = useRef(false);
 
   useEffect(() => {
-    const gesto = GESTOS[estado];
+    const gesto = GESTOS[enEscena];
 
     const mezcla = (t: number): Pose => {
       const { a, b } = gesto;
@@ -311,7 +340,7 @@ export function Mascota({
     let director: ReturnType<typeof setTimeout>;
     const proponer = () => {
       if (!vivo) return;
-      if (ESTADOS_CON_TICS.includes(estado)) {
+      if (ESTADOS_CON_TICS.includes(enEscena)) {
         const cuales = Object.keys(TICS);
         const pasos = TICS[cuales[Math.floor(Math.random() * cuales.length)]!]!;
         enTic.current = true;
@@ -342,7 +371,7 @@ export function Mascota({
       clearTimeout(director);
     };
   }, [
-    estado,
+    enEscena,
     quieto,
     y,
     eX,
@@ -360,7 +389,7 @@ export function Mascota({
   /*
     El ladeo de la cabeza, que va a su aire.
 
-    No depende del estado y es deliberado: es el gesto que hace que la mascota
+    No depende del enEscena y es deliberado: es el gesto que hace que la mascota
     parezca estar atendiendo a algo en vez de esperando a que le den cuerda. Se
     ladea a un lado, aguanta un rato largo y vuelve, con esperas desiguales.
   */
@@ -532,7 +561,7 @@ export function Mascota({
     };
   }, [hablando, quieto, bocaAlto, bocaAncho, cabezaHabla]);
 
-  // El ladeo propio del estado y el que la cabeza hace por su cuenta se suman:
+  // El ladeo propio del enEscena y el que la cabeza hace por su cuenta se suman:
   // son dos cosas distintas que tienen que poder pasar a la vez.
   const cabezaGiro = useTransform(
     [cabezaPoses, ladeos, cabezaHablas],
@@ -567,7 +596,7 @@ export function Mascota({
   // Dormido los párpados caen relajados; pensando se arquean hacia arriba, que
   // es lo que distingue a alguien con los ojos cerrados de alguien dormido.
   const parpadosCerrados =
-    estado === 'durmiendo'
+    enEscena === 'durmiendo'
       ? ['M44 40 Q50 45 56 40', 'M64 40 Q70 45 76 40']
       : ['M44 40 Q50 35 56 40', 'M64 40 Q70 35 76 40'];
 
@@ -622,7 +651,7 @@ export function Mascota({
       className={cn('select-none overflow-visible', className)}
     >
       {/* Ondas de sonido: solo cuando está escuchando */}
-      {estado === 'escuchando' && (
+      {enEscena === 'escuchando' && (
         <g className="text-marca-400">
           <circle
             cx="60"
@@ -649,7 +678,7 @@ export function Mascota({
       )}
 
       {/*
-        El cuerpo: la pose del estado entera cuelga de aquí.
+        El cuerpo: la pose del enEscena entera cuelga de aquí.
 
         El pivote está en la línea del suelo, y=108, que es donde apoyan las
         patas de las cinco especies. Escalando desde el centro las patas se
@@ -766,13 +795,13 @@ export function Mascota({
               data-capa="mirada"
             >
               <circle
-                cx={estado === 'feliz' ? 51 : 50}
+                cx={enEscena === 'feliz' ? 51 : 50}
                 cy="41"
                 r="4.5"
                 className="fill-slate-900"
               />
               <circle
-                cx={estado === 'feliz' ? 71 : 70}
+                cx={enEscena === 'feliz' ? 71 : 70}
                 cy="41"
                 r="4.5"
                 className="fill-slate-900"
@@ -870,7 +899,7 @@ export function Mascota({
       </motion.g>
 
       {/* Estrellitas al celebrar */}
-      {estado === 'celebrando' && (
+      {enEscena === 'celebrando' && (
         <g className="fill-acento-400">
           <path
             d="M18 26 l2.5 5 5 2.5 -5 2.5 -2.5 5 -2.5 -5 -5 -2.5 5 -2.5 z"
@@ -894,7 +923,7 @@ export function Mascota({
         de estrenar animación: el gesto es el mismo, subir despacio, y una
         animación menos es una cosa menos que mantener afinada.
       */}
-      {estado === 'durmiendo' && (
+      {enEscena === 'durmiendo' && (
         <g className="fill-marca-400" aria-hidden="true">
           <text
             x="86"

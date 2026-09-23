@@ -146,7 +146,28 @@ const RESORTE_SECO = { type: 'spring' as const, stiffness: 420, damping: 17, mas
 
 export const GESTOS: Record<
   EstadoMascota,
-  { a: Pose; b: Pose; ritmo: number; resorte?: typeof RESORTE_SECO }
+  {
+    a: Pose;
+    b: Pose;
+    ritmo: number;
+    resorte?: typeof RESORTE_SECO;
+    /**
+     * A qué estado baja solo cuando el gesto ya se ha hecho.
+     *
+     * Saludar, celebrar y asustarse son COSAS QUE PASAN, no formas de estar: se
+     * hacen unas cuantas veces y se acaban. Dejados fijos, el personaje se queda
+     * saludando el resto de la sesión, que además de raro deja de significar
+     * nada, porque un saludo permanente ya no saluda a nadie.
+     *
+     * Las pantallas los ponen y se olvidan, y así tiene que ser: quien pinta una
+     * pantalla no debería tener que acordarse de apagar un gesto. Los estados que
+     * SÍ son formas de estar —escuchar, dormir, pensar, hablar— no bajan solos,
+     * porque ahí el estado dura lo que dure la situación.
+     */
+    seCalma?: EstadoMascota;
+    /** Cuántos compases dura antes de bajar. */
+    veces?: number;
+  }
 > = {
   // Respirar y poco más. Es el estado en el que más tiempo se le ve, así que
   // aquí lo importante es que no canse: todo lo de abajo es mínimo a propósito.
@@ -249,6 +270,8 @@ export const GESTOS: Record<
     },
     ritmo: 620,
     resorte: RESORTE_SECO,
+    seCalma: 'feliz',
+    veces: 8,
   },
   // Pensar es el único estado quieto de verdad. Aun así no se queda clavado:
   // un personaje absolutamente inmóvil se lee como una imagen rota.
@@ -309,6 +332,8 @@ export const GESTOS: Record<
     },
     ritmo: 640,
     resorte: RESORTE_SECO,
+    seCalma: 'feliz',
+    veces: 7,
   },
   // Escuchar: se inclina hacia quien habla y abre un poco más los ojos. El
   // pulso es corto, como el de alguien atento que no se mueve pero tampoco
@@ -404,6 +429,8 @@ export const GESTOS: Record<
     },
     ritmo: 760,
     resorte: RESORTE_SECO,
+    seCalma: 'neutral',
+    veces: 5,
   },
   // Orgulloso: saca pecho, se echa hacia atrás y se pone el ala en jarras. El
   // ala de acá se queda quieta y la de allá sigue con el vaivén, que es lo que

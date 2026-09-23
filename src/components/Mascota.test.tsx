@@ -244,6 +244,34 @@ describe('la coreografía: cada estado se mueve a su manera', () => {
     }
   });
 
+  it('los gestos se acaban; las formas de estar, no', () => {
+    /*
+      Saludar, celebrar y asustarse son cosas que PASAN: se hacen unas cuantas
+      veces y se acaban. Las pantallas los ponen y se olvidan —ocho sitios los
+      dejan fijos—, así que sin esto el personaje se queda saludando el resto de
+      la sesión, y un saludo permanente ya no saluda a nadie.
+
+      Escuchar, dormir, pensar y hablar sí duran: ahí el estado dura lo que dure
+      la situación, y apagarlo solo sería mentir sobre lo que está pasando.
+    */
+    const SUCESOS: EstadoMascota[] = ['animando', 'celebrando', 'sorprendido'];
+    for (const estado of TODOS) {
+      const baja = Boolean(GESTOS[estado].seCalma);
+      expect(baja, `${estado} ${baja ? 'se apaga y no debería' : 'no se apaga y debería'}`).toBe(
+        SUCESOS.includes(estado),
+      );
+    }
+    // Y a donde bajan tiene que ser un sitio donde quedarse: si el destino
+    // también se apagara, iría cayendo de estado en estado sin parar.
+    for (const estado of SUCESOS) {
+      const destino = GESTOS[estado].seCalma!;
+      expect(
+        GESTOS[destino].seCalma,
+        `${estado} baja a ${destino}, que también se apaga`,
+      ).toBeUndefined();
+    }
+  });
+
   it('no hay dos estados que se muevan igual', () => {
     const vistos = TODOS.map((estado) => JSON.stringify(GESTOS[estado]));
     expect(new Set(vistos).size, 'hay estados con la coreografía repetida').toBe(TODOS.length);
