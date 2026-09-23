@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { NIVELES } from '@/data/niveles';
+import { NIVELES, TRAMOS } from '@/data/niveles';
 import { guardarNivel } from '@/lib/auth';
 import { useSesion } from '@/store/sesion';
 import { TarjetaNivel } from '@/components/TarjetaNivel';
 import { Boton } from '@/components/Boton';
+import { cn } from '@/lib/cn';
 
 /**
  * Elegir el nivel. Se llega aquí después de entrar, y solo la primera vez o
@@ -46,16 +47,70 @@ export function Bienvenida() {
           Elige el nivel que estás cursando. Podrás cambiarlo cuando quieras.
         </p>
 
-        {/* El hueco de abajo deja sitio a la barra fija, para que no tape el último nivel. */}
-        <div className="mt-5 grid gap-3 pb-28">
-          {NIVELES.map((nivel) => (
-            <TarjetaNivel
-              key={nivel.codigo}
-              nivel={nivel}
-              seleccionado={seleccionado === nivel.codigo}
-              onSeleccionar={setSeleccionado}
-            />
-          ))}
+        {/*
+          Agrupados por tramo del Marco Común Europeo, no en una lista de ocho.
+
+          Ocho niveles seguidos no dicen dónde acaba uno y empieza otro, y sobre
+          todo no dicen nada fuera de esta aplicación: nadie pone «nivel 5» en un
+          currículum. Con los tramos, elegir deja de ser «¿voy por el 4 o por el
+          5?» —que casi nadie sabe— y pasa a ser «¿soy A2?», que es la pregunta
+          que la gente sí sabe contestar.
+
+          El hueco de abajo deja sitio a la barra fija, para que no tape el
+          último nivel.
+        */}
+        <div className="mt-6 grid gap-8 pb-28">
+          {TRAMOS.map((tramo) => {
+            const suyos = NIVELES.filter((n) => tramo.niveles.includes(n.codigo));
+
+            return (
+              <section key={tramo.letra} aria-labelledby={`tramo-${tramo.letra}`}>
+                <div className="flex items-baseline gap-3">
+                  <span
+                    className={cn(
+                      'rounded-lg px-2.5 py-1 text-sm font-bold',
+                      suyos.length > 0
+                        ? 'bg-marca-600 text-white'
+                        : 'bg-[var(--superficie)] text-[var(--texto-suave)]',
+                    )}
+                  >
+                    {tramo.letra}
+                  </span>
+                  <h3 id={`tramo-${tramo.letra}`} className="font-semibold">
+                    {tramo.nombre}
+                  </h3>
+                  {suyos.length > 0 && (
+                    <span className="text-xs text-[var(--texto-suave)]">
+                      {suyos.length} {suyos.length === 1 ? 'nivel' : 'niveles'}
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-1 text-sm text-[var(--texto-suave)]">{tramo.resumen}</p>
+
+                {suyos.length > 0 ? (
+                  <div className="mt-3 grid gap-3">
+                    {suyos.map((nivel) => (
+                      <TarjetaNivel
+                        key={nivel.codigo}
+                        nivel={nivel}
+                        seleccionado={seleccionado === nivel.codigo}
+                        onSeleccionar={setSeleccionado}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  /*
+                    Se dice que todavía no está, en vez de esconderlo. Cortar la
+                    lista en B1 daría a entender que ahí se acaba el inglés.
+                  */
+                  <p className="mt-3 rounded-2xl border border-dashed border-[var(--borde)] px-4 py-3 text-sm text-[var(--texto-suave)]">
+                    Todavía no hay curso de este tramo. Llegará.
+                  </p>
+                )}
+              </section>
+            );
+          })}
         </div>
       </section>
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { guardarNivel } from '@/lib/auth';
-import { NIVELES } from '@/data/niveles';
+import { NIVELES, tramoDe } from '@/data/niveles';
 import { Ejercicio } from '@/components/ejercicios/Ejercicio';
 import { LeerEnVozAlta } from '@/components/ejercicios/LeerEnVozAlta';
 import type { EjercicioPublico, Respuesta } from '@/components/ejercicios/tipos';
@@ -99,6 +99,7 @@ export function Prueba() {
 
   if (resultado) {
     const nivel = NIVELES.find((n) => n.codigo === resultado.suggestedLevel);
+    const tramo = tramoDe(resultado.suggestedLevel);
 
     return (
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10">
@@ -106,10 +107,28 @@ export function Prueba() {
           <p className="text-sm text-[var(--texto-suave)]">
             Acertaste {resultado.score} de {resultado.total}
           </p>
-          <h1 className="mt-2 text-2xl font-bold">Empieza por el nivel {nivel?.numero}</h1>
+
+          {/*
+            El tramo va primero y en grande, y el nivel del curso debajo.
+
+            «Estás en A2» es la frase que la persona se lleva puesta: es lo que
+            dice en una entrevista y lo que le permite compararse con alguien que
+            estudió en otro sitio. «Nivel 5» solo significa algo aquí dentro.
+          */}
+          {tramo && (
+            <p className="mt-4 text-5xl font-extrabold tracking-tight text-marca-600 dark:text-marca-400">
+              {nivel?.cefr ?? tramo.letra}
+            </p>
+          )}
+          <h1 className="mt-2 text-2xl font-bold">
+            {tramo ? tramo.nombre : `Nivel ${nivel?.numero}`}
+          </h1>
+          {tramo && <p className="mt-2 text-sm text-[var(--texto-suave)]">{tramo.resumen}</p>}
+
           {nivel && (
-            <p className="mt-3 text-[var(--texto-suave)]">
-              {nivel.titulo}. {nivel.descripcion}
+            <p className="mt-4 rounded-2xl bg-[var(--superficie)] px-4 py-3 text-sm text-[var(--texto-suave)]">
+              Empiezas por el <span className="font-semibold">nivel {nivel.numero}</span>:{' '}
+              {nivel.titulo.toLowerCase()}. {nivel.descripcion}
             </p>
           )}
         </div>
