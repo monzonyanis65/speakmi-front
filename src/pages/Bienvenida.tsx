@@ -88,6 +88,53 @@ export function Bienvenida() {
 
                 <p className="mt-1 text-sm text-[var(--texto-suave)]">{tramo.resumen}</p>
 
+                {/*
+                  Qué sabes hacer, cuánto cuesta llegar y qué papel equivale.
+
+                  Van plegados porque son cinco o seis frases por tramo y con seis
+                  tramos la pantalla de elegir nivel se convertiría en un tratado.
+                  Plegado, quien sepa su nivel elige en dos segundos y quien no lo
+                  sepa tiene dónde mirar. Un `details` nativo y no un desplegable
+                  hecho a mano: funciona sin JavaScript, se abre con el teclado y
+                  el buscador del navegador encuentra el texto de dentro.
+                */}
+                <details className="group/detalle mt-2">
+                  <summary className="cursor-pointer list-none text-sm font-medium text-marca-600 hover:underline dark:text-marca-400">
+                    Qué significa {tramo.letra}
+                    <span className="ml-1 inline-block transition-transform group-open/detalle:rotate-90">
+                      ›
+                    </span>
+                  </summary>
+
+                  <div className="mt-2 rounded-2xl bg-[var(--superficie)] p-4 text-sm">
+                    <ul className="grid gap-1.5">
+                      {tramo.puedes.map((cosa) => (
+                        <li key={cosa} className="flex gap-2">
+                          <span aria-hidden className="text-marca-600 dark:text-marca-400">
+                            ·
+                          </span>
+                          <span>{cosa}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <dl className="mt-3 grid gap-1 border-t border-[var(--borde)] pt-3 text-xs text-[var(--texto-suave)]">
+                      <div className="flex gap-2">
+                        <dt className="font-semibold">Clases hasta aquí:</dt>
+                        <dd>{tramo.horas}</dd>
+                      </div>
+                      <div className="flex gap-2">
+                        <dt className="shrink-0 font-semibold">Equivale a:</dt>
+                        <dd>{tramo.examenes.join(' · ')}</dd>
+                      </div>
+                      <div className="flex gap-2">
+                        <dt className="font-semibold">El Marco lo llama:</dt>
+                        <dd>{tramo.bloque}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                </details>
+
                 {suyos.length > 0 ? (
                   <div className="mt-3 grid gap-3">
                     {suyos.map((nivel) => (
