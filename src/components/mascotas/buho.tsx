@@ -11,6 +11,17 @@ import { type DefinicionEspecie } from './tipos';
 export const BUHO: DefinicionEspecie = {
   etiqueta: 'Ulises, el búho de Speakmi',
   anclajes: { coronilla: 17, anchoCabeza: 28, ojos: 40, cuello: 66 },
+  /*
+    Más anchas que en el pájaro, porque el cráneo lo es.
+
+    Estuvieron en y=25.5, o sea en el filo de la coronilla, y ahí no se leían
+    como cejas: se leían como una diadema. Una ceja tiene que estar SOBRE un
+    ojo, no sobre la cabeza, y en el búho el ojo está más abajo de lo que
+    parece porque lo que se ve grande es el disco facial. Bajadas a 27,5 caen
+    justo en el borde de arriba del disco, que además es claro: es el sitio de
+    la cara donde más contrastan.
+  */
+  cejas: { y: 27.5, ancho: 8, arco: 4, grosor: 2.9, color: 'stroke-teal-900' },
 
   cola: (
     <>
@@ -50,13 +61,31 @@ export const BUHO: DefinicionEspecie = {
     </>
   ),
 
-  bocaCerrada: <path d="M55 50 L65 50 L60 59 Z" className="fill-acento-500" />,
-  bocaAbierta: (
-    <>
-      <path d="M55 52 L65 52 L60 63 Z" className="fill-acento-500" />
-      <path d="M55 52 L65 52 L60 46 Z" className="fill-acento-400" />
-    </>
-  ),
+  // El pico del búho es más estrecho y más largo que el de Milo, así que las
+  // seis salen de ahí: el mismo repertorio, más picudo.
+  bocas: {
+    cerrada: <path d="M55 50 L65 50 L60 59 Z" className="fill-acento-500" />,
+    sonrisa: <path d="M54 50 Q60 45.5 66 50 L60 59 Z" className="fill-acento-500" />,
+    pena: <path d="M55 48.5 Q60 53 65 48.5 L60 59.5 Z" className="fill-acento-500" />,
+    ancha: (
+      <>
+        <path d="M51 52 L69 52 L60 59 Z" className="fill-acento-500" />
+        <path d="M51 52 L69 52 L60 48 Z" className="fill-acento-400" />
+      </>
+    ),
+    redonda: (
+      <>
+        <path d="M56.5 52 L63.5 52 L60 62 Z" className="fill-acento-500" />
+        <path d="M56.5 52 L63.5 52 L60 47 Z" className="fill-acento-400" />
+      </>
+    ),
+    abierta: (
+      <>
+        <path d="M55 52 L65 52 L60 63 Z" className="fill-acento-500" />
+        <path d="M55 52 L65 52 L60 46 Z" className="fill-acento-400" />
+      </>
+    ),
+  },
   origenBoca: '60px 52px',
 
   patas: (

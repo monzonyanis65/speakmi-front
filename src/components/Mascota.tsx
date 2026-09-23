@@ -1,7 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
-import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react';
 import { cn } from '@/lib/cn';
-import { CapaAtuendo, ESPECIES, NOMBRE_ATUENDO, type Atuendo, type Especie } from './mascotas';
+import {
+  CapaAtuendo,
+  ESPECIES,
+  NOMBRE_ATUENDO,
+  type Atuendo,
+  type CejasEspecie,
+  type Especie,
+  type Visema,
+} from './mascotas';
 import { useMascotaEquipada } from '@/lib/mascota-contexto';
 import {
   aperturaDeVoz,
@@ -10,6 +18,7 @@ import {
   GESTOS,
   RESORTE,
   TICS,
+  visemaDeVoz,
   type EstadoMascota,
   type Pose,
 } from './mascotas/coreografia';
@@ -91,13 +100,75 @@ interface Props {
  *   g cuerpo     -> la pose del estado (agacharse, saltar, hundirse, presumir)
  *   g cabeza     -> el ladeo, que va a su aire y no depende del estado
  *   g habla      -> el acompañamiento de la cabeza mientras habla
+ *   g cejas      -> las dos cejas, cada una con su altura y su inclinación
  *   g ojos       -> abrir más, parpadear y mirar, cada uno en su nivel
- *   g boca       -> el alto y el ancho de la boca, uno por capa
+ *   g boca       -> las seis bocas montadas, y encima el alto y el ancho
  *
  * Separarlas es lo que permite que dos gestos ocurran a la vez sin pisarse. En
  * un mismo elemento, la segunda transformación se come a la primera: un ojo que
  * se estrecha por el giro no podría además cerrarse para parpadear.
  */
+
+/**
+ * Las seis bocas, en el orden en que se pintan.
+ *
+ * Van todas montadas siempre y solo se enciende una. Cruzarlas en opacidad en
+ * vez de sustituirlas es lo que hace que la boca pase de una forma a otra en
+ * lugar de aparecer de golpe, y al hablar eso ocurre ocho veces por segundo: un
+ * cambio seco ahí se ve como un parpadeo en mitad de la cara.
+ *
+ * El orden importa poco porque nunca hay dos encendidas del todo, pero durante
+ * el cruce sí se solapan un instante, y las rellenas tapan mejor a las de trazo
+ * que al revés.
+ */
+const VISEMAS: Visema[] = ['cerrada', 'sonrisa', 'pena', 'ancha', 'redonda', 'abierta'];
+
+/**
+ * Las seis bocas, cada una con su opacidad y su resorte.
+ *
+ * Es un gancho y no seis pares de líneas sueltas porque lo único que hace falta
+ * de fuera es «pon esta»: quién está encendida y cuánto tarda en encenderse es
+ * asunto de aquí dentro.
+ *
+ * La opacidad inicial la decide el estado con el que se monta, y eso no es un
+ * detalle: arrancando todas a cero, la mascota aparecería un fotograma sin
+ * boca, justo en la parte de la cara que más se mira.
+ */
+function useBocas(inicial: Visema) {
+  const fuente: Record<Visema, MotionValue<number>> = {
+    cerrada: useMotionValue(inicial === 'cerrada' ? 1 : 0),
+    sonrisa: useMotionValue(inicial === 'sonrisa' ? 1 : 0),
+    pena: useMotionValue(inicial === 'pena' ? 1 : 0),
+    ancha: useMotionValue(inicial === 'ancha' ? 1 : 0),
+    redonda: useMotionValue(inicial === 'redonda' ? 1 : 0),
+    abierta: useMotionValue(inicial === 'abierta' ? 1 : 0),
+  };
+
+  const opacidad: Record<Visema, MotionValue<number>> = {
+    cerrada: useSpring(fuente.cerrada, RESORTE.visema),
+    sonrisa: useSpring(fuente.sonrisa, RESORTE.visema),
+    pena: useSpring(fuente.pena, RESORTE.visema),
+    ancha: useSpring(fuente.ancha, RESORTE.visema),
+    redonda: useSpring(fuente.redonda, RESORTE.visema),
+    abierta: useSpring(fuente.abierta, RESORTE.visema),
+  };
+
+  /*
+    La orden de poner una boca tiene que ser la MISMA función siempre.
+
+    La usan dos efectos —el del estado y el de las sílabas— y si cambiara en
+    cada dibujado, los dos se volverían a montar constantemente: el del habla
+    reiniciaría el ciclo de sílabas varias veces por segundo y la boca se
+    quedaría trabada en la primera.
+  */
+  const guardadas = useRef(fuente);
+  guardadas.current = fuente;
+  const poner = useCallback((cual: Visema) => {
+    for (const v of VISEMAS) guardadas.current[v].set(v === cual ? 1 : 0);
+  }, []);
+
+  return { opacidad, poner };
+}
 
 /**
  * Si esta persona pidió menos movimiento en su sistema.
@@ -190,10 +261,22 @@ export function Mascota({
   const prendaConocida = prenda && prenda in NOMBRE_ATUENDO ? prenda : null;
   const ojoAbierto = enEscena !== 'pensando' && enEscena !== 'durmiendo';
   const hablando = enEscena === 'hablando';
-  // La boca se abre al hablar, al celebrar, al animar y al sorprenderse, que es
-  // media sorpresa.
-  const picoAbierto =
-    enEscena === 'celebrando' || enEscena === 'animando' || enEscena === 'sorprendido' || hablando;
+
+  /*
+    Qué boca pone, que ya no es «abierta o cerrada».
+
+    Con dos bocas, diez de los once estados compartían cara y la única
+    diferencia entre estar triste y estar orgulloso era la postura del cuerpo.
+    Ahora cada estado declara la suya en la coreografía, y al hablar manda la
+    sílaba.
+  */
+  const { opacidad: bocaOpacidad, poner: ponerBoca } = useBocas(GESTOS[estado].boca);
+
+  useEffect(() => {
+    // Mientras habla la boca es del habla; en cuanto calla, vuelve la del estado.
+    if (hablando && !quieto) return;
+    ponerBoca(GESTOS[enEscena].boca);
+  }, [enEscena, hablando, quieto, ponerBoca]);
 
   // ---- La pose del cuerpo, un valor por parte.
   const y = useMotionValue(0);
@@ -206,6 +289,9 @@ export function Mascota({
   const fueraLejana = useMotionValue(0);
   const cabezaPose = useMotionValue(0);
   const ojoPose = useMotionValue(1);
+  const cejaPose = useMotionValue(0);
+  const cejaGiroPose = useMotionValue(0);
+  const cejaSesgoPose = useMotionValue(0);
   const colaPose = useMotionValue(0);
 
   /*
@@ -226,6 +312,9 @@ export function Mascota({
   const fueraLejanas = useSpring(fueraLejana, RESORTE.alaLejana);
   const cabezaPoses = useSpring(cabezaPose, RESORTE.cabeza);
   const ojoPoses = useSpring(ojoPose, RESORTE.ojo);
+  const cejaPoses = useSpring(cejaPose, RESORTE.ceja);
+  const cejaGiroPoses = useSpring(cejaGiroPose, RESORTE.ceja);
+  const cejaSesgoPoses = useSpring(cejaSesgoPose, RESORTE.ceja);
   const colaPoses = useSpring(colaPose, RESORTE.cola);
 
   /*
@@ -261,6 +350,9 @@ export function Mascota({
         fueraLejana: e(a.fueraLejana ?? 0, b.fueraLejana ?? 0),
         cabeza: e(a.cabeza, b.cabeza),
         ojo: e(a.ojo, b.ojo),
+        ceja: e(a.ceja, b.ceja),
+        cejaGiro: e(a.cejaGiro, b.cejaGiro),
+        cejaSesgo: e(a.cejaSesgo, b.cejaSesgo),
         cola: e(a.cola, b.cola),
       };
     };
@@ -276,6 +368,9 @@ export function Mascota({
       fueraLejana.set(p.fueraLejana ?? 0);
       cabezaPose.set(p.cabeza);
       ojoPose.set(p.ojo);
+      cejaPose.set(p.ceja);
+      cejaGiroPose.set(p.cejaGiro);
+      cejaSesgoPose.set(p.cejaSesgo);
       colaPose.set(p.cola);
     };
 
@@ -325,9 +420,18 @@ export function Mascota({
       fueraLejana.set(p.fueraLejana ?? 0);
     });
     relojDe(COMPAS.cola, (p) => colaPose.set(p.cola));
+    /*
+      Las cejas van con la cabeza y no con el cuerpo, y es a propósito: una ceja
+      que se moviera al compás del pecho respiraría, y las cejas no respiran.
+      Colgadas del reloj de la cabeza acompañan al ladeo, que es lo que hacen
+      las de verdad.
+    */
     relojDe(COMPAS.cabeza, (p) => {
       cabezaPose.set(p.cabeza);
       ojoPose.set(p.ojo);
+      cejaPose.set(p.ceja);
+      cejaGiroPose.set(p.cejaGiro);
+      cejaSesgoPose.set(p.cejaSesgo);
     });
 
     /*
@@ -383,6 +487,9 @@ export function Mascota({
     fueraLejana,
     cabezaPose,
     ojoPose,
+    cejaPose,
+    cejaGiroPose,
+    cejaSesgoPose,
     colaPose,
   ]);
 
@@ -534,10 +641,29 @@ export function Mascota({
     }
     let vivo = true;
     let reloj: ReturnType<typeof setTimeout>;
+    let anterior: Visema | null = null;
 
     const silaba = () => {
       if (!vivo) return;
       const t = tope.current;
+
+      /*
+        Y la boca CAMBIA DE FORMA, no solo de tamaño.
+
+        Esto es lo que separa a alguien hablando de una mandíbula con muelle.
+        Deformando una sola boca, la forma es siempre la misma y lo único que
+        varía es cuánto: a los tres segundos ya se ve el mecanismo. Saltando
+        entre bocas distintas —la de la /m/, la de la /o/, la de la /a/— se lee
+        como habla aunque ninguna corresponda al sonido que suena de verdad,
+        porque lo que el ojo reconoce es que la boca no repite.
+
+        Y nunca dos veces la misma seguida: repetir es justo lo que la delata.
+      */
+      let cual = visemaDeVoz(t, Math.random());
+      if (cual === anterior) cual = visemaDeVoz(t, Math.random());
+      anterior = cual;
+      ponerBoca(cual);
+
       // Cada sílaba es una forma distinta, no un ciclo. De ahí que no se lea
       // como una mandíbula con muelle.
       /*
@@ -547,9 +673,16 @@ export function Mascota({
         entraba entre los ojos por arriba y caía sobre la barriga por abajo. Una
         daga naranja. La boca de un hocico aguanta más, pero el tope lo tiene que
         marcar la especie que menos aguanta.
+
+        Y desde que hay seis bocas se puede bajar todavía más, porque ya no está
+        sola: antes la deformación tenía que dar ella sola toda la variedad del
+        habla, y para eso hacía falta estirar mucho. Ahora la variedad la pone el
+        cambio de forma y esto solo es la mandíbula acompañando, así que estirar
+        como antes ya no añadía nada y en cambio le sacaba la lengua al perro por
+        debajo del morro, sobre la barriga.
       */
-      bocaAlto.set(1 + (0.08 + Math.random() * 0.34) * t);
-      bocaAncho.set(1 - (0.04 + Math.random() * 0.22) * t);
+      bocaAlto.set(1 + (0.05 + Math.random() * 0.2) * t);
+      bocaAncho.set(1 - (0.03 + Math.random() * 0.14) * t);
       cabezaHabla.set((Math.random() - 0.5) * 3);
       reloj = setTimeout(silaba, 110 + Math.random() * 130);
     };
@@ -559,7 +692,7 @@ export function Mascota({
       vivo = false;
       clearTimeout(reloj);
     };
-  }, [hablando, quieto, bocaAlto, bocaAncho, cabezaHabla]);
+  }, [hablando, quieto, bocaAlto, bocaAncho, cabezaHabla, ponerBoca]);
 
   // El ladeo propio del enEscena y el que la cabeza hace por su cuenta se suman:
   // son dos cosas distintas que tienen que poder pasar a la vez.
@@ -576,6 +709,24 @@ export function Mascota({
     contento sin que un gesto pise al otro.
   */
   const ojoEscala = useTransform([ojoPoses, parpados], ([p, b]: number[]) => p! * b!);
+
+  /*
+    Las dos cejas no van a la misma altura, y ahí está media expresión.
+
+    Una cara perfectamente simétrica se lee como un icono. Levantar una sola
+    ceja es lo que separa al orgulloso del contento y al que duda del que mira
+    sin más, y no hay ninguna otra forma de decirlo que cueste tan poco. El
+    sesgo se reparte entre las dos en vez de subir solo una: subiendo una sola,
+    la cara entera parecía descolgarse hacia ese lado.
+  */
+  const cejaCercanaY = useTransform(
+    [cejaPoses, cejaSesgoPoses],
+    ([c, s]: number[]) => c! - s! * 0.7,
+  );
+  const cejaLejanaY = useTransform(
+    [cejaPoses, cejaSesgoPoses],
+    ([c, s]: number[]) => c! + s! * 0.3,
+  );
 
   /*
     Las alas están en lados opuestos, así que «levantar» es girar en un sentido
@@ -766,6 +917,23 @@ export function Mascota({
           {animal.cabeza}
 
           {/*
+            Las cejas.
+
+            Son dos trazos y son lo más rentable de toda la cara: con ellas el
+            mismo animal pasa de neutro a sorprendido, a pícaro o a triste sin
+            tocar nada más. Sin ellas, la diferencia entre once estados tenía
+            que salir entera de la postura del cuerpo, y la postura del cuerpo
+            no distingue la duda del asombro.
+
+            Van fuera de la capa de los ojos a propósito: esa capa se aplasta
+            para parpadear, y una ceja dentro se aplastaría con el párpado.
+          */}
+          <g data-capa="cejas">
+            <Ceja trazo={animal.cejas} cx={50} lado={-1} alto={cejaCercanaY} giro={cejaGiroPoses} />
+            <Ceja trazo={animal.cejas} cx={70} lado={1} alto={cejaLejanaY} giro={cejaGiroPoses} />
+          </g>
+
+          {/*
             Los ojos, en capas. Abrir más, parpadear y mirar son tres cosas que
             tienen que poder ocurrir a la vez, y en un mismo elemento la segunda
             transformación se come a la primera.
@@ -843,45 +1011,40 @@ export function Mascota({
           {animal.hocico}
 
           {/*
-            La boca. Las dos versiones están siempre puestas y se cruzan en
-            opacidad; antes se sustituía una por otra y el pico aparecía de golpe
-            justo cuando empezaba a hablar, que es cuando más se ve.
-          */}
-          <g
-            className={cn(
-              'transition-opacity duration-200',
-              picoAbierto ? 'opacity-0' : 'opacity-100',
-            )}
-          >
-            {animal.bocaCerrada}
-          </g>
-          <g
-            className={cn(
-              'transition-opacity duration-200',
-              picoAbierto ? 'opacity-100' : 'opacity-0',
-            )}
-          >
-            {/*
-              Hablar no es cruzar las dos bocas a golpes: eso se lee como un pico
-              que se abre y se cierra. Lo que se hace es deformar la boca
-              abierta, que es lo que pasa de verdad al hablar, y por eso la
-              cerrada se apaga entera mientras dura.
+            La boca: las SEIS formas, todas puestas, y encendida la que toca.
 
-              Alto y ancho en capas distintas porque son dos transformaciones y
-              en el mismo elemento la segunda anula a la primera.
-            */}
+            Antes eran dos, abierta y cerrada, y con dos no se puede hablar ni
+            poner cara. Hablar con dos es una mandíbula con muelle que repite
+            siempre la misma forma; y con dos, diez de los once estados
+            compartían boca, así que la cara no decía nada y todo el peso de
+            distinguir un estado de otro caía sobre el cuerpo.
+
+            Se cruzan en opacidad, no se sustituyen. Sustituyéndolas, la boca
+            aparece de golpe justo en el instante en que empieza a hablar, que es
+            cuando más se mira; y al hablar el cambio ocurre ocho veces por
+            segundo, así que un corte seco ahí se ve como una avería.
+
+            Encima de las seis van el alto y el ancho, que es lo que las deforma
+            sílaba a sílaba: la forma elegida dice QUÉ boca es y la deformación
+            dice cuánto se abre. Van en capas distintas porque son dos
+            transformaciones y en el mismo elemento la segunda anula a la
+            primera.
+          */}
+          <motion.g
+            style={{ scaleY: bocaAltos, ...pivote(animal.origenBoca) }}
+            data-capa="mandibula"
+          >
             <motion.g
-              style={{ scaleY: bocaAltos, ...pivote(animal.origenBoca) }}
-              data-capa="mandibula"
+              style={{ scaleX: bocaAnchos, ...pivote(animal.origenBoca) }}
+              data-capa="mandibula-ancho"
             >
-              <motion.g
-                style={{ scaleX: bocaAnchos, ...pivote(animal.origenBoca) }}
-                data-capa="mandibula-ancho"
-              >
-                {animal.bocaAbierta}
-              </motion.g>
+              {VISEMAS.map((cual) => (
+                <motion.g key={cual} data-boca={cual} style={{ opacity: bocaOpacidad[cual] }}>
+                  {animal.bocas[cual]}
+                </motion.g>
+              ))}
             </motion.g>
-          </g>
+          </motion.g>
 
           {/*
             La ropa, lo último de la capa de la cabeza.
@@ -949,6 +1112,62 @@ export function Mascota({
         </g>
       )}
     </svg>
+  );
+}
+
+/**
+ * Una ceja: un trazo, dos números y ya está la mitad de la expresión.
+ *
+ * El dibujo lo pone el esqueleto y no la especie, igual que los ojos: mover una
+ * ceja es lo caro, y copiado cinco veces acabaría moviéndose distinto en cada
+ * animal. Lo que sí es de cada especie es DÓNDE nace, porque una ceja que en el
+ * pájaro queda en mitad de la frente, en el búho cae dentro del disco facial.
+ *
+ * El giro se escribe una sola vez en la coreografía, en positivo para «los
+ * extremos de dentro hacia arriba», y aquí se le da la vuelta al signo en la
+ * ceja de allá. Es lo mismo que se hace con las alas y por el mismo motivo: si
+ * hubiera que acordarse en cada pose de que la de la derecha gira al revés, se
+ * olvidaría.
+ */
+function Ceja({
+  trazo,
+  cx,
+  lado,
+  alto,
+  giro,
+}: {
+  trazo: CejasEspecie;
+  /** El centro de la ceja, que cae sobre el ojo: 50 la de acá, 70 la de allá. */
+  cx: number;
+  /** -1 la de acá, 1 la de allá. Se arquean en espejo. */
+  lado: -1 | 1;
+  alto: MotionValue<number>;
+  giro: MotionValue<number>;
+}) {
+  const giroPropio = useTransform(giro, (g) => g * lado);
+
+  return (
+    <motion.g style={{ y: alto }} data-capa={lado === -1 ? 'ceja-cercana' : 'ceja-lejana'}>
+      <motion.path
+        d={`M${cx - trazo.ancho} ${trazo.y} Q${cx} ${trazo.y - trazo.arco} ${cx + trazo.ancho} ${trazo.y}`}
+        className={trazo.color}
+        strokeWidth={trazo.grosor}
+        fill="none"
+        strokeLinecap="round"
+        /*
+          El pivote es el centro de la propia ceja, en coordenadas del lienzo.
+          En porcentaje no valdría: con `transform-box: view-box` un 50% es la
+          mitad del lienzo entero, o sea x=60, y las dos cejas girarían
+          alrededor de la nariz en vez de sobre sí mismas.
+        */
+        style={{
+          rotate: giroPropio,
+          originX: `${cx}px`,
+          originY: `${trazo.y}px`,
+          transformBox: 'view-box',
+        }}
+      />
+    </motion.g>
   );
 }
 

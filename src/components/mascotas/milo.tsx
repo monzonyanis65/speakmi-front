@@ -13,6 +13,16 @@ import { type DefinicionEspecie } from './tipos';
 export const MILO: DefinicionEspecie = {
   etiqueta: 'Milo, el pájaro de Speakmi',
   anclajes: { coronilla: 16, anchoCabeza: 26, ojos: 40, cuello: 66 },
+  /*
+    Frente despejada: la ceja cabe entera entre el copete y el ojo.
+
+    El color tuvo que bajar hasta el índigo más oscuro que hay. Con `marca-800`
+    sobre el `marca-600` del cráneo la ceja estaba dibujada y era correcta, pero
+    a 112 píxeles, que es como se ve en la aplicación, no se distinguía: dos
+    tonos de la misma familia separados por nada. Es la única especie donde pasa,
+    porque es la única cuyo cráneo ya es oscuro.
+  */
+  cejas: { y: 27.5, ancho: 7, arco: 3.8, grosor: 2.7, color: 'stroke-indigo-950' },
 
   cola: <path d="M22 78 L4 92 L26 88 Z" className="fill-marca-700" />,
   origenCola: '24px 82px',
@@ -32,13 +42,42 @@ export const MILO: DefinicionEspecie = {
   orejas: <path d="M52 32 Q58 18 66 30 Q60 26 52 32 Z" className="fill-marca-700" />,
   cabeza: <circle cx="60" cy="42" r="26" className="fill-marca-600" />,
 
-  bocaCerrada: <path d="M54 50 L66 50 L60 58 Z" className="fill-acento-500" />,
-  bocaAbierta: (
-    <>
-      <path d="M54 52 L66 52 L60 62 Z" className="fill-acento-500" />
-      <path d="M54 52 L66 52 L60 47 Z" className="fill-acento-400" />
-    </>
-  ),
+  /*
+    Las seis bocas de un PICO, que es un caso aparte.
+
+    Un pico no tiene labios: no se estira ni se frunce, se abre por la bisagra y
+    ya. Así que lo que cambia entre una boca y otra es el ÁNGULO de apertura y
+    lo que se arquea la línea donde se juntan las dos mitades. Basta: el arco de
+    esa línea hacia arriba se lee como una sonrisa y hacia abajo como un morro,
+    igual que en un dibujo de un pato.
+
+    La mitad de arriba va un tono más clara que la de abajo en todas las que
+    abren. Sin esa diferencia el pico abierto es un rombo naranja y no se
+    entiende cuál es el techo de la boca.
+  */
+  bocas: {
+    cerrada: <path d="M54 50 L66 50 L60 58 Z" className="fill-acento-500" />,
+    sonrisa: <path d="M53 50 Q60 45.5 67 50 L60 58 Z" className="fill-acento-500" />,
+    pena: <path d="M54 48.5 Q60 53 66 48.5 L60 58.5 Z" className="fill-acento-500" />,
+    ancha: (
+      <>
+        <path d="M50 52 L70 52 L60 58 Z" className="fill-acento-500" />
+        <path d="M50 52 L70 52 L60 48.5 Z" className="fill-acento-400" />
+      </>
+    ),
+    redonda: (
+      <>
+        <path d="M55.5 52 L64.5 52 L60 61 Z" className="fill-acento-500" />
+        <path d="M55.5 52 L64.5 52 L60 47.5 Z" className="fill-acento-400" />
+      </>
+    ),
+    abierta: (
+      <>
+        <path d="M54 52 L66 52 L60 62 Z" className="fill-acento-500" />
+        <path d="M54 52 L66 52 L60 47 Z" className="fill-acento-400" />
+      </>
+    ),
+  },
   // La bisagra es la línea donde se juntan las dos mitades del pico: encogiendo
   // desde ahí, las dos se cierran a la vez y el pico nunca se despega de la cara.
   origenBoca: '60px 52px',

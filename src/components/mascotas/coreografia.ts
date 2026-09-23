@@ -10,6 +10,10 @@
  * que hace falta para poder afinarla.
  */
 
+import { type Visema } from './tipos';
+
+export type { Visema };
+
 export type EstadoMascota =
   | 'neutral'
   | 'feliz'
@@ -54,6 +58,18 @@ export const RESORTE = {
   /** El párpado: rápido y sin rebote. Un parpadeo que rebota da susto. */
   parpado: { type: 'spring' as const, stiffness: 900, damping: 42, mass: 0.2 },
   boca: { type: 'spring' as const, stiffness: 520, damping: 22, mass: 0.35 },
+  /**
+   * Las cejas. Con un punto de rebote a propósito: una ceja que llega y se para
+   * en seco se lee como una pieza, y una que se pasa un pelo y vuelve se lee
+   * como una reacción. Es lo mismo que hace gracia en los ojos de los dibujos.
+   */
+  ceja: { type: 'spring' as const, stiffness: 210, damping: 15, mass: 0.6 },
+  /**
+   * El cruce de una boca a otra. El más seco de todos, y tiene que serlo: al
+   * hablar cambia cada 120 ms, y con un resorte blando las seis bocas se
+   * quedarían medio encendidas a la vez, que es una mancha, no una boca.
+   */
+  visema: { type: 'spring' as const, stiffness: 900, damping: 46, mass: 0.22 },
   mirada: { type: 'spring' as const, stiffness: 260, damping: 22, mass: 0.4 },
 };
 
@@ -125,6 +141,31 @@ export interface Pose {
   cabeza: number;
   /** Cuánto abre los ojos. 1 es lo normal. */
   ojo: number;
+  /**
+   * Las cejas, que son la mitad de la cara.
+   *
+   * Cuánto BAJAN las dos. Negativo las sube, y subirlas es casi todo lo que
+   * hace falta para que algo pase de neutro a sorprendido.
+   */
+  ceja: number;
+  /**
+   * Cuánto se inclinan, en espejo la una de la otra.
+   *
+   * POSITIVO levanta los extremos de DENTRO: es la ceja de la pena, la que pide
+   * disculpas. NEGATIVO los baja: es el ceño fruncido, el de concentrarse. El
+   * esqueleto le da la vuelta al signo en la ceja de allá, igual que hace con
+   * las alas, para que aquí se escriba una sola vez y no haya que acordarse de
+   * que la derecha gira al revés.
+   */
+  cejaGiro: number;
+  /**
+   * Cuánto MÁS alta va la ceja de acá que la de allá.
+   *
+   * Una cara simétrica es una cara de icono. La ceja levantada de uno solo de
+   * los dos lados es lo que separa al orgulloso del contento y al que piensa
+   * del que mira sin más, y no hay ninguna otra forma barata de decirlo.
+   */
+  cejaSesgo: number;
   cola: number;
 }
 
@@ -149,6 +190,14 @@ export const GESTOS: Record<
   {
     a: Pose;
     b: Pose;
+    /**
+     * Qué boca pone este estado mientras no esté hablando.
+     *
+     * No es opcional a propósito: un estado sin boca declarada es un estado que
+     * se quedó con la cara del anterior, y eso no se ve en ninguna prueba ni en
+     * ninguna captura, solo al usar la aplicación un rato.
+     */
+    boca: Visema;
     ritmo: number;
     resorte?: typeof RESORTE_SECO;
     /**
@@ -183,6 +232,9 @@ export const GESTOS: Record<
       fueraLejana: 4,
       cabeza: -2.5,
       ojo: 1,
+      ceja: 0,
+      cejaGiro: 0,
+      cejaSesgo: 0,
       cola: 7,
     },
     b: {
@@ -196,9 +248,14 @@ export const GESTOS: Record<
       fueraLejana: 6,
       cabeza: 2.5,
       ojo: 1,
+      ceja: -0.6,
+      cejaGiro: 1.5,
+      cejaSesgo: 0,
       cola: -7,
     },
     ritmo: 1000,
+    /** El reposo. */
+    boca: 'cerrada',
   },
   // Contento: los ojos entornados, que es lo que de verdad distingue una
   // sonrisa de una boca abierta, y algo más de prisa.
@@ -214,6 +271,9 @@ export const GESTOS: Record<
       fueraLejana: 5,
       cabeza: -3,
       ojo: 0.82,
+      ceja: -1.6,
+      cejaGiro: 3,
+      cejaSesgo: 0,
       cola: 7,
     },
     b: {
@@ -227,9 +287,13 @@ export const GESTOS: Record<
       fueraLejana: 7,
       cabeza: 2.5,
       ojo: 0.82,
+      ceja: -2.6,
+      cejaGiro: 5,
+      cejaSesgo: 0,
       cola: -7,
     },
     ritmo: 820,
+    boca: 'sonrisa',
   },
   /*
     Celebrar: la pose A es el agachado. Ahí está la anticipación entera.
@@ -253,6 +317,9 @@ export const GESTOS: Record<
       fueraLejana: 8,
       cabeza: 4,
       ojo: 0.8,
+      ceja: -3.6,
+      cejaGiro: 6,
+      cejaSesgo: 0,
       cola: 10,
     },
     b: {
@@ -266,9 +333,13 @@ export const GESTOS: Record<
       fueraLejana: 8,
       cabeza: -6,
       ojo: 0.75,
+      ceja: -5,
+      cejaGiro: 9,
+      cejaSesgo: 0,
       cola: -12,
     },
     ritmo: 620,
+    boca: 'abierta',
     resorte: RESORTE_SECO,
     seCalma: 'feliz',
     veces: 8,
@@ -287,6 +358,9 @@ export const GESTOS: Record<
       fueraLejana: 3,
       cabeza: 7,
       ojo: 1,
+      ceja: -0.5,
+      cejaGiro: -10,
+      cejaSesgo: 2.6,
       cola: 1,
     },
     b: {
@@ -300,9 +374,14 @@ export const GESTOS: Record<
       fueraLejana: 5,
       cabeza: 10,
       ojo: 1,
+      ceja: -1.2,
+      cejaGiro: -12.5,
+      cejaSesgo: 3.4,
       cola: -1,
     },
     ritmo: 1500,
+    /** Los labios fruncidos del que le da vueltas a algo. */
+    boca: 'redonda',
   },
   // Animar: saluda con el ala de acá bien alta mientras el cuerpo acompaña.
   animando: {
@@ -316,6 +395,9 @@ export const GESTOS: Record<
       alaLejana: 0,
       cabeza: -3,
       ojo: 1,
+      ceja: -2.6,
+      cejaGiro: 4,
+      cejaSesgo: 0.6,
       cola: 6,
     },
     b: {
@@ -328,9 +410,14 @@ export const GESTOS: Record<
       alaLejana: 7,
       cabeza: 3,
       ojo: 1,
+      ceja: -3.8,
+      cejaGiro: 7,
+      cejaSesgo: 1.2,
       cola: -6,
     },
     ritmo: 640,
+    /** Ancha, como quien grita. */
+    boca: 'ancha',
     resorte: RESORTE_SECO,
     seCalma: 'feliz',
     veces: 7,
@@ -350,6 +437,9 @@ export const GESTOS: Record<
       fueraLejana: 4,
       cabeza: 2.5,
       ojo: 1.08,
+      ceja: -2.2,
+      cejaGiro: 2,
+      cejaSesgo: 1.2,
       cola: 2,
     },
     b: {
@@ -363,9 +453,14 @@ export const GESTOS: Record<
       fueraLejana: 6,
       cabeza: 5.5,
       ojo: 1.12,
+      ceja: -3.2,
+      cejaGiro: 3.5,
+      cejaSesgo: 1.9,
       cola: -2,
     },
     ritmo: 760,
+    /** Callada: el que escucha no habla. */
+    boca: 'cerrada',
   },
   // Triste: se hunde, las alas caen y el ritmo se alarga. Lo que más lo vende
   // no es la postura sino la lentitud.
@@ -381,6 +476,9 @@ export const GESTOS: Record<
       fueraLejana: 3,
       cabeza: 9.5,
       ojo: 0.62,
+      ceja: 1.4,
+      cejaGiro: 17,
+      cejaSesgo: 0,
       cola: 11,
     },
     b: {
@@ -394,9 +492,14 @@ export const GESTOS: Record<
       fueraLejana: 5,
       cabeza: 12.5,
       ojo: 0.56,
+      ceja: 2,
+      cejaGiro: 20.5,
+      cejaSesgo: 0,
       cola: 13,
     },
     ritmo: 1500,
+    /** Las comisuras caídas. */
+    boca: 'pena',
   },
   // Sorpresa: un respingo hacia arriba y hacia atrás, con los ojos abiertos de
   // más. Se queda temblando un poco porque el resorte se pasa de largo.
@@ -412,6 +515,9 @@ export const GESTOS: Record<
       fueraLejana: 6,
       cabeza: -5,
       ojo: 1.28,
+      ceja: -4.6,
+      cejaGiro: -1,
+      cejaSesgo: 0,
       cola: -9,
     },
     b: {
@@ -425,9 +531,14 @@ export const GESTOS: Record<
       fueraLejana: 6,
       cabeza: -1.5,
       ojo: 1.2,
+      ceja: -3.5,
+      cejaGiro: 1.2,
+      cejaSesgo: 0,
       cola: 5,
     },
     ritmo: 760,
+    /** La o del que se queda sin palabras. */
+    boca: 'redonda',
     resorte: RESORTE_SECO,
     seCalma: 'neutral',
     veces: 5,
@@ -446,6 +557,9 @@ export const GESTOS: Record<
       alaLejana: 2,
       cabeza: -3,
       ojo: 0.92,
+      ceja: -1,
+      cejaGiro: -4,
+      cejaSesgo: 3.6,
       cola: 5,
     },
     b: {
@@ -458,9 +572,13 @@ export const GESTOS: Record<
       alaLejana: -5,
       cabeza: -6.5,
       ojo: 0.92,
+      ceja: -1.9,
+      cejaGiro: -6,
+      cejaSesgo: 4.4,
       cola: -5,
     },
     ritmo: 950,
+    boca: 'sonrisa',
   },
   // Dormir: la respiración más honda y más lenta de todas, y las alas
   // recogidas. Las dos caen: si solo cayera una, parecería que le pasa algo en
@@ -477,6 +595,9 @@ export const GESTOS: Record<
       fueraLejana: 2,
       cabeza: 9.5,
       ojo: 1,
+      ceja: 0.8,
+      cejaGiro: 6,
+      cejaSesgo: 0,
       cola: 1,
     },
     b: {
@@ -490,9 +611,13 @@ export const GESTOS: Record<
       fueraLejana: 4,
       cabeza: 12.5,
       ojo: 1,
+      ceja: 1.4,
+      cejaGiro: 8,
+      cejaSesgo: 0,
       cola: -1,
     },
     ritmo: 1600,
+    boca: 'cerrada',
   },
   // Hablando: el cuerpo casi no hace nada porque el gesto está en la cara. Lo
   // poco que hace es lo que impide que parezca una cabeza sobre un palo.
@@ -508,6 +633,9 @@ export const GESTOS: Record<
       fueraLejana: 4,
       cabeza: -1.5,
       ojo: 1,
+      ceja: -0.8,
+      cejaGiro: 1,
+      cejaSesgo: 0,
       cola: 4,
     },
     b: {
@@ -521,9 +649,14 @@ export const GESTOS: Record<
       fueraLejana: 6,
       cabeza: 2.5,
       ojo: 1,
+      ceja: -1.9,
+      cejaGiro: 3,
+      cejaSesgo: 0.7,
       cola: -4,
     },
     ritmo: 820,
+    /** De aquí arranca; luego la sílaba manda. */
+    boca: 'ancha',
   },
 };
 
@@ -542,6 +675,41 @@ export const GESTOS: Record<
 export function aperturaDeVoz(intensidad?: number): number {
   if (intensidad === undefined) return 1;
   return 0.3 + 0.7 * Math.min(1, Math.max(0, intensidad));
+}
+
+/**
+ * La escalera de bocas al hablar, de la más cerrada a la más abierta.
+ *
+ * Son solo cuatro de las seis: la sonrisa y la pena son CARAS, no sonidos, y
+ * colarlas aquí haría que la mascota sonriera y se entristeciera a mitad de
+ * palabra.
+ */
+export const VISEMAS_AL_HABLAR: Visema[] = ['cerrada', 'redonda', 'ancha', 'abierta'];
+
+/**
+ * Qué boca toca en esta sílaba.
+ *
+ * Es lo que convierte una mandíbula que sube y baja en alguien diciendo algo.
+ * Una boca que solo se abre y se cierra repite la misma forma cincuenta veces
+ * por frase, y eso se detecta enseguida aunque nadie sepa decir por qué; una
+ * boca que va saltando entre formas distintas se lee como habla aunque ninguna
+ * de esas formas corresponda al sonido de verdad.
+ *
+ * La `apertura` —la que sale de `aperturaDeVoz`, o sea el volumen— no decide la
+ * boca, decide POR DÓNDE ANDA la escalera: con la voz baja se mueve entre la
+ * cerrada y la redonda, y con la voz alta entre la ancha y la abierta. El azar
+ * es el que elige el escalón dentro de esa zona, porque el volumen dice cuánto
+ * se abre la boca, no qué vocal es.
+ *
+ * El margen de ±1,2 escalones no es adorno: sin él, cada nivel de volumen daría
+ * siempre la misma boca y volveríamos a tener una sola forma repetida, solo que
+ * elegida por el micrófono.
+ */
+export function visemaDeVoz(apertura: number, azar: number): Visema {
+  const ultimo = VISEMAS_AL_HABLAR.length - 1;
+  const centro = apertura * ultimo;
+  const escalon = Math.round(centro - 1.2 + azar * 2.4);
+  return VISEMAS_AL_HABLAR[Math.max(0, Math.min(ultimo, escalon))]!;
 }
 
 /**

@@ -11,6 +11,10 @@ import { type DefinicionEspecie } from './tipos';
 export const ZORRO: DefinicionEspecie = {
   etiqueta: 'Rufo, el zorro de Speakmi',
   anclajes: { coronilla: 16, anchoCabeza: 26, ojos: 40, cuello: 66 },
+  // Las orejas bajan hasta y=28 por los lados, así que la ceja tiene que caber
+  // entre las dos: más ancha o más alta y se le monta encima al arranque de la
+  // oreja, que es de un naranja parecido y las funde en una sola mancha.
+  cejas: { y: 27, ancho: 6.8, arco: 3.4, grosor: 2.7, color: 'stroke-orange-800' },
 
   cola: (
     <>
@@ -70,21 +74,54 @@ export const ZORRO: DefinicionEspecie = {
 
   hocico: <path d="M56 52 Q60 48 64 52 Q60 58 56 52 Z" className="fill-stone-800" />,
 
-  bocaCerrada: (
-    <path
-      d="M60 57 Q55 62 51 58 M60 57 Q65 62 69 58"
-      fill="none"
-      className="stroke-stone-700"
-      strokeWidth="2"
-      strokeLinecap="round"
-    />
-  ),
-  bocaAbierta: (
-    <>
-      <ellipse cx="60" cy="62" rx="6.5" ry="5" className="fill-stone-800" />
-      <ellipse cx="60" cy="64" rx="3" ry="2.2" className="fill-rose-300" />
-    </>
-  ),
+  /*
+    Las seis bocas, todas dentro del antifaz claro, que es lo que hace de morro.
+    Fuera de él, el trazo oscuro se pierde contra el naranja del cráneo, así que
+    ni la sonrisa puede ser tan ancha como la del perro ni la boca abierta puede
+    bajar tanto: el antifaz acaba en y=69.
+  */
+  bocas: {
+    cerrada: (
+      <path
+        d="M60 57 Q55 62 51 58 M60 57 Q65 62 69 58"
+        fill="none"
+        className="stroke-stone-700"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    ),
+    sonrisa: (
+      <path
+        d="M60 57 Q54 64.5 49 58.5 M60 57 Q66 64.5 71 58.5"
+        fill="none"
+        className="stroke-stone-700"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    ),
+    pena: (
+      <path
+        d="M52 64 Q60 57.5 68 64"
+        fill="none"
+        className="stroke-stone-700"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    ),
+    ancha: (
+      <>
+        <ellipse cx="60" cy="61" rx="8.5" ry="3.2" className="fill-stone-800" />
+        <ellipse cx="60" cy="62" rx="4" ry="1.5" className="fill-rose-300" />
+      </>
+    ),
+    redonda: <ellipse cx="60" cy="62" rx="4" ry="4.2" className="fill-stone-800" />,
+    abierta: (
+      <>
+        <ellipse cx="60" cy="62" rx="6.5" ry="5" className="fill-stone-800" />
+        <ellipse cx="60" cy="64" rx="3" ry="2.2" className="fill-rose-300" />
+      </>
+    ),
+  },
   origenBoca: '60px 57px',
 
   patas: (

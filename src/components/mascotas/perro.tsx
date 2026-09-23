@@ -10,6 +10,9 @@ import { type DefinicionEspecie } from './tipos';
 export const PERRO: DefinicionEspecie = {
   etiqueta: 'Tuco, el perro de Speakmi',
   anclajes: { coronilla: 16, anchoCabeza: 26, ojos: 40, cuello: 66 },
+  // Un punto más altas que en la gata: por debajo rozarían la mancha del ojo de
+  // allá, y una ceja que empieza encima de una mancha del mismo tono se pierde.
+  cejas: { y: 27, ancho: 7.5, arco: 3.4, grosor: 2.7, color: 'stroke-amber-800' },
 
   // Cola corta y gruesa: el mismo balanceo se lee como un rabo contento.
   cola: (
@@ -51,21 +54,58 @@ export const PERRO: DefinicionEspecie = {
 
   hocico: <ellipse cx="60" cy="48" rx="5.5" ry="4" className="fill-slate-900" />,
 
-  bocaCerrada: (
-    <path
-      d="M60 52 L60 55 M60 55 Q54 61 49 55 M60 55 Q66 61 71 55"
-      fill="none"
-      className="stroke-slate-800"
-      strokeWidth="2"
-      strokeLinecap="round"
-    />
-  ),
-  bocaAbierta: (
-    <>
-      <path d="M48 56 Q60 72 72 56 Z" className="fill-rose-300" />
-      <path d="M55 64 Q60 74 65 64 Z" className="fill-rose-400" />
-    </>
-  ),
+  /*
+    Las seis bocas, todas dentro de la mancha clara del morro, que va de x=45 a
+    x=75. Es el hocico más ancho de los cinco y eso da sitio para que la sonrisa
+    sea de verdad ancha; salirse de la mancha, en cambio, deja la boca flotando
+    sobre el pelaje.
+
+    La lengua solo sale en las dos más abiertas. En las pequeñas no cabe, y una
+    lengua recortada dentro de una boca del tamaño de un guisante parece una
+    mancha de color.
+  */
+  bocas: {
+    cerrada: (
+      <path
+        d="M60 52 L60 55 M60 55 Q54 61 49 55 M60 55 Q66 61 71 55"
+        fill="none"
+        className="stroke-slate-800"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    ),
+    sonrisa: (
+      <path
+        d="M60 52 L60 55 M60 55 Q53 64 46.5 55 M60 55 Q67 64 73.5 55"
+        fill="none"
+        className="stroke-slate-800"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    ),
+    pena: (
+      <path
+        d="M60 52 L60 55 M50 61 Q60 54.5 70 61"
+        fill="none"
+        className="stroke-slate-800"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    ),
+    ancha: (
+      <>
+        <path d="M47 56 Q60 66 73 56 Z" className="fill-rose-300" />
+        <path d="M55 61 Q60 66 65 61 Z" className="fill-rose-400" />
+      </>
+    ),
+    redonda: <ellipse cx="60" cy="59.5" rx="4.6" ry="4.6" className="fill-rose-300" />,
+    abierta: (
+      <>
+        <path d="M48 56 Q60 72 72 56 Z" className="fill-rose-300" />
+        <path d="M55 64 Q60 74 65 64 Z" className="fill-rose-400" />
+      </>
+    ),
+  },
   // Debajo del morro. Es el hocico más largo de los cinco, así que aquí bajar
   // la bisagra dos píxeles de más se nota: la lengua se le saldría de la cara.
   origenBoca: '60px 54px',

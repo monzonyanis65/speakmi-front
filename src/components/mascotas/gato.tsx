@@ -11,6 +11,9 @@ import { type DefinicionEspecie } from './tipos';
 export const GATO: DefinicionEspecie = {
   etiqueta: 'Nala, la gata de Speakmi',
   anclajes: { coronilla: 16, anchoCabeza: 26, ojos: 40, cuello: 66 },
+  // Finas y un tono más oscuras que el pelaje: una gata no tiene cejas de
+  // verdad, así que se leen como pelo marcado y no pueden pesar más que eso.
+  cejas: { y: 27, ancho: 7, arco: 3.2, grosor: 2.5, color: 'stroke-slate-700' },
 
   // La cola de gato es un trazo, no un triángulo: así el balanceo se lee como
   // un latigazo suave y no como una aleta rígida. Arranca dentro del cuerpo y
@@ -64,21 +67,64 @@ export const GATO: DefinicionEspecie = {
 
   hocico: <path d="M56 49 L64 49 L60 54 Z" className="fill-pink-400" />,
 
-  bocaCerrada: (
-    <path
-      d="M60 54 L60 56 M60 56 Q55 60 51 55 M60 56 Q65 60 69 55"
-      fill="none"
-      className="stroke-slate-700"
-      strokeWidth="2"
-      strokeLinecap="round"
-    />
-  ),
-  bocaAbierta: (
-    <>
-      <ellipse cx="60" cy="60" rx="7" ry="5" className="fill-pink-400" />
-      <ellipse cx="60" cy="62" rx="3.5" ry="2.5" className="fill-pink-200" />
-    </>
-  ),
+  /*
+    Las seis bocas de un hocico partido.
+
+    Las tres cerradas son trazos: la omega de siempre, la misma más abierta para
+    la sonrisa, y para la pena un arco al revés que ya no sale de la nariz sino
+    que cruza por debajo. Ese cambio de dibujo importa: una omega girada del
+    revés sigue pareciendo una omega, y hasta que la línea no pasa por debajo de
+    las comisuras no se lee como boca triste.
+
+    Las tres abiertas son la misma boca rosa en tres tallas y tres proporciones.
+  */
+  bocas: {
+    cerrada: (
+      <path
+        d="M60 54 L60 56 M60 56 Q55 60 51 55 M60 56 Q65 60 69 55"
+        fill="none"
+        className="stroke-slate-700"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    ),
+    sonrisa: (
+      <path
+        d="M60 54 L60 57 M60 57 Q54 64 48.5 56 M60 57 Q66 64 71.5 56"
+        fill="none"
+        className="stroke-slate-700"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    ),
+    pena: (
+      <path
+        d="M60 54 L60 57 M51.5 62 Q60 55.5 68.5 62"
+        fill="none"
+        className="stroke-slate-700"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    ),
+    ancha: (
+      <>
+        <ellipse cx="60" cy="59" rx="9.5" ry="3.4" className="fill-pink-400" />
+        <ellipse cx="60" cy="60" rx="4.5" ry="1.6" className="fill-pink-200" />
+      </>
+    ),
+    redonda: (
+      <>
+        <ellipse cx="60" cy="60" rx="4.4" ry="4.4" className="fill-pink-400" />
+        <ellipse cx="60" cy="61.5" rx="2" ry="1.8" className="fill-pink-200" />
+      </>
+    ),
+    abierta: (
+      <>
+        <ellipse cx="60" cy="60" rx="7" ry="5" className="fill-pink-400" />
+        <ellipse cx="60" cy="62" rx="3.5" ry="2.5" className="fill-pink-200" />
+      </>
+    ),
+  },
   // Justo debajo de la nariz: la boca de un gato cuelga de ahí.
   origenBoca: '60px 55px',
 

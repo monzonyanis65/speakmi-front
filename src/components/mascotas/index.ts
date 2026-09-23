@@ -6,7 +6,16 @@ import { ZORRO } from './zorro';
 import { type Atuendo, type DefinicionEspecie, type Especie } from './tipos';
 
 export { CapaAtuendo } from './atuendos';
-export type { AnclajesEspecie, Atuendo, DefinicionEspecie, Especie, PiezasEspecie } from './tipos';
+export type {
+  AnclajesEspecie,
+  Atuendo,
+  BocasEspecie,
+  CejasEspecie,
+  DefinicionEspecie,
+  Especie,
+  PiezasEspecie,
+  Visema,
+} from './tipos';
 
 /**
  * El catálogo. Es lo único que hay que tocar para añadir un animal sexto: el

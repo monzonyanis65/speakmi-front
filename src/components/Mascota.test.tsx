@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import { Mascota, type Atuendo, type Especie, type EstadoMascota } from './Mascota';
-import { aperturaDeVoz, ESTADOS_CON_TICS, GESTOS, RESORTE, TICS } from './mascotas/coreografia';
+import {
+  aperturaDeVoz,
+  ESTADOS_CON_TICS,
+  GESTOS,
+  RESORTE,
+  TICS,
+  visemaDeVoz,
+  VISEMAS_AL_HABLAR,
+  type Visema,
+} from './mascotas/coreografia';
 import { ESPECIES as CATALOGO } from './mascotas';
 
 /**
@@ -51,6 +60,9 @@ const TODOS: EstadoMascota[] = [
   'durmiendo',
   'hablando',
 ];
+
+/** Las seis bocas, en el mismo orden en que las monta el esqueleto. */
+const VISEMAS: Visema[] = ['cerrada', 'sonrisa', 'pena', 'ancha', 'redonda', 'abierta'];
 
 /** Cuánto se mueve un estado: la mayor diferencia entre sus dos poses. */
 function recorrido(estado: EstadoMascota): number {
@@ -505,15 +517,63 @@ describe('cada especie es otro animal', () => {
     }
   });
 
-  it('todas cruzan la boca en opacidad en vez de sustituirla', () => {
-    // Cada animal tiene su hocico, pero el truco del cruce es del esqueleto:
-    // si una especie se saltara la capa apagada, esa boca aparecería de golpe.
+  it('las seis bocas están siempre montadas en las cinco especies', () => {
+    /*
+      El cruce en opacidad es del esqueleto, pero solo funciona si la especie
+      declara las seis formas. Si una se saltara cualquiera, esa boca no
+      aparecería a medias: aparecería un HUECO, y justo a media sílaba, porque
+      el ciclo del habla salta entre ellas ocho veces por segundo.
+    */
     for (const especie of ESPECIES) {
-      const cerrada = dibujo('neutral', especie);
-      const abierta = dibujo('animando', especie);
-      expect(cerrada, `${especie} sin cruce de opacidad`).toContain('transition-opacity');
-      expect(cerrada).toContain('opacity-0');
-      expect(abierta).toContain('opacity-0');
+      for (const estado of TODOS) {
+        const { container } = render(<Mascota estado={estado} especie={especie} />);
+        for (const visema of VISEMAS) {
+          expect(
+            container.querySelector(`[data-boca="${visema}"]`),
+            `a ${especie} le falta la boca ${visema} en ${estado}`,
+          ).not.toBeNull();
+        }
+      }
+    }
+  });
+
+  it('las seis bocas de cada especie son seis dibujos distintos', () => {
+    // Declararlas todas no basta: repetir la misma forma seis veces pasaría
+    // esta prueba por arriba y dejaría la cara igual de muda que con dos.
+    for (const especie of ESPECIES) {
+      const { container } = render(<Mascota especie={especie} />);
+      const formas = VISEMAS.map(
+        (v) => container.querySelector(`[data-boca="${v}"]`)?.innerHTML ?? '',
+      );
+      expect(new Set(formas).size, `${especie} repite alguna boca`).toBe(VISEMAS.length);
+    }
+  });
+
+  it('las cinco especies tienen cejas, y cada una donde le toca', () => {
+    /*
+      Las cejas son el añadido más rentable de la cara y son del esqueleto, pero
+      dónde nacen lo declara cada especie: la del búho cae dentro del disco
+      facial y la del zorro se mete entre las orejas. Una especie sin cejas no
+      se rompe, se queda muda, que es peor porque no lo dice nadie.
+    */
+    for (const especie of ESPECIES) {
+      const { container } = render(<Mascota especie={especie} />);
+      expect(
+        container.querySelector('[data-capa="ceja-cercana"]'),
+        `${especie} sin ceja de acá`,
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-capa="ceja-lejana"]'),
+        `${especie} sin ceja de allá`,
+      ).not.toBeNull();
+
+      const { cejas } = CATALOGO[especie];
+      // Ni pegada al ojo, que sería un párpado, ni en la coronilla, que sería
+      // una diadema: el ojo está en y=40 y el cráneo empieza sobre y=16.
+      expect(cejas.y, `${especie} lleva la ceja donde no es`).toBeGreaterThan(20);
+      expect(cejas.y).toBeLessThan(31);
+      expect(cejas.grosor, `${especie} tiene la ceja invisible`).toBeGreaterThan(1.5);
+      expect(cejas.color, `${especie} no dice de qué color es la ceja`).toMatch(/^stroke-/);
     }
   });
 });
@@ -717,3 +777,131 @@ describe('la boca se puede acompasar con la voz', () => {
     expect(flojo.innerHTML).toBe(fuerte.innerHTML);
   });
 });
+
+/**
+ * La cara.
+ *
+ * Es la prueba que faltaba y la que explica por qué existe todo lo de arriba.
+ * Con dos bocas y sin cejas, diez de los once estados ponían exactamente la
+ * misma cara y la única diferencia entre estar triste y estar orgulloso era la
+ * postura del cuerpo. Eso no se ve en ninguna prueba de capas: las capas
+ * estaban todas y estaban bien.
+ *
+ * Así que lo que se comprueba aquí es lo que se comprueba tapando el nombre del
+ * estado y mirando: si dos caras coinciden, una de las dos no significa nada.
+ */
+describe('cada estado pone una cara, no solo una postura', () => {
+  /** Lo que se ve de la cara en un estado, sin mirar el cuerpo para nada. */
+  function cara(estado: EstadoMascota) {
+    const { a, b, boca } = GESTOS[estado];
+    return JSON.stringify({
+      boca,
+      ojo: [a.ojo, b.ojo],
+      ceja: [a.ceja, b.ceja],
+      cejaGiro: [a.cejaGiro, b.cejaGiro],
+      cejaSesgo: [a.cejaSesgo, b.cejaSesgo],
+    });
+  }
+
+  it('ningún estado se queda sin boca declarada', () => {
+    for (const estado of TODOS) {
+      expect(VISEMAS, `${estado} pone una boca que no existe`).toContain(GESTOS[estado].boca);
+    }
+  });
+
+  it('no hay dos estados con la misma cara', () => {
+    const caras = TODOS.map(cara);
+    const repes = TODOS.filter((_, i) => caras.indexOf(caras[i]!) !== i);
+    expect(repes, `estos estados ponen una cara ya usada: ${repes.join(', ')}`).toEqual([]);
+  });
+
+  it('las cejas dicen lo que dice el estado', () => {
+    /*
+      No es decoración: es la única parte de la cara que distingue el asombro de
+      la duda. Positivo en `cejaGiro` levanta los extremos de dentro, que es la
+      ceja de la pena; negativo los baja, que es el ceño.
+    */
+    // Las más altas de las once son las de celebrar, que es el asombro alegre
+    // (recuérdese que negativo sube).
+    const alturas = TODOS.map((e) => GESTOS[e].b.ceja);
+    expect(GESTOS.celebrando.b.ceja).toBe(Math.min(...alturas));
+    // Sorprendido también las sube, pero lo suyo es que las lleva RECTAS: bien
+    // arqueadas se leerían como alegría y no como un susto.
+    expect(GESTOS.sorprendido.b.ceja).toBeLessThan(GESTOS.neutral.b.ceja);
+    expect(Math.abs(GESTOS.sorprendido.b.cejaGiro)).toBe(
+      Math.min(...TODOS.map((e) => Math.abs(GESTOS[e].b.cejaGiro))),
+    );
+    // Triste las lleva caídas y con los extremos de dentro bien arriba.
+    expect(GESTOS.triste.b.ceja).toBeGreaterThan(0);
+    expect(GESTOS.triste.b.cejaGiro).toBe(Math.max(...TODOS.map((e) => GESTOS[e].b.cejaGiro)));
+    // Pensando frunce el ceño, que es lo contrario.
+    expect(GESTOS.pensando.b.cejaGiro).toBeLessThan(0);
+    // Y orgulloso levanta una sola: la asimetría es toda la diferencia entre
+    // estar orgulloso y estar contento.
+    expect(GESTOS.orgulloso.b.cejaSesgo).toBe(Math.max(...TODOS.map((e) => GESTOS[e].b.cejaSesgo)));
+    expect(GESTOS.feliz.b.cejaSesgo).toBe(0);
+  });
+
+  it('las cejas nunca están clavadas: también se mueven entre las dos poses', () => {
+    // Cuelgan del reloj de la cabeza. Si las dos poses coincidieran en los tres
+    // campos, ese reloj las mandaría siempre al mismo sitio.
+    for (const estado of TODOS) {
+      const { a, b } = GESTOS[estado];
+      const quieta = a.ceja === b.ceja && a.cejaGiro === b.cejaGiro && a.cejaSesgo === b.cejaSesgo;
+      expect(quieta, `las cejas de ${estado} no se mueven nunca`).toBe(false);
+    }
+  });
+});
+
+/**
+ * Hablar es cambiar de boca, no solo de tamaño.
+ *
+ * La regla se comprueba sola, sin dibujar: qué boca toca en cada sílaba es una
+ * cuenta, y las cuentas se miran mejor aparte que a través de un SVG.
+ */
+describe('al hablar la boca cambia de forma', () => {
+  it('solo entran las bocas que son sonidos, no las que son caras', () => {
+    // La sonrisa y la pena son estados de ánimo: colarlas en el ciclo haría que
+    // la mascota se entristeciera a mitad de palabra.
+    expect(VISEMAS_AL_HABLAR).not.toContain('sonrisa');
+    expect(VISEMAS_AL_HABLAR).not.toContain('pena');
+    for (const v of VISEMAS_AL_HABLAR) expect(VISEMAS).toContain(v);
+  });
+
+  it('con la voz baja la boca se queda cerrada; con la voz alta se abre', () => {
+    const flojo = new Set(muestra(aperturaDeVoz(0)));
+    const fuerte = new Set(muestra(aperturaDeVoz(1)));
+    expect(flojo, 'con la voz baja abre del todo').not.toContain('abierta');
+    expect(fuerte, 'con la voz alta no llega a abrir').toContain('abierta');
+    expect(fuerte, 'con la voz alta se queda con la boca cerrada').not.toContain('cerrada');
+  });
+
+  it('el volumen mueve la zona, pero dentro de la zona manda el azar', () => {
+    /*
+      Si un nivel de voz diera siempre la misma boca, volveríamos a tener una
+      sola forma repetida cincuenta veces por frase, solo que elegida por el
+      micrófono en vez de por el reloj.
+    */
+    for (const intensidad of [0, 0.35, 0.7, 1]) {
+      const salen = new Set(muestra(aperturaDeVoz(intensidad)));
+      expect(salen.size, `con intensidad ${intensidad} siempre sale la misma boca`).toBeGreaterThan(
+        1,
+      );
+    }
+  });
+
+  it('ningún azar devuelve una boca que no exista', () => {
+    // El azar viene de Math.random, pero la intensidad viene de fuera y puede
+    // llegar mal escalada: la cuenta no puede salirse de la escalera.
+    for (const apertura of [-2, 0, 0.5, 1, 7]) {
+      for (let i = 0; i <= 20; i++) {
+        expect(VISEMAS_AL_HABLAR).toContain(visemaDeVoz(apertura, i / 20));
+      }
+    }
+  });
+});
+
+/** Todas las bocas que salen con esta apertura, barriendo el azar entero. */
+function muestra(apertura: number): Visema[] {
+  return Array.from({ length: 41 }, (_, i) => visemaDeVoz(apertura, i / 40));
+}
