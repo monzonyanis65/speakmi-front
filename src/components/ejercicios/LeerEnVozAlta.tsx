@@ -29,7 +29,15 @@ interface Props {
       trickyWords?: Array<{ word: string; hint: string; ipa?: string }>;
     };
   };
-  onTerminado: (aprobado: boolean) => void;
+  /**
+   * Avisa de cómo fue, y con QUÉ se dijo.
+   *
+   * La transcripción se entrega además del veredicto porque la prueba de nivel
+   * la vuelve a corregir en el servidor: allí la nota decide el nivel del curso
+   * entero, y una nota que viaja desde el navegador es una nota que se puede
+   * escribir a mano. En las lecciones basta con el veredicto.
+   */
+  onTerminado: (aprobado: boolean, dicho: { texto: string; alternativas: string[] }) => void;
 }
 
 /**
@@ -120,7 +128,10 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
       });
       setInforme(resultado);
       setEstado('hecho');
-      onTerminado(resultado.aprobado);
+      onTerminado(resultado.aprobado, {
+        texto: oido.texto,
+        alternativas: oido.alternativas ?? [],
+      });
     } catch {
       setError('No pudimos evaluar tu lectura. Inténtalo otra vez.');
       setEstado('listo');
