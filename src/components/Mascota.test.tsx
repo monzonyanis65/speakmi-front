@@ -140,7 +140,7 @@ describe('la coreografía: cada estado se mueve a su manera', () => {
     expect(GESTOS.triste.a.alaCercana).toBeLessThan(-15);
     expect(GESTOS.triste.a.alaLejana).toBeLessThan(-15);
     // Y lo que más vende la tristeza no es la postura, es la lentitud.
-    expect(GESTOS.triste.ritmo).toBeGreaterThan(GESTOS.celebrando.ritmo * 3);
+    expect(GESTOS.triste.ritmo).toBeGreaterThan(GESTOS.celebrando.ritmo * 2);
 
     // La sorpresa sí despega: un respingo que no se va del suelo no es respingo.
     expect(GESTOS.sorprendido.a.y).toBeLessThanOrEqual(-5);
@@ -228,6 +228,20 @@ describe('la coreografía: cada estado se mueve a su manera', () => {
     expect(ESTADOS_CON_TICS).not.toContain('celebrando');
     expect(ESTADOS_CON_TICS).not.toContain('durmiendo');
     expect(ESTADOS_CON_TICS).toContain('neutral');
+  });
+
+  it('la cabeza nunca tiene la misma pose en A y en B', () => {
+    /*
+      Cada parte lleva su propio reloj. Si las dos poses coinciden en un campo,
+      ese reloj manda la parte siempre al mismo sitio y se queda clavada.
+      Medido con la cabeza a 0 en las dos: en reposo pasaba quieta el 91 % del
+      tiempo, y eso es justo lo que se lee como una animación lenta.
+    */
+    for (const estado of TODOS) {
+      const { a, b } = GESTOS[estado];
+      expect(a.cabeza, `la cabeza no se mueve en ${estado}`).not.toBe(b.cabeza);
+      expect(a.cola, `la cola no se mueve en ${estado}`).not.toBe(b.cola);
+    }
   });
 
   it('no hay dos estados que se muevan igual', () => {

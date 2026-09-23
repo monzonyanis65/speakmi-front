@@ -5,11 +5,11 @@ import { CapaAtuendo, ESPECIES, NOMBRE_ATUENDO, type Atuendo, type Especie } fro
 import { useMascotaEquipada } from '@/lib/mascota-contexto';
 import {
   aperturaDeVoz,
+  COMPAS,
   ESTADOS_CON_TICS,
   GESTOS,
   RESORTE,
   TICS,
-  type PasoDeTic,
   type EstadoMascota,
   type Pose,
 } from './mascotas/coreografia';
@@ -200,16 +200,43 @@ export function Mascota({
   const colaPoses = useSpring(colaPose, RESORTE.cola);
 
   /*
-    El vaivén entre las dos poses del estado.
+    El vaivén entre las dos poses, con UN RELOJ POR PARTE.
 
-    Un temporizador que alterna, y los resortes hacen el viaje. El pellizco de
-    azar en el tiempo de espera es lo que impide que el ciclo se vea: con un
-    periodo exacto, a la tercera vuelta ya se ha detectado el bucle.
+    Antes había uno solo y todo el cuerpo cambiaba de pose en el mismo instante:
+    alas, cabeza y cola arrancaban y frenaban a la vez. Medido, en reposo la
+    mascota estaba parada el 66 % del tiempo y la cabeza el 91 %. Eso es lo que
+    se lee como lento, y no se arregla acelerando nada: se arregla haciendo que
+    las partes no coincidan, para que en cualquier momento haya algo llegando y
+    algo saliendo.
+
+    Además no alterna entre las dos poses exactas, sino entre dos ZONAS cercanas
+    a cada extremo. Ir siempre a los mismos dos sitios se detecta a la tercera
+    vuelta por bien desfasado que esté.
   */
+  const enTic = useRef(false);
+
   useEffect(() => {
     const gesto = GESTOS[estado];
 
-    const poner = (p: Pose) => {
+    const mezcla = (t: number): Pose => {
+      const { a, b } = gesto;
+      const e = (x: number, y: number) => x + (y - x) * t;
+      return {
+        y: e(a.y, b.y),
+        eX: e(a.eX, b.eX),
+        eY: e(a.eY, b.eY),
+        giro: e(a.giro, b.giro),
+        alaCercana: e(a.alaCercana, b.alaCercana),
+        alaLejana: e(a.alaLejana, b.alaLejana),
+        fueraCercana: e(a.fueraCercana ?? 0, b.fueraCercana ?? 0),
+        fueraLejana: e(a.fueraLejana ?? 0, b.fueraLejana ?? 0),
+        cabeza: e(a.cabeza, b.cabeza),
+        ojo: e(a.ojo, b.ojo),
+        cola: e(a.cola, b.cola),
+      };
+    };
+
+    const ponerTodo = (p: Pose) => {
       y.set(p.y);
       eX.set(p.eX);
       eY.set(p.eY);
@@ -231,65 +258,88 @@ export function Mascota({
       no se entiende sin la otra mitad.
     */
     if (quieto) {
-      poner(gesto.b);
+      ponerTodo(gesto.b);
       return;
     }
 
     let vivo = true;
-    let enB = false;
-    let reloj: ReturnType<typeof setTimeout>;
-    let ciclos = 0;
+    const relojes: ReturnType<typeof setTimeout>[] = [];
 
-    /*
-      Un gesto suelto: se reproduce paso a paso y luego se vuelve al vaivén.
-
-      Mientras dura, el vaivén no toca nada: si siguiera corriendo por debajo,
-      le pisaría las poses a media sacudida y el tic se quedaría en un temblor.
-    */
-    const hacerAlgo = (pasos: PasoDeTic[]) => {
-      let i = 0;
+    /** Un reloj para un grupo de partes, con su compás y su pizca de azar. */
+    const relojDe = (compas: number, aplicar: (p: Pose) => void) => {
+      let alta = Math.random() < 0.5;
       const paso = () => {
         if (!vivo) return;
-        if (i >= pasos.length) {
-          enB = false;
-          latir();
-          return;
+        if (!enTic.current) {
+          alta = !alta;
+          // Cerca del extremo, pero nunca en el mismo punto dos veces.
+          aplicar(mezcla(alta ? 0.82 + Math.random() * 0.18 : Math.random() * 0.18));
         }
-        const actual = pasos[i]!;
-        poner({ ...gesto.a, ...actual.pose });
-        reloj = setTimeout(paso, actual.aguanta);
-        i += 1;
+        relojes.push(setTimeout(paso, gesto.ritmo * compas * (0.82 + Math.random() * 0.36)));
       };
-      paso();
+      // Arranques escalonados: si empiezan juntos, tardan en separarse.
+      relojes.push(setTimeout(paso, Math.random() * gesto.ritmo * compas));
     };
 
-    const latir = () => {
+    ponerTodo(mezcla(0));
+
+    relojDe(COMPAS.cuerpo, (p) => {
+      y.set(p.y);
+      eX.set(p.eX);
+      eY.set(p.eY);
+      giro.set(p.giro);
+    });
+    relojDe(COMPAS.alas, (p) => {
+      alaCercana.set(p.alaCercana);
+      alaLejana.set(p.alaLejana);
+      fueraCercana.set(p.fueraCercana ?? 0);
+      fueraLejana.set(p.fueraLejana ?? 0);
+    });
+    relojDe(COMPAS.cola, (p) => colaPose.set(p.cola));
+    relojDe(COMPAS.cabeza, (p) => {
+      cabezaPose.set(p.cabeza);
+      ojoPose.set(p.ojo);
+    });
+
+    /*
+      Y aparte, de vez en cuando, un gesto suelto.
+
+      Mientras dura, los relojes de arriba no tocan nada: si siguieran corriendo
+      por debajo le pisarían las poses a media sacudida y el tic se quedaría en
+      un temblor.
+    */
+    let director: ReturnType<typeof setTimeout>;
+    const proponer = () => {
       if (!vivo) return;
-      ciclos += 1;
-
-      /*
-        De vez en cuando hace otra cosa, y solo en los estados tranquilos.
-
-        La probabilidad es baja y además tiene que haber respirado unas cuantas
-        veces antes: un personaje que se estira nada más aparecer en pantalla no
-        parece vivo, parece que le han dado al play.
-      */
-      const puede = ESTADOS_CON_TICS.includes(estado) && ciclos > 3;
-      if (puede && Math.random() < 0.16) {
+      if (ESTADOS_CON_TICS.includes(estado)) {
         const cuales = Object.keys(TICS);
-        hacerAlgo(TICS[cuales[Math.floor(Math.random() * cuales.length)]!]!);
+        const pasos = TICS[cuales[Math.floor(Math.random() * cuales.length)]!]!;
+        enTic.current = true;
+        let i = 0;
+        const paso = () => {
+          if (!vivo) return;
+          if (i >= pasos.length) {
+            enTic.current = false;
+            director = setTimeout(proponer, 6000 + Math.random() * 9000);
+            return;
+          }
+          const actual = pasos[i]!;
+          ponerTodo({ ...mezcla(0), ...actual.pose });
+          relojes.push(setTimeout(paso, actual.aguanta));
+          i += 1;
+        };
+        paso();
         return;
       }
-
-      enB = !enB;
-      poner(enB ? gesto.b : gesto.a);
-      reloj = setTimeout(latir, gesto.ritmo * (0.85 + Math.random() * 0.3));
+      director = setTimeout(proponer, 8000);
     };
+    director = setTimeout(proponer, 5000 + Math.random() * 7000);
 
-    latir();
     return () => {
       vivo = false;
-      clearTimeout(reloj);
+      enTic.current = false;
+      relojes.forEach(clearTimeout);
+      clearTimeout(director);
     };
   }, [
     estado,
@@ -327,8 +377,8 @@ export function Mascota({
       // A veces a un lado, a veces al otro, a veces recto: si siempre alternara
       // se volvería un metrónomo.
       const donde = Math.random();
-      ladeo.set(donde < 0.4 ? -5 : donde < 0.8 ? 5 : 0);
-      reloj = setTimeout(ladear, 1800 + Math.random() * 2600);
+      ladeo.set(donde < 0.4 ? -5.5 : donde < 0.8 ? 5.5 : (Math.random() - 0.5) * 4);
+      reloj = setTimeout(ladear, 1100 + Math.random() * 1500);
     };
 
     reloj = setTimeout(ladear, 1200 + Math.random() * 2000);
