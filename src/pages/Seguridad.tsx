@@ -371,7 +371,7 @@ function Campo({ id, etiqueta, valor, onChange, autoComplete, error, describedBy
         )}
       />
       {error && (
-        <p id={`${id}-error`} role="alert" className="mt-1.5 text-sm text-[var(--color-fallo)]">
+        <p id={`${id}-error`} role="alert" className="mt-1.5 text-sm text-[var(--texto-fallo)]">
           {error}
         </p>
       )}

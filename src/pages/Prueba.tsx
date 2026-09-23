@@ -187,7 +187,7 @@ export function Prueba() {
             type="button"
             disabled={guardando}
             onClick={() => void empezarEnNivel(resultado.suggestedLevel)}
-            className="rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700 disabled:bg-slate-300"
+            className="rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700 disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-300"
           >
             {guardando ? 'Guardando…' : 'Empezar aquí'}
           </button>
@@ -254,7 +254,9 @@ export function Prueba() {
           type="button"
           disabled={actual === null || actual === ''}
           onClick={() => avanzar({ code: ejercicio.code, answer: actual })}
-          className="mt-6 rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700 disabled:bg-slate-300 dark:disabled:bg-slate-700"
+          // Apagado no quiere decir ilegible: en blanco sobre el gris se quedaba
+          // en 1.5 de contraste y el rótulo no se leía.
+          className="mt-6 rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700 disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-300"
         >
           {indice + 1 < ejercicios.length ? 'Siguiente' : 'Terminar'}
         </button>
@@ -275,7 +277,7 @@ export function Prueba() {
       <button
         type="button"
         onClick={() => avanzar({ code: ejercicio.code, answer: null })}
-        className="mt-3 rounded-xl px-4 py-2 text-sm text-[var(--texto-suave)] underline underline-offset-4 transition hover:text-[var(--texto)]"
+        className="mt-3 min-h-11 rounded-xl px-4 py-2 text-sm text-[var(--texto-suave)] underline underline-offset-4 transition hover:text-[var(--texto)]"
       >
         No puedo hacer este, saltar
       </button>

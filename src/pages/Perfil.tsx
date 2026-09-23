@@ -314,7 +314,7 @@ function TarjetaNombre({ perfil, retraso }: { perfil: DatosPerfil; retraso: numb
             <p
               id="perfil-nombre-error"
               role="alert"
-              className="mt-1.5 text-sm text-[var(--color-fallo)]"
+              className="mt-1.5 text-sm text-[var(--texto-fallo)]"
             >
               {error}
             </p>
@@ -486,13 +486,13 @@ function TarjetaMeta({ perfil, retraso }: { perfil: DatosPerfil; retraso: number
         </div>
 
         {error ? (
-          <p id="perfil-meta-error" role="alert" className="mt-2 text-sm text-[var(--color-fallo)]">
+          <p id="perfil-meta-error" role="alert" className="mt-2 text-sm text-[var(--texto-fallo)]">
             {error}
           </p>
         ) : (
           <p id="perfil-meta-ayuda" className="mt-2 text-xs text-[var(--texto-suave)]">
             Entre {META_MINIMA} y {META_MAXIMA} minutos.{' '}
-            {guardada && <span className="text-[var(--color-acierto)]">Meta guardada.</span>}
+            {guardada && <span className="text-[var(--texto-acierto)]">Meta guardada.</span>}
           </p>
         )}
       </form>

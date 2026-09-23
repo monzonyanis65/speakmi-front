@@ -164,7 +164,7 @@ function FraseClave({ palabra, retraso }: { palabra: Palabra; retraso: number })
           onClick={() => void reproducir()}
           disabled={sonando}
           aria-label={`Escuchar «${palabra.exampleEn ?? palabra.lemma}»`}
-          className="boton-3d grid size-10 shrink-0 place-items-center rounded-xl border-marca-900 bg-marca-700 text-lg text-white hover:bg-marca-600 disabled:opacity-70"
+          className="boton-3d grid size-11 shrink-0 place-items-center rounded-xl border-marca-900 bg-marca-700 text-lg text-white hover:bg-marca-600 disabled:opacity-70"
         >
           <span aria-hidden>{sonando ? '🔈' : '🔊'}</span>
         </button>

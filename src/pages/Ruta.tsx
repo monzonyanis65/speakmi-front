@@ -196,7 +196,7 @@ export function Ruta() {
           )}
 
           {isError && (
-            <p className="mt-10 text-center text-[var(--color-fallo)]">
+            <p role="alert" className="mt-10 text-center text-[var(--texto-fallo)]">
               No pudimos cargar tu ruta. Inténtalo de nuevo en un momento.
             </p>
           )}
@@ -226,7 +226,7 @@ export function Ruta() {
                       // Blanco con letra de marca, no un morado sobre otro morado: dos
                       // tonos vecinos de la misma familia no llegan al contraste
                       // mínimo y el botón se pierde dentro de la cabecera.
-                      className="boton-3d shrink-0 rounded-xl border-2 border-marca-200 bg-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide text-marca-700 hover:bg-marca-50"
+                      className="boton-3d min-h-11 shrink-0 rounded-xl border-2 border-marca-200 bg-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide text-marca-700 hover:bg-marca-50"
                     >
                       Guía
                     </button>

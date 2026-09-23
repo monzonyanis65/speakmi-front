@@ -185,7 +185,7 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
       {informe && <Resultado informe={informe} />}
 
       {error && (
-        <p role="alert" className="mt-4 text-sm text-[var(--color-fallo)]">
+        <p role="alert" className="mt-4 text-sm text-[var(--texto-fallo)]">
           {error}
         </p>
       )}

@@ -208,7 +208,7 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
       )}
 
       {error && (
-        <p role="alert" className="mt-4 text-center text-sm text-[var(--color-fallo)]">
+        <p role="alert" className="mt-4 text-center text-sm text-[var(--texto-fallo)]">
           {error}
         </p>
       )}

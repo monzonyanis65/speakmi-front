@@ -204,7 +204,7 @@ export function Leccion() {
           type="button"
           onClick={() => navegar('/ruta')}
           aria-label="Salir de la lección"
-          className="-ml-2 rounded-xl px-3 py-2 text-xl text-[var(--texto-suave)] transition hover:text-[var(--texto)]"
+          className="-ml-2 grid size-11 shrink-0 place-items-center rounded-xl text-xl text-[var(--texto-suave)] transition hover:text-[var(--texto)]"
         >
           ✕
         </button>
@@ -234,7 +234,7 @@ export function Leccion() {
         error de la aplicación, como si se hubiera perdido el sitio.
       */}
       {repitiendo && (
-        <p className="mt-6 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-[var(--color-aviso)]">
+        <p className="mt-6 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-[var(--texto-aviso)]">
           <span aria-hidden>↻</span>
           Esta la fallaste antes
         </p>
@@ -396,7 +396,7 @@ function HojaCorreccion({
             <button
               type="button"
               onClick={() => setVerPorque(true)}
-              className="-mx-2 rounded-lg px-2 py-2 text-sm font-bold underline underline-offset-4"
+              className="-mx-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-bold underline underline-offset-4"
             >
               ¿Por qué?
             </button>

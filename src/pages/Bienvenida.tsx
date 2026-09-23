@@ -99,7 +99,7 @@ export function Bienvenida() {
                   el buscador del navegador encuentra el texto de dentro.
                 */}
                 <details className="group/detalle mt-2">
-                  <summary className="cursor-pointer list-none text-sm font-medium text-marca-600 hover:underline dark:text-marca-400">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center text-sm font-medium text-marca-600 hover:underline dark:text-marca-400">
                     Qué significa {tramo.letra}
                     <span className="ml-1 inline-block transition-transform group-open/detalle:rotate-90">
                       ›
@@ -161,29 +161,39 @@ export function Bienvenida() {
         </div>
       </section>
 
-      {/* Barra fija abajo: en móvil el pulgar llega sin estirar la mano. */}
-      <div className="sticky bottom-0 mt-8 bg-gradient-to-t from-[var(--fondo)] via-[var(--fondo)] to-transparent pb-2 pt-6">
-        {error && (
-          <p role="alert" className="mb-3 text-center text-sm text-[var(--color-fallo)]">
-            {error}
-          </p>
-        )}
+      {/*
+        Barra fija abajo: en móvil el pulgar llega sin estirar la mano.
 
-        <Boton
-          tamano="grande"
-          onClick={() => void continuar()}
-          disabled={!seleccionado || guardando}
-        >
-          {guardando ? 'GUARDANDO…' : seleccionado ? 'EMPEZAR' : 'Elige un nivel para empezar'}
-        </Boton>
+        El degradado es solo la franja de arriba, y debajo el fondo es opaco. Lo
+        tenía todo degradado, y en una pantalla de 320 el segundo botón se parte
+        en dos líneas: la parte de arriba seguía siendo transparente y el texto
+        de la tarjeta de detrás se leía a través de los botones.
+      */}
+      <div className="sticky bottom-0 mt-8">
+        <div className="h-6 bg-gradient-to-t from-[var(--fondo)] to-transparent" aria-hidden />
+        <div className="bg-[var(--fondo)] pb-2">
+          {error && (
+            <p role="alert" className="mb-3 text-center text-sm text-[var(--texto-fallo)]">
+              {error}
+            </p>
+          )}
 
-        <button
-          type="button"
-          onClick={() => navegar('/prueba')}
-          className="mt-2 w-full rounded-xl py-3 text-center text-sm font-bold text-marca-600 hover:bg-marca-50 dark:text-marca-400 dark:hover:bg-marca-900/30"
-        >
-          ¿No sabes cuál es el tuyo? Haz la prueba de nivel
-        </button>
+          <Boton
+            tamano="grande"
+            onClick={() => void continuar()}
+            disabled={!seleccionado || guardando}
+          >
+            {guardando ? 'GUARDANDO…' : seleccionado ? 'EMPEZAR' : 'Elige un nivel para empezar'}
+          </Boton>
+
+          <button
+            type="button"
+            onClick={() => navegar('/prueba')}
+            className="mt-2 min-h-11 w-full rounded-xl py-3 text-center text-sm font-bold text-marca-600 hover:bg-marca-50 dark:text-marca-400 dark:hover:bg-marca-900/30"
+          >
+            ¿No sabes cuál es el tuyo? Haz la prueba de nivel
+          </button>
+        </div>
       </div>
     </div>
   );

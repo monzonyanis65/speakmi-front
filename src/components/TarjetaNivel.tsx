@@ -21,7 +21,7 @@ export function TarjetaNivel({ nivel, seleccionado, onSeleccionar }: Props) {
           : 'border-[var(--borde)] bg-[var(--superficie)] hover:border-marca-400',
       )}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex min-w-0 items-start gap-3">
         <span
           className={cn(
             'flex size-11 shrink-0 items-center justify-center rounded-xl text-lg font-bold transition',
@@ -35,7 +35,16 @@ export function TarjetaNivel({ nivel, seleccionado, onSeleccionar }: Props) {
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="truncate font-semibold">{nivel.titulo}</h3>
+            {/*
+              El título se parte en dos líneas en vez de cortarse.
+
+              Llevaba `truncate`, y eso es `white-space: nowrap`: el ancho mínimo
+              del título pasaba a ser el de la frase entera. Esa medida subía
+              hasta la rejilla de la pantalla de niveles, que se quedaba en 349
+              px, y en un móvil de 320 la página entera se iba de lado. Ninguno
+              de estos títulos pasa de dos líneas.
+            */}
+            <h3 className="min-w-0 font-semibold">{nivel.titulo}</h3>
             <span className="shrink-0 rounded-full bg-[var(--fondo)] px-2 py-0.5 text-xs font-medium text-[var(--texto-suave)]">
               {nivel.cefr}
             </span>

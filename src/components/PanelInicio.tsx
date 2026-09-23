@@ -191,8 +191,8 @@ export function PanelInicio() {
           {debilidad?.ultimoEjemplo && debilidad.ultimoEsperado && (
             <p className="mt-1 text-sm text-[var(--texto-suave)]">
               Escribiste{' '}
-              <span className="text-[var(--color-fallo)]">{debilidad.ultimoEjemplo}</span> donde iba{' '}
-              <span className="text-[var(--color-acierto)]">{debilidad.ultimoEsperado}</span>
+              <span className="text-[var(--texto-fallo)]">{debilidad.ultimoEjemplo}</span> donde iba{' '}
+              <span className="text-[var(--texto-acierto)]">{debilidad.ultimoEsperado}</span>
             </p>
           )}
 

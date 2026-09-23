@@ -400,7 +400,7 @@ export function Llamada() {
                 </p>
 
                 {fallos.length === 0 ? (
-                  <p className="mt-2 text-sm font-bold text-[var(--color-acierto)]">✓ Bien dicho</p>
+                  <p className="mt-2 text-sm font-bold text-[var(--texto-acierto)]">✓ Bien dicho</p>
                 ) : (
                   <ul className="mt-3 grid gap-3">
                     {fallos.map((fallo) => (
@@ -409,10 +409,10 @@ export function Llamada() {
                           {NOMBRE_CATEGORIA[fallo.category] ?? fallo.category}
                         </span>
                         <p className="mt-1">
-                          <span className="text-[var(--color-fallo)] line-through">
+                          <span className="text-[var(--texto-fallo)] line-through">
                             {fallo.original}
                           </span>{' '}
-                          <span className="text-[var(--color-acierto)]">{fallo.correction}</span>
+                          <span className="text-[var(--texto-acierto)]">{fallo.correction}</span>
                         </p>
                         <p className="text-[var(--texto-suave)]">{fallo.explanation_es}</p>
                       </li>
@@ -550,7 +550,7 @@ export function Llamada() {
         </div>
 
         {error && (
-          <p className="mt-4 text-sm text-[var(--color-fallo)]" role="alert">
+          <p className="mt-4 text-sm text-[var(--texto-fallo)]" role="alert">
             {error}
           </p>
         )}
@@ -656,7 +656,7 @@ export function Llamada() {
       </div>
 
       {aviso && (
-        <p className="mb-2 text-center text-sm text-[var(--color-fallo)]" role="alert">
+        <p className="mb-2 text-center text-sm text-[var(--texto-fallo)]" role="alert">
           {aviso}
         </p>
       )}

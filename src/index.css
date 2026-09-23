@@ -28,6 +28,12 @@
   --color-marca-50: #eef2ff;
   --color-marca-100: #e0e7ff;
   --color-marca-200: #c7d2fe;
+  /*
+    El 300 faltaba, y no fallaba a la vista: Tailwind no genera la clase de un
+    tono que no existe, así que tres `dark:text-marca-300` no pintaban nada y el
+    texto se quedaba en el 700 sobre fondo oscuro, a 1.85 de contraste.
+  */
+  --color-marca-300: #a5b4fc;
   --color-marca-400: #818cf8;
   --color-marca-500: #6366f1;
   --color-marca-600: #4f46e5;
@@ -237,6 +243,21 @@
   --texto-suave: #64748b;
   /* Profundidad de los botones: el grosor que se hunde al pulsar. */
   --hueco: #cbd5e1;
+
+  /*
+    Los mismos tres significados, pero para TEXTO.
+
+    `--color-fallo`, `--color-acierto` y `--color-aviso` son colores de señal:
+    valen para un punto, una barra o un borde, donde lo único que importa es que
+    se distingan de un vistazo. Como letra sobre el fondo claro se quedan en
+    3.6, 2.5 y 2.7 de contraste, por debajo del 4.5 que hace falta para leer.
+
+    Por eso hay un juego aparte, más oscuro en claro y más claro en oscuro. El
+    significado no cambia: cambia cuánto se lee.
+  */
+  --texto-fallo: #b91c1c;
+  --texto-acierto: #047857;
+  --texto-aviso: #b45309;
 }
 
 /*
@@ -256,6 +277,10 @@
     --texto: #f1f5f9;
     --texto-suave: #94a3b8;
     --hueco: #0b1220;
+
+    --texto-fallo: #fca5a5;
+    --texto-acierto: #6ee7b7;
+    --texto-aviso: #fdba74;
   }
 }
 
@@ -266,6 +291,10 @@
   --texto: #f1f5f9;
   --texto-suave: #94a3b8;
   --hueco: #0b1220;
+
+  --texto-fallo: #fca5a5;
+  --texto-acierto: #6ee7b7;
+  --texto-aviso: #fdba74;
 }
 
 html {

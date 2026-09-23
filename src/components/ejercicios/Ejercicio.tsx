@@ -349,6 +349,9 @@ function Emparejar({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
               key={texto}
               type="button"
               disabled={bloqueado}
+              // Cuál está elegida se contaba solo con el color del borde. Quien
+              // no lo ve pulsaba una palabra y no pasaba nada perceptible.
+              aria-pressed={activa === indice}
               onClick={() => setActiva(indice)}
               className={cn(
                 'rounded-xl border px-3 py-3 text-left text-sm transition disabled:opacity-60',
@@ -440,7 +443,7 @@ function Traducir({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
               type="button"
               disabled={bloqueado}
               onClick={() => fijar(`${valor}${valor ? ' ' : ''}${palabra}`)}
-              className="rounded-lg border border-[var(--borde)] px-2.5 py-1.5 text-sm transition hover:border-marca-400 disabled:opacity-60"
+              className="inline-flex min-h-11 items-center rounded-lg border border-[var(--borde)] px-3 text-sm transition hover:border-marca-400 disabled:opacity-60"
             >
               {palabra}
             </button>

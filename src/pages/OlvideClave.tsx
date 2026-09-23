@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/cn';
@@ -126,7 +126,7 @@ export function OlvideClave() {
         )}
 
         {error && (
-          <p role="alert" className="text-sm text-[var(--color-fallo)]">
+          <p role="alert" className="text-sm text-[var(--texto-fallo)]">
             {error}
           </p>
         )}
@@ -134,7 +134,7 @@ export function OlvideClave() {
         <button
           type="submit"
           disabled={enviando}
-          className="mt-2 rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700 disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700"
+          className="mt-2 rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700 disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-300"
         >
           {enviando ? 'Un momento…' : paso === 'pedir' ? 'Enviar' : 'Cambiar contraseña'}
         </button>
@@ -168,6 +168,18 @@ function Campo({
   ayuda?: string;
   autoComplete?: string;
 }) {
+  /*
+    El mensaje de error va atado al campo, no suelto debajo.
+
+    Sin `aria-describedby` un lector de pantalla dice «no válido» y se calla: no
+    lee el motivo, que es justo lo que hace falta para arreglarlo. Y sin
+    `role="alert"` el aviso aparece sin que nadie se entere, porque el foco
+    sigue en el botón de enviar.
+  */
+  const id = useId();
+  const idError = `${id}-error`;
+  const idAyuda = `${id}-ayuda`;
+
   return (
     <label className="grid gap-1.5">
       <span className="text-sm font-medium">{etiqueta}</span>
@@ -177,15 +189,20 @@ function Campo({
         onChange={(e) => onChange(e.target.value)}
         autoComplete={autoComplete}
         aria-invalid={Boolean(error)}
+        aria-describedby={error ? idError : ayuda ? idAyuda : undefined}
         className={cn(
           'rounded-xl border bg-[var(--superficie)] px-4 py-3 text-base outline-none transition',
           error ? 'border-[var(--color-fallo)]' : 'border-[var(--borde)] focus:border-marca-500',
         )}
       />
       {error ? (
-        <span className="text-sm text-[var(--color-fallo)]">{error}</span>
+        <span id={idError} role="alert" className="text-sm text-[var(--texto-fallo)]">
+          {error}
+        </span>
       ) : ayuda ? (
-        <span className="text-xs text-[var(--texto-suave)]">{ayuda}</span>
+        <span id={idAyuda} className="text-xs text-[var(--texto-suave)]">
+          {ayuda}
+        </span>
       ) : null}
     </label>
   );

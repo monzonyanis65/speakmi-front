@@ -198,10 +198,10 @@ export function Conversar() {
                       {NOMBRE_CATEGORIA[fallo.category] ?? fallo.category}
                     </span>
                     <p className="mt-1">
-                      <span className="text-[var(--color-fallo)] line-through">
+                      <span className="text-[var(--texto-fallo)] line-through">
                         {fallo.original}
                       </span>{' '}
-                      <span className="text-[var(--color-acierto)]">{fallo.correction}</span>
+                      <span className="text-[var(--texto-acierto)]">{fallo.correction}</span>
                     </p>
                     <p className="text-[var(--texto-suave)]">{fallo.explanation_es}</p>
                   </li>
@@ -256,7 +256,11 @@ export function Conversar() {
           ))}
         </div>
 
-        {error && <p className="mt-4 text-sm text-[var(--color-fallo)]">{error}</p>}
+        {error && (
+          <p role="alert" className="mt-4 text-sm text-[var(--texto-fallo)]">
+            {error}
+          </p>
+        )}
 
         <Boton tono="suave" className="mt-6" onClick={() => navegar('/ruta')}>
           Volver
@@ -329,7 +333,11 @@ export function Conversar() {
         <div ref={finDelChat} />
       </div>
 
-      {error && <p className="mb-2 text-sm text-[var(--color-fallo)]">{error}</p>}
+      {error && (
+        <p role="alert" className="mb-2 text-sm text-[var(--texto-fallo)]">
+          {error}
+        </p>
+      )}
 
       <div className="sticky bottom-0 flex gap-2 bg-[var(--fondo)] py-3">
         <input

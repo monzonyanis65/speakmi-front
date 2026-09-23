@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '@/lib/api';
 import { entrar, registrar, tieneNivel } from '@/lib/auth';
@@ -152,7 +152,7 @@ function Pestana({
       onClick={onClick}
       aria-pressed={activa}
       className={cn(
-        'flex-1 rounded-xl px-4 py-2.5 text-sm font-medium transition',
+        'min-h-11 flex-1 rounded-xl px-4 py-2.5 text-sm font-medium transition',
         activa ? 'bg-marca-600 text-white' : 'text-[var(--texto-suave)] hover:text-[var(--texto)]',
       )}
     >
@@ -180,6 +180,18 @@ function Campo({
   ayuda,
   autoComplete,
 }: CampoProps) {
+  /*
+    El mensaje de error va atado al campo, no suelto debajo.
+
+    Sin `aria-describedby` un lector de pantalla dice «no válido» y se calla: no
+    lee el motivo, que es justo lo que hace falta para arreglarlo. Y sin
+    `role="alert"` el aviso aparece sin que nadie se entere, porque el foco
+    sigue en el botón de enviar.
+  */
+  const id = useId();
+  const idError = `${id}-error`;
+  const idAyuda = `${id}-ayuda`;
+
   return (
     <label className="grid gap-1.5">
       <span className="text-sm font-medium">{etiqueta}</span>
@@ -189,15 +201,20 @@ function Campo({
         onChange={(e) => onChange(e.target.value)}
         autoComplete={autoComplete}
         aria-invalid={Boolean(error)}
+        aria-describedby={error ? idError : ayuda ? idAyuda : undefined}
         className={cn(
           'rounded-xl border bg-[var(--superficie)] px-4 py-3 text-base outline-none transition',
           error ? 'border-[var(--color-fallo)]' : 'border-[var(--borde)] focus:border-marca-500',
         )}
       />
       {error ? (
-        <span className="text-sm text-[var(--color-fallo)]">{error}</span>
+        <span id={idError} role="alert" className="text-sm text-[var(--texto-fallo)]">
+          {error}
+        </span>
       ) : ayuda ? (
-        <span className="text-xs text-[var(--texto-suave)]">{ayuda}</span>
+        <span id={idAyuda} className="text-xs text-[var(--texto-suave)]">
+          {ayuda}
+        </span>
       ) : null}
     </label>
   );
