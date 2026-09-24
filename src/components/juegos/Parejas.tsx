@@ -1,16 +1,42 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
+import { emojiDe } from '@/data/emoji-vocabulario';
+import { useMenosMovimiento } from '@/lib/movimiento';
 import { CabeceraJuego, Contador } from './Tablero';
-import { useMenosMovimiento } from './movimiento';
 import type { Marcador, RondaDeParejas } from './tipos';
 
 /**
- * Parejas: juntar cada palabra inglesa con la española.
+ * Parejas: un memorama para juntar cada palabra inglesa con su significado.
  *
  * Entrena vocabulario, y lo entrena de la única forma que sirve: reconociendo.
  * Traducir con calma no es lo que pasa en una conversación; lo que pasa es que
  * oyes «borrow» y tienes medio segundo para saber si te la están pidiendo o te
  * la están dando.
+ *
+ *
+ * POR QUÉ LAS CARTAS ESTÁN BOCA ABAJO
+ *
+ * Antes eran dos columnas de texto, todo a la vista, y se resolvía por
+ * eliminación: cuando quedaban dos, ya no hacía falta saberse ninguna. Boca
+ * abajo no hay eliminación posible, y cada volteo te enseña la palabra otra vez.
+ * Esa repetición —ver «seafood 🦐» cuatro veces buscando su pareja— es más
+ * vocabulario del que dejaba la lista.
+ *
+ *
+ * POR QUÉ EL DORSO DICE SI ES INGLÉS O ESPAÑOL
+ *
+ * En un memorama normal todos los dorsos son iguales porque todas las cartas
+ * juegan igual. Aquí no: una carta inglesa nunca casa con otra inglesa. Con los
+ * dorsos mudos, la mitad de los volteos serían inglés con inglés, que no es
+ * difícil, es inútil. Marcados, cada volteo es una apuesta de verdad. Y va
+ * escrito «EN»/«ES», no solo el color, porque el color no lo ve todo el mundo.
+ *
+ *
+ * POR QUÉ EL DIBUJO SOLO ESTÁ EN LA CARTA INGLESA
+ *
+ * Si «cat» y «gato» llevaran los dos un 🐱, se emparejaría mirando los
+ * monigotes y el juego dejaría de entrenar vocabulario. El dibujo va en el lado
+ * inglés, que es el que hay que aprender a reconocer; el español se lee.
  *
  *
  * POR QUÉ NO SE PREGUNTA AL SERVIDOR ANTES DE PINTAR EL ACIERTO
@@ -29,11 +55,29 @@ const MARGEN_POR_PAREJA = 10;
 /** Lo que cuesta un fallo, en segundos de bonus. */
 const CASTIGO_POR_FALLO = 3;
 
+/**
+ * Cuánto se quedan arriba las dos cartas que no eran pareja.
+ *
+ * Un segundo entero, y no es generosidad: ese segundo es donde se aprende. Si se
+ * dan la vuelta en cuanto fallas, no te ha dado tiempo de leer la que
+ * levantaste, y volverás a levantarla igual de ciego dentro de tres jugadas.
+ */
+const MIRAR_EL_FALLO = 1000;
+
 type Lado = 'en' | 'es';
 
 interface Seleccion {
   lado: Lado;
   id: string;
+}
+
+interface CartaDelTablero {
+  /** Único en el tablero: la misma pareja aparece dos veces, una por lado. */
+  clave: string;
+  id: string;
+  lado: Lado;
+  texto: string;
+  emoji: string | null;
 }
 
 export function Parejas({
@@ -51,10 +95,30 @@ export function Parejas({
   const menosMovimiento = useMenosMovimiento();
   const parejas = ronda.parejas;
 
-  // Las dos columnas se barajan por separado. Con el mismo orden a los dos lados
-  // el juego se resuelve mirando la altura, sin leer una sola palabra.
-  const columnaEn = useMemo(() => barajar(parejas), [parejas]);
-  const columnaEs = useMemo(() => barajar(parejas), [parejas]);
+  // Las dos mitades caen revueltas en el mismo tablero. Barajar una sola vez por
+  // ronda: rebarajar en cada render sería mover las cartas bajo el dedo.
+  const cartas = useMemo<CartaDelTablero[]>(
+    () =>
+      barajar(
+        parejas.flatMap((pareja) => [
+          {
+            clave: `${pareja.id}-en`,
+            id: pareja.id,
+            lado: 'en' as const,
+            texto: pareja.en,
+            emoji: emojiDe(pareja.en),
+          },
+          {
+            clave: `${pareja.id}-es`,
+            id: pareja.id,
+            lado: 'es' as const,
+            texto: pareja.es,
+            emoji: null,
+          },
+        ]),
+      ),
+    [parejas],
+  );
 
   const [hechas, setHechas] = useState<string[]>([]);
   const [seleccion, setSeleccion] = useState<Seleccion | null>(null);
@@ -62,6 +126,7 @@ export function Parejas({
   const [fallos, setFallos] = useState(0);
   const [transcurrido, setTranscurrido] = useState(0);
   const [ultima, setUltima] = useState<string | null>(null);
+  const [fallada, setFallada] = useState<string | null>(null);
 
   const bonus = Math.max(
     0,
@@ -88,7 +153,7 @@ export function Parejas({
     if (parejas.length > 0 && hechas.length === parejas.length && !terminado.current) {
       terminado.current = true;
       // Un respiro para ver la última pareja encajar antes de saltar al final.
-      const espera = setTimeout(() => onFin(marcador.current), 600);
+      const espera = setTimeout(() => onFin(marcador.current), 700);
       return () => clearTimeout(espera);
     }
     return undefined;
@@ -97,6 +162,9 @@ export function Parejas({
   function elegir(lado: Lado, id: string) {
     if (hechas.includes(id) || fallando) return;
 
+    // Dos del mismo lado no es un fallo, es cambiar de idea: se baja la primera
+    // y se levanta la segunda. Penalizar eso sería cobrar por algo que el propio
+    // tablero ya impide que sirva de nada.
     if (!seleccion || seleccion.lado === lado) {
       setSeleccion({ lado, id });
       return;
@@ -115,6 +183,7 @@ export function Parejas({
 
     setFallos((n) => n + 1);
     setFallando([seleccion, { lado, id }]);
+    setFallada(textoDe(cartas, seleccion) + ' y ' + textoDe(cartas, { lado, id }));
     setSeleccion(null);
   }
 
@@ -122,19 +191,21 @@ export function Parejas({
   // borrarlo convierte cada error en dos gestos.
   useEffect(() => {
     if (!fallando) return;
-    const espera = setTimeout(() => setFallando(null), 650);
+    const espera = setTimeout(() => setFallando(null), MIRAR_EL_FALLO);
     return () => clearTimeout(espera);
   }, [fallando]);
 
-  function estadoDe(lado: Lado, id: string): 'hecha' | 'elegida' | 'mal' | 'nada' {
+  function estadoDe(lado: Lado, id: string): EstadoCarta {
     if (hechas.includes(id)) return 'hecha';
     if (fallando?.some((s) => s.lado === lado && s.id === id)) return 'mal';
     if (seleccion?.lado === lado && seleccion.id === id) return 'elegida';
-    return 'nada';
+    return 'abajo';
   }
 
+  const hechasPorCiento = parejas.length > 0 ? (hechas.length / parejas.length) * 100 : 0;
+
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 py-4">
+    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-3 py-4 sm:px-4">
       <CabeceraJuego onSalir={onSalir}>
         <div className="min-w-0 flex-1">
           <p className="text-2xl font-extrabold leading-none tabular-nums">
@@ -149,99 +220,271 @@ export function Parejas({
         <Contador etiqueta="Tiempo" valor={reloj(transcurrido)} />
       </CabeceraJuego>
 
-      <p className="mt-3 text-sm text-[var(--texto-suave)]">
-        Toca una palabra de cada lado. Cuanto antes las juntes y menos falles, mejor.
+      {/* Cuánto llevas, sin números: de un vistazo y sin leer. */}
+      <div aria-hidden className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--borde)]">
+        <div
+          className="h-full rounded-full bg-marca-600 transition-[width] duration-300"
+          style={{ width: `${hechasPorCiento}%` }}
+        />
+      </div>
+
+      <p className="mt-3 text-xs leading-snug text-[var(--texto-suave)]">
+        Levanta una carta <span className="font-bold text-marca-700 dark:text-marca-300">EN</span> y
+        una <span className="font-bold text-amber-700 dark:text-amber-300">ES</span>. Si son la
+        misma palabra, se quedan.
       </p>
 
-      {/* Lo que acaba de encajar, para quien no ve la pantalla. */}
+      {/* Lo que acaba de pasar, para quien no ve la pantalla. */}
       <p role="status" className="sr-only">
         {ultima ? `Pareja hecha: ${ultima}.` : ''}
       </p>
+      <p role="status" className="sr-only">
+        {fallando && fallada ? `${fallada} no eran pareja. Se dan la vuelta.` : ''}
+      </p>
 
-      <div className="mt-5 flex flex-1 gap-2">
-        <Columna titulo="Inglés">
-          {columnaEn.map((pareja) => (
-            <Ficha
-              key={pareja.id}
-              texto={pareja.en}
-              idioma="en"
-              estado={estadoDe('en', pareja.id)}
-              quieto={menosMovimiento}
-              onClick={() => elegir('en', pareja.id)}
-            />
-          ))}
-        </Columna>
+      {/*
+        El tablero se queda en medio de lo que sobre.
 
-        <Columna titulo="Español">
-          {columnaEs.map((pareja) => (
-            <Ficha
-              key={pareja.id}
-              texto={pareja.es}
-              estado={estadoDe('es', pareja.id)}
-              quieto={menosMovimiento}
-              onClick={() => elegir('es', pareja.id)}
-            />
+        En una pantalla alta, doce cartas pegadas arriba dejan media pantalla de
+        nada debajo y el juego parece que se cortó. Centrado, el pulgar cae donde
+        están las cartas, que en un móvil es el único sitio que importa.
+      */}
+      <div className="flex flex-1 flex-col justify-center py-4">
+        <ul aria-label="Tablero de cartas" className="grid grid-cols-3 gap-2 sm:gap-3">
+          {cartas.map((carta, indice) => (
+            <li
+              key={carta.clave}
+              // La entrada escalonada vive en el `li` y no en el botón a
+              // propósito: el botón cambia de clases al fallar, y si la entrada
+              // estuviera ahí, cada fallo volvería a estrenar la carta.
+              className={cn(!menosMovimiento && 'animate-entrada')}
+              style={
+                menosMovimiento
+                  ? undefined
+                  : { animationDelay: `${indice * 35}ms`, animationFillMode: 'backwards' }
+              }
+            >
+              <Carta
+                carta={carta}
+                numero={indice + 1}
+                estado={estadoDe(carta.lado, carta.id)}
+                quieto={menosMovimiento}
+                onClick={() => elegir(carta.lado, carta.id)}
+              />
+            </li>
           ))}
-        </Columna>
+        </ul>
       </div>
     </div>
   );
 }
 
-function Columna({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0 flex-1">
-      <h2 className="mb-2 text-[10px] uppercase tracking-wide text-[var(--texto-suave)]">
-        {titulo}
-      </h2>
-      <div className="grid gap-2">{children}</div>
-    </div>
-  );
-}
+type EstadoCarta = 'abajo' | 'elegida' | 'mal' | 'hecha';
 
-function Ficha({
-  texto,
-  idioma,
+const IDIOMA = {
+  en: { sigla: 'EN', nombre: 'inglés' },
+  es: { sigla: 'ES', nombre: 'español' },
+} as const;
+
+/**
+ * Una carta.
+ *
+ * El volteo es lo único que separa un memorama de una lista de botones, así que
+ * está hecho con dos caras de verdad —una a 0° y otra a 180°, las dos con la
+ * trasera oculta— y no cambiando el contenido de golpe. La diferencia se nota:
+ * con el giro real ves de dónde sale la palabra, y al girar hacia atrás ves
+ * adónde vuelve, que es justo lo que hay que memorizar.
+ *
+ * Con `prefers-reduced-motion` no gira: cambia. Se quita la transición (no se
+ * acorta: quitarla) y las caras se intercambian sin recorrido. El juego se
+ * entiende igual porque la información nunca estuvo en el movimiento, estaba en
+ * qué cara se ve.
+ */
+function Carta({
+  carta,
+  numero,
   estado,
   quieto,
   onClick,
 }: {
-  texto: string;
-  idioma?: 'en';
-  estado: 'hecha' | 'elegida' | 'mal' | 'nada';
+  carta: CartaDelTablero;
+  numero: number;
+  estado: EstadoCarta;
   quieto: boolean;
   onClick: () => void;
 }) {
+  const arriba = estado !== 'abajo';
+  const idioma = IDIOMA[carta.lado];
+  const esIngles = carta.lado === 'en';
+
   return (
     <button
       type="button"
-      lang={idioma}
       disabled={estado === 'hecha'}
-      aria-pressed={estado === 'elegida'}
       onClick={onClick}
+      // Boca abajo no hay texto que leer, así que el nombre lo pone la etiqueta:
+      // qué carta es, que está boca abajo y de qué idioma. Boca arriba se quita
+      // y manda el contenido, que así conserva su `lang` y se pronuncia bien.
+      {...(arriba ? {} : { 'aria-label': `Carta ${numero}, boca abajo, ${idioma.nombre}` })}
       className={cn(
-        // 48 px de alto: por debajo de eso el dedo falla y en un juego de tocar
-        // rápido fallar el dedo se vive como si el juego no respondiera.
-        'flex min-h-12 items-center justify-center break-words rounded-2xl border-2 px-2 py-2 text-center text-sm font-semibold transition',
-        estado === 'nada' && 'border-[var(--borde)] bg-[var(--superficie)] hover:border-marca-400',
-        estado === 'elegida' &&
-          'border-marca-600 bg-marca-50 ring-2 ring-marca-600/30 dark:bg-marca-600/25',
-        estado === 'mal' && 'border-red-500 bg-red-50 text-[var(--texto-fallo)] dark:bg-red-950/40',
+        // Cuadrada: a 320 px cada carta queda en 90 px de lado, muy por encima de
+        // los 44 px de zona táctil, y las cuatro filas caben sin arrastrar.
+        'block aspect-square w-full rounded-2xl outline-offset-2 perspective-midrange',
         estado === 'mal' && !quieto && 'animate-temblor',
-        // Hecha: se apaga pero no desaparece. Que el hueco siga ahí deja ver lo
-        // que ya se resolvió, y eso es media lección de vocabulario.
-        estado === 'hecha' &&
-          'border-emerald-600 bg-emerald-50 text-[var(--texto-acierto)] opacity-70 dark:bg-emerald-950/30',
       )}
     >
-      {estado === 'hecha' && (
-        <span aria-label="Hecha" className="mr-1">
-          ✓
-        </span>
-      )}
-      {texto}
+      <span
+        className={cn(
+          'relative block size-full transform-3d',
+          !quieto && 'transition-transform duration-300 ease-out',
+          arriba && 'rotate-y-180',
+        )}
+      >
+        <Dorso sigla={idioma.sigla} ingles={esIngles} />
+        <Frente carta={carta} estado={estado} oculta={!arriba} quieto={quieto} />
+      </span>
     </button>
   );
+}
+
+/**
+ * El dorso.
+ *
+ * La trama de puntos no es decoración gratuita: doce rectángulos planos e
+ * idénticos se leen como una tabla, y una tabla no invita a tocarla. Con la
+ * trama parecen cartas, y a una carta se le da la vuelta.
+ */
+function Dorso({ sigla, ingles }: { sigla: string; ingles: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'absolute inset-0 flex items-center justify-center rounded-2xl backface-hidden',
+        'border-2 shadow-sm',
+        ingles ? 'border-marca-800 bg-marca-600' : 'border-amber-800 bg-amber-600',
+      )}
+      style={{
+        backgroundImage:
+          'radial-gradient(rgba(255,255,255,0.22) 1px, transparent 1.4px), linear-gradient(135deg, rgba(255,255,255,0.18), rgba(0,0,0,0.22))',
+        backgroundSize: '9px 9px, 100% 100%',
+      }}
+    >
+      <span className="rounded-lg bg-white/90 px-2 py-0.5 text-xs font-extrabold tracking-wider text-slate-900">
+        {sigla}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * La cara buena.
+ *
+ * El emoji ocupa la mitad de arriba cuando lo hay. Cuando no —una preposición,
+ * un pasado irregular—, la palabra sube de tamaño y se queda con todo el sitio.
+ * Poner ahí un signo de interrogación o una bombilla genérica sería peor: en una
+ * carta que se mira medio segundo, el dibujo manda sobre el texto, y un dibujo
+ * que no significa nada es un dibujo que engaña.
+ */
+function Frente({
+  carta,
+  estado,
+  oculta,
+  quieto,
+}: {
+  carta: CartaDelTablero;
+  estado: EstadoCarta;
+  oculta: boolean;
+  quieto: boolean;
+}) {
+  const esIngles = carta.lado === 'en';
+
+  return (
+    <span
+      aria-hidden={oculta || undefined}
+      className={cn(
+        'absolute inset-0 flex flex-col items-center justify-center gap-0.5 overflow-hidden rounded-2xl',
+        'border-2 px-1 text-center backface-hidden rotate-y-180',
+        estado !== 'mal' && estado !== 'hecha' && 'bg-[var(--superficie)]',
+        estado !== 'mal' &&
+          estado !== 'hecha' &&
+          (esIngles
+            ? 'border-marca-500 ring-2 ring-marca-500/25'
+            : 'border-amber-500 ring-2 ring-amber-500/25'),
+        estado === 'mal' &&
+          'border-red-500 bg-red-50 text-[var(--texto-fallo)] ring-2 ring-red-500/30 dark:bg-red-950/50',
+        // Hecha: se queda puesta y marcada. Que el tablero acabe lleno de cartas
+        // verdes con su palabra a la vista es media lección de vocabulario.
+        estado === 'hecha' &&
+          'border-emerald-600 bg-emerald-50 text-[var(--texto-acierto)] dark:bg-emerald-950/40',
+      )}
+    >
+      {/* La sigla del dorso, repetida pequeñita arriba. Sirve para leer un
+          tablero medio resuelto sin tener que reconocer cada palabra. */}
+      <span
+        aria-hidden
+        className={cn(
+          'absolute left-1 top-1 text-[8px] font-extrabold tracking-wider',
+          esIngles ? 'text-marca-600 dark:text-marca-300' : 'text-amber-700 dark:text-amber-400',
+        )}
+      >
+        {esIngles ? 'EN' : 'ES'}
+      </span>
+
+      {carta.emoji && (
+        <span aria-hidden className="text-2xl leading-none sm:text-3xl">
+          {carta.emoji}
+        </span>
+      )}
+
+      <span
+        {...(esIngles ? { lang: 'en' } : {})}
+        className={cn(
+          'block w-full hyphens-auto break-words font-bold leading-tight',
+          tamanoDe(carta.texto, Boolean(carta.emoji)),
+        )}
+      >
+        {carta.texto}
+      </span>
+
+      {estado === 'hecha' && (
+        <>
+          {/* El único premio visual del acierto, y va aquí y no en la carta
+              entera: animar la carta pisaría el giro y la dejaría con la cara
+              de atrás a la vista. */}
+          <span
+            aria-hidden
+            className={cn(
+              'absolute right-1 top-1 text-xs font-black text-[var(--texto-acierto)]',
+              !quieto && 'animate-crecer',
+            )}
+          >
+            ✓
+          </span>
+          <span className="sr-only"> (pareja hecha)</span>
+        </>
+      )}
+    </span>
+  );
+}
+
+/**
+ * Qué tamaño de letra aguanta ese texto dentro de 90 px.
+ *
+ * Se mide por longitud y no con una sola clase para todos porque el vocabulario
+ * va de «key» a «en realidad, la verdad es que», y una talla única deja la
+ * corta ridícula o la larga cortada. Cortar la traducción no es una opción: es
+ * justo lo que hay que leer.
+ */
+function tamanoDe(texto: string, conEmoji: boolean): string {
+  const largo = texto.length;
+  if (largo <= 7) return conEmoji ? 'text-sm sm:text-base' : 'text-base sm:text-lg';
+  if (largo <= 13) return conEmoji ? 'text-xs sm:text-sm' : 'text-sm sm:text-base';
+  if (largo <= 20) return 'text-[10px] sm:text-xs';
+  return 'text-[9px] leading-[1.15] sm:text-[11px]';
+}
+
+function textoDe(cartas: readonly CartaDelTablero[], donde: Seleccion): string {
+  return cartas.find((c) => c.lado === donde.lado && c.id === donde.id)?.texto ?? '';
 }
 
 function barajar<T>(lista: readonly T[]): T[] {
