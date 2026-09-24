@@ -57,10 +57,17 @@ export function Escucha({
   const [aciertos, setAciertos] = useState(0);
   const [contestadas, setContestadas] = useState(0);
   const [racha, setRacha] = useState(0);
+  /*
+    La racha viva se rompe al fallar; la que PAGA es la más larga de la partida.
+    Se guarda aparte para que el marcador en vivo enseñe lo mismo que va a cerrar
+    el servidor: un número que baja al fallar y luego no cuadra con el final es
+    justo lo que hace que un juego se sienta trucado.
+  */
+  const [rachaMaxima, setRachaMaxima] = useState(0);
 
   // La misma cuenta que hará el servidor al cerrar: diez por acierto. Así el
   // número que sube durante la partida es el que sale al final, sin sorpresas.
-  const puntuacion = puntosDelServidor('ESCUCHA', aciertos);
+  const puntuacion = puntosDelServidor('ESCUCHA', aciertos, rachaMaxima);
   const actual = ronda.rondas[indice];
 
   const marcador = useRef<Marcador>({ puntuacion: 0, aciertos: 0, total: 0 });
@@ -134,6 +141,7 @@ export function Escucha({
     }
 
     const nuevaRacha = correcta ? racha + 1 : 0;
+    setRachaMaxima((mejor) => Math.max(mejor, nuevaRacha));
     setAcertada(correcta);
     setContestadas((n) => n + 1);
     setRacha(nuevaRacha);

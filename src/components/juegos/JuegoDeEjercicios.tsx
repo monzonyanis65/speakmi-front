@@ -87,6 +87,13 @@ export function JuegoDeEjercicios({
   */
   const [historial, setHistorial] = useState<boolean[]>([]);
   const [racha, setRacha] = useState(0);
+  /*
+    La racha viva se rompe al fallar; la que PAGA es la más larga de la partida.
+    Se guarda aparte para que el marcador en vivo enseñe lo mismo que va a cerrar
+    el servidor: un número que baja al fallar y luego no cuadra con el final es
+    justo lo que hace que un juego se sienta trucado.
+  */
+  const [rachaMaxima, setRachaMaxima] = useState(0);
 
   const codigo: CodigoJuego = modo === 'cadena' ? 'CADENA' : 'CONTRARRELOJ';
   /*
@@ -94,7 +101,7 @@ export function JuegoDeEjercicios({
     fórmula que usará el servidor al cerrar la partida. Guardarla aparte era
     justo lo que permitía que se desviara de la de verdad.
   */
-  const puntuacion = puntosDelServidor(codigo, aciertos);
+  const puntuacion = puntosDelServidor(codigo, aciertos, rachaMaxima);
   const segundos = modo === 'contrarreloj' ? (ronda.segundos ?? SEGUNDOS_POR_DEFECTO) : 0;
   const [restantes, setRestantes] = useState(segundos);
 
@@ -161,6 +168,7 @@ export function JuegoDeEjercicios({
     try {
       const corregida = await onResponder(ejercicio.code, valor);
       const nuevaRacha = corregida.isCorrect ? racha + 1 : 0;
+      setRachaMaxima((mejor) => Math.max(mejor, nuevaRacha));
 
       setContestados((n) => n + 1);
       setHistorial((anterior) => [...anterior, corregida.isCorrect]);

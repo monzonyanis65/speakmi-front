@@ -121,6 +121,6 @@ describe('Escucha', () => {
       servidor no aplica: era la cifra de la partida yéndose de la del final.
     */
     expect(marcador.aciertos).toBe(2);
-    expect(marcador.puntuacion).toBe(20);
+    expect(marcador.puntuacion).toBe(28);
   });
 });

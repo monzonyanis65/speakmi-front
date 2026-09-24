@@ -76,7 +76,7 @@ describe('JuegoDeEjercicios', () => {
       navegador; eso es justo lo que hacía que la pantalla final dijera otra
       cosa.
     */
-    expect(onFin.mock.calls[0]?.[0]).toMatchObject({ puntuacion: 20, aciertos: 2, total: 2 });
+    expect(onFin.mock.calls[0]?.[0]).toMatchObject({ puntuacion: 28, aciertos: 2, total: 2 });
   });
 
   /*
@@ -99,7 +99,8 @@ describe('JuegoDeEjercicios', () => {
     await usuario.click(await screen.findByRole('button', { name: 'SEGUIR' }));
 
     await waitFor(() => expect(onFin).toHaveBeenCalled());
-    // 5 + 15 = 20, que es 2² × 5.
+    // 5 + 15 = 20, que es 2² × 5. CADENA no lleva el bono de racha de los otros
+    // dos juegos: su puntuación ENTERA ya es la racha al cuadrado.
     expect(onFin.mock.calls[0]?.[0]).toMatchObject({ puntuacion: 20, aciertos: 2 });
   });
 
