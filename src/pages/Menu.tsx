@@ -18,6 +18,12 @@ interface Entrada {
 */
 const ENTRADAS: Entrada[] = [
   {
+    icono: '🎮',
+    titulo: 'Juegos',
+    descripcion: 'Contrarreloj, parejas, cadena y escucha. Cinco minutos y monedas',
+    a: '/juegos',
+  },
+  {
     icono: '👤',
     titulo: 'Mi perfil',
     descripcion: 'Tu nombre, tu nivel y cómo llevas el curso',

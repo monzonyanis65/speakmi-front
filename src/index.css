@@ -82,6 +82,31 @@
   */
 }
 
+/*
+  El confeti del final de lección.
+
+  Se declara aquí aunque ningún sitio use la clase `animate-caer`, y por eso
+  mismo hay que dejarlo escrito: `Confeti.tsx` la invoca ESCRITA A MANO, con
+  `style={{ animation: 'caer ...' }}`, no con la utilidad de Tailwind. Al
+  limpiar las animaciones que quedaron sin uso busqué por `animate-caer`, no la
+  encontré y borré este bloque; el resultado fue que el confeti dejó de caer y
+  se quedaron treinta barritas de colores clavadas arriba de la pantalla, fijas
+  y por encima de todo, justo en la pantalla que celebra que acabas de terminar.
+
+  Si algún día se vuelve a limpiar, buscar también `animation:` en el código,
+  no solo las clases.
+*/
+@keyframes caer {
+  from {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(105vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
 @keyframes entrada {
   from {
     opacity: 0;

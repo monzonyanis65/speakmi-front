@@ -20,6 +20,8 @@ import { Ajustes } from '@/pages/Ajustes';
 import { Perfil } from '@/pages/Perfil';
 import { Seguridad } from '@/pages/Seguridad';
 import { Tienda } from '@/pages/Tienda';
+import { Juegos } from '@/pages/Juegos';
+import { Juego } from '@/pages/Juego';
 import { Llamada } from '@/pages/Llamada';
 import { MiloVivo } from '@/components/MiloVivo';
 import { Repaso } from '@/pages/Repaso';
@@ -157,6 +159,22 @@ export default function App() {
               element={
                 <SoloConSesion>
                   <Guia />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/juegos"
+              element={
+                <SoloConSesion>
+                  <Juegos />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/juegos/:code"
+              element={
+                <SoloConSesion>
+                  <Juego />
                 </SoloConSesion>
               }
             />
