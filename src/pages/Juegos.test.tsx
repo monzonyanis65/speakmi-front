@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { Juegos } from './Juegos';
+import { CODIGOS } from '@/components/juegos/tipos';
 
 /*
   La voz se finge porque el listado la consulta para avisar de que ESCUCHA no se
@@ -124,7 +125,15 @@ describe('Juegos', () => {
     expect(aviso).toHaveTextContent(/no verás tu récord/i);
 
     expect(screen.getByText('Contrarreloj')).toBeInTheDocument();
-    expect(screen.getAllByText('Marca no disponible')).toHaveLength(4);
+    /*
+      Se cuenta contra `CODIGOS` y no contra un número escrito.
+
+      El catálogo crece —van seis juegos— y una cifra a mano obliga a tocar esta
+      prueba cada vez que se añade uno, que es justo cuando dos personas están
+      trabajando a la vez en el mismo archivo. Lo que se quiere comprobar es que
+      no se queda ninguna tarjeta sin marca, no que sean cuatro.
+    */
+    expect(screen.getAllByText('Marca no disponible')).toHaveLength(CODIGOS.length);
   });
 
   it('avisa en la tarjeta de escucha cuando no hay voz inglesa instalada', async () => {

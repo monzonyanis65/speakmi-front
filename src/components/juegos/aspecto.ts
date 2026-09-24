@@ -70,4 +70,67 @@ export const ASPECTOS: Record<CodigoJuego, AspectoDeJuego> = {
     texto: 'text-sky-700 dark:text-sky-300',
     lavado: 'from-sky-50 dark:from-sky-950/60',
   },
+  /*
+    Verde azulado, y no el verde del acierto.
+
+    En este juego el verde SIGNIFICA algo —letra en su sitio— y usar el mismo
+    tono para la tarjeta lo gastaría antes de entrar. El teal se distingue del
+    esmeralda de CADENA a simple vista y no choca con los tres colores que el
+    tablero usa para hablar.
+  */
+  CINCO_LETRAS: {
+    degradado: 'from-teal-400 to-teal-600',
+    borde: 'border-teal-200 dark:border-teal-900',
+    tinte: 'bg-teal-50 dark:bg-teal-950/50',
+    texto: 'text-teal-700 dark:text-teal-300',
+    lavado: 'from-teal-50 dark:from-teal-950/60',
+  },
+  /*
+    Fucsia, y no el azul de lluvia que pedía el nombre.
+
+    Escucha ya es azul cielo, y en un escaparate de tarjetas del mismo tamaño
+    dos azules vecinos se tocan por error: se elige por color antes de leer el
+    título, que es justo lo que dice el comentario de arriba. El agua la pone el
+    icono y el fondo del propio juego; la tarjeta solo tiene que ser
+    inconfundible.
+  */
+  CAEN: {
+    degradado: 'from-fuchsia-400 to-fuchsia-600',
+    borde: 'border-fuchsia-200 dark:border-fuchsia-900',
+    tinte: 'bg-fuchsia-50 dark:bg-fuchsia-950/50',
+    texto: 'text-fuchsia-700 dark:text-fuchsia-300',
+    lavado: 'from-fuchsia-50 dark:from-fuchsia-950/60',
+  },
+  /*
+    Rosa, que es el vecino incómodo del fucsia de CAEN y aun así el que toca.
+
+    Los seis colores libres que quedaban o chocaban con un significado —el rojo
+    es fallar, el ámbar es avisar, el esmeralda es acertar— o eran el mismo tono
+    que otra tarjeta: el cian se confunde con el azul de ESCUCHA y el teal de
+    CINCO_LETRAS, el violeta es el índigo de la marca. El rosa se distingue del
+    fucsia por ser más cálido, y de propina dice lo que el juego hace: es el
+    color de la señal de peligro sin ser el del error.
+  */
+  FALSOS_AMIGOS: {
+    degradado: 'from-rose-400 to-rose-600',
+    borde: 'border-rose-200 dark:border-rose-900',
+    tinte: 'bg-rose-50 dark:bg-rose-950/50',
+    texto: 'text-rose-700 dark:text-rose-300',
+    lavado: 'from-rose-50 dark:from-rose-950/60',
+  },
+  /*
+    Índigo, que es el hueco que quedaba.
+
+    Ya hay un morado de marca (PAREJAS), un azul cielo (ESCUCHA) y un fucsia
+    (CAEN), y el índigo se distingue de los tres puesto al lado. Dentro del
+    juego el color no significa nada: allí el verde y el rojo son el acierto y
+    el fallo, y la barra que se vacía va de la marca al aviso.
+  */
+  PARTICULAS: {
+    degradado: 'from-indigo-400 to-indigo-600',
+    borde: 'border-indigo-200 dark:border-indigo-900',
+    tinte: 'bg-indigo-50 dark:bg-indigo-950/50',
+    texto: 'text-indigo-700 dark:text-indigo-300',
+    lavado: 'from-indigo-50 dark:from-indigo-950/60',
+  },
 };

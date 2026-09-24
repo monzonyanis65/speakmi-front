@@ -10,14 +10,23 @@ import { FinDeJuego } from '@/components/juegos/FinDeJuego';
 import { JuegoDeEjercicios } from '@/components/juegos/JuegoDeEjercicios';
 import { Parejas } from '@/components/juegos/Parejas';
 import { Escucha } from '@/components/juegos/Escucha';
+import { Lluvia } from '@/components/juegos/Lluvia';
+import { CincoLetras } from '@/components/juegos/CincoLetras';
+import { FalsosAmigos } from '@/components/juegos/FalsosAmigos';
+import { Particulas } from '@/components/juegos/Particulas';
 import {
   esCodigoJuego,
   FICHAS,
+  type IntentoCorregido,
   type Marcador,
   type RespuestaCorregida,
   type ResultadoFinal,
+  type RondaDeCincoLetras,
   type RondaDeEjercicios,
   type RondaDeEscucha,
+  type RondaDeFalsosAmigos,
+  type RondaDeParticulas,
+  type RondaDeLluvia,
   type RondaDeParejas,
 } from '@/components/juegos/tipos';
 
@@ -91,6 +100,31 @@ export function Juego() {
   const corregirRonda = useCallback(
     (rondaId: string, answer: string) =>
       api.post<RespuestaCorregida>(`/games/${code}/respuesta`, { rondaId, answer }),
+    [code],
+  );
+
+  /**
+   * Un intento de la palabra del día.
+   *
+   * Va sin `rondaId` porque aquí no hay rondas que señalar: la partida es la del
+   * día y el servidor ya sabe cuál es. Lo que vuelve es el color de cada letra,
+   * nunca la palabra.
+   */
+  const intentarPalabra = useCallback(
+    (answer: string) => api.post<IntentoCorregido>(`/games/${code}/respuesta`, { answer }),
+    [code],
+  );
+
+  /**
+   * Cerrar la partida y saber qué se ganó, sin pasar por `FinDeJuego`.
+   *
+   * El final de siempre ofrece OTRA PARTIDA, y en un juego que solo se juega una
+   * vez al día ese botón es una promesa que el servidor va a rechazar. Cinco
+   * letras pinta su propio final —con la palabra y los cuadraditos— y para eso
+   * necesita el resultado en la mano en vez de que se lo pinte otro.
+   */
+  const cerrarPartida = useCallback(
+    (fin: Marcador) => api.post<ResultadoFinal>(`/games/${code}/fin`, fin),
     [code],
   );
 
@@ -180,6 +214,15 @@ export function Juego() {
         />
       )}
 
+      {code === 'CINCO_LETRAS' && (
+        <CincoLetras
+          ronda={datos as RondaDeCincoLetras}
+          onIntentar={intentarPalabra}
+          onTerminar={cerrarPartida}
+          onSalir={salir}
+        />
+      )}
+
       {code === 'ESCUCHA' && (
         <Escucha
           ronda={datos as RondaDeEscucha}
@@ -187,6 +230,55 @@ export function Juego() {
           onFin={terminar}
           onSalir={salir}
           onAjustes={() => navegar('/ajustes')}
+        />
+      )}
+
+      {/*
+        CAEN avisa de cada palabra con `corregirRonda` y no con `avisarRonda`
+        aunque tampoco espere a la respuesta para pintar nada. La diferencia es
+        que aquí sí importa cuándo terminan de llegar: el juego encola las
+        caídas y no cierra la partida hasta que el servidor tiene la última,
+        porque si el `/fin` adelantara a las tres últimas respuestas, la
+        puntuación final saldría más baja que la que se acaba de ver subir.
+      */}
+      {code === 'CAEN' && (
+        <Lluvia
+          ronda={datos as RondaDeLluvia}
+          onResponder={corregirRonda}
+          onFin={terminar}
+          onSalir={salir}
+        />
+      )}
+
+      {/*
+        FALSOS_AMIGOS usa `corregirRonda` por lo mismo que CAEN: pinta el
+        veredicto al instante con la carta que ya tiene —no le da la vida
+        esperar a la red con una carta de segundo y medio— pero sí espera a que
+        lleguen todas antes de cerrar la partida, porque si el `/fin` adelantara
+        a las últimas cartas la puntuación final saldría por debajo de la que se
+        acaba de ver subir.
+      */}
+      {code === 'FALSOS_AMIGOS' && (
+        <FalsosAmigos
+          ronda={datos as RondaDeFalsosAmigos}
+          onResponder={corregirRonda}
+          onFin={terminar}
+          onSalir={salir}
+        />
+      )}
+
+      {/*
+        PARTICULAS, igual: la ronda le llega con la solución dentro porque la
+        barra dura tres segundos y el resultado no puede esperar a la red, pero
+        cada partícula pulsada —y cada barra que se vacía sin pulsar nada— se
+        manda y se espera a que lleguen todas antes de cerrar la partida.
+      */}
+      {code === 'PARTICULAS' && (
+        <Particulas
+          ronda={datos as RondaDeParticulas}
+          onResponder={corregirRonda}
+          onFin={terminar}
+          onSalir={salir}
         />
       )}
     </>

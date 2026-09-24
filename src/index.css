@@ -240,6 +240,185 @@
   }
 }
 
+/*
+  LA LLUVIA DE PALABRAS (juego CAEN).
+
+  Igual que el confeti de arriba, estas se invocan ESCRITAS A MANO desde
+  `Lluvia.tsx` con `style={{ animation: 'lluvia-caer …' }}` y no con una clase
+  `animate-*`, porque la duración de cada palabra es distinta y va subiendo a lo
+  largo de la partida. Si algún día se limpian animaciones sin uso, buscar
+  `lluvia-` en el código y no solo clases de Tailwind.
+
+  Todas mueven `transform` y `opacity` y nada más. Es lo único que el navegador
+  puede mover sin volver a calcular la página, y con cuatro cosas cayendo a la
+  vez esa es la diferencia entre 60 y 20 fotogramas por segundo. Animar `top`
+  sería lo natural de escribir y lo que haría que el juego no sirviera.
+*/
+
+/*
+  La caída.
+
+  El recorrido va en `--lluvia-caida`, que lo pone el componente con la altura
+  medida del campo: en un móvil tumbado y en uno de pie el suelo no está a la
+  misma distancia, y el tiempo de caída tiene que significar lo mismo en los
+  dos. Lineal a propósito: una palabra que acelera al final quita el medio
+  segundo justo en el que da tiempo a reaccionar.
+*/
+@keyframes lluvia-caer {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, var(--lluvia-caida, 60vh), 0);
+  }
+}
+
+/*
+  El bamboleo, en una capa aparte de la caída.
+
+  Van separadas porque se tocan en momentos distintos: la caída se pausa al
+  atrapar la palabra y el bamboleo sigue. Si estuvieran en el mismo elemento
+  habría que reescribir las dos a la vez y la palabra pegaría un salto.
+*/
+@keyframes lluvia-bambolear {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+
+/* La cesta se traga la palabra: se aplasta y vuelve. Dura lo que un parpadeo. */
+@keyframes lluvia-engullir {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  35% {
+    transform: translateY(6px) scale(1.12, 0.82);
+  }
+  70% {
+    transform: translateY(-3px) scale(0.96, 1.06);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+/*
+  La palabra que llega al suelo.
+
+  Se aplasta y se queda un momento enseñando lo que significaba. No desaparece
+  de golpe: ese segundo es el único sitio del juego donde se aprende la palabra
+  que no te sabías, y quitarlo convertiría el fallo en un castigo mudo.
+*/
+@keyframes lluvia-salpicar {
+  0% {
+    transform: scale(1, 1);
+  }
+  25% {
+    transform: scale(1.18, 0.7);
+  }
+  55% {
+    transform: scale(0.98, 1.04);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+/*
+  El chaparrón del fondo.
+
+  Son las gotas que hacen que el cielo no sea un rectángulo azul vacío: entre
+  palabra y palabra hay diez segundos en los que no se mueve nada, y un juego
+  que se llama «lluvia de palabras» no puede estar quieto la mitad del tiempo.
+  El recorrido va en píxeles fijos porque las gotas son adorno y el campo las
+  recorta; lo que sí importa es que cada una lleve su duración, o las diez se
+  ven como una reja bajando a la vez.
+*/
+@keyframes lluvia-gota {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -20px, 0);
+  }
+  12% {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, 780px, 0);
+  }
+}
+
+/* Las nubes de las que salen las palabras, cruzando muy despacio. */
+@keyframes lluvia-nube {
+  from {
+    transform: translate3d(-20%, 0, 0);
+  }
+  to {
+    transform: translate3d(120%, 0, 0);
+  }
+}
+
+/*
+  Los puntos del acierto, saltando de la cesta.
+
+  Es el «golpe de satisfacción» y por eso sale de la cesta y no del marcador:
+  hay que mirar abajo para jugar, y un premio que aparece arriba no lo ve nadie.
+*/
+@keyframes lluvia-premio {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.6);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -4px) scale(1.15);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -18px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -30px) scale(0.9);
+  }
+}
+
+/* Las chispas: cada una sale hacia donde le diga su `--sx`/`--sy`. */
+@keyframes lluvia-chispa {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(var(--sx, 0), var(--sy, 0), 0) scale(1.1);
+  }
+}
+
+/* El cartel de «más rápido» entre ola y ola: entra, se lee y se va. */
+@keyframes lluvia-cartel {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+}
+
 /* El cartel de «empezar» flota sobre el nodo, como un globo atado. */
 @keyframes flotar {
   0%,
