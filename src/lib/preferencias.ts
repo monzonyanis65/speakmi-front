@@ -16,6 +16,19 @@ export interface Preferencias {
 
 export const CLAVE_HORA = 'speakmi.recordatorio.hora';
 
+/*
+  EL SONIDO DE LOS JUEGOS NO ESTÁ AQUÍ, Y ES A PROPÓSITO
+
+  Se guarda solo en este aparato, en `lib/sonido.ts`. Lo de aquí arriba viaja con
+  la cuenta porque son decisiones de la persona —qué voz quiere, a qué hora se le
+  avisa—, y esas valen igual en el móvil que en el portátil. El sonido no: es una
+  decisión del SITIO donde estás. Quien lo apaga en el portátil del trabajo lo
+  apaga porque hay gente al lado, y sincronizarlo se lo dejaría apagado también
+  en el sofá de su casa, que es justo donde lo quería.
+
+  Además es una columna menos en la base de datos, y una migración menos.
+*/
+
 /**
  * Los ajustes, guardados en la cuenta y también en el navegador.
  *

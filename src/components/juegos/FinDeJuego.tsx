@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { Boton } from '@/components/Boton';
+import { Confeti } from '@/components/Confeti';
 import { Mascota } from '@/components/Mascota';
+import { useMenosMovimiento } from '@/lib/movimiento';
+import { sonar, useDespertarSonido } from '@/lib/sonido';
 import { Aviso } from './Tablero';
-import { useMenosMovimiento } from './movimiento';
+import { LluviaDeMonedas } from './efectos';
 import type { FichaDeJuego, Marcador, ResultadoFinal } from './tipos';
 
 /**
@@ -36,14 +39,40 @@ export function FinDeJuego({
   onSalir: () => void;
 }) {
   const menosMovimiento = useMenosMovimiento();
+  useDespertarSonido();
+
   const puntuacion = resultado?.puntuacion ?? marcador.puntuacion;
   const record = resultado?.recordNuevo ?? false;
+  const monedas = resultado?.monedas ?? 0;
   const acierto = marcador.total > 0 ? marcador.aciertos / marcador.total : 0;
 
   const estado = record ? 'orgulloso' : acierto >= 0.6 ? 'celebrando' : 'animando';
 
+  /*
+    La música del final, una sola vez y cuando ya se sabe qué tocar.
+
+    Se espera a que el servidor conteste: la fanfarria del récord y el «se
+    acabó» son sonidos distintos, y sonar el segundo para luego enterarse de que
+    era récord estropea justo el momento que había que celebrar. Las monedas
+    entran después, cuando las de la pantalla ya están cayendo.
+  */
+  const sonado = useRef(false);
+  useEffect(() => {
+    if (sonado.current || guardando) return;
+    sonado.current = true;
+
+    sonar(record ? 'record' : 'fin');
+    if (monedas <= 0) return;
+
+    const reloj = setTimeout(() => sonar('moneda'), record ? 800 : 450);
+    return () => clearTimeout(reloj);
+  }, [guardando, record, monedas]);
+
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-8 text-center">
+      {/* Las monedas que de verdad ganaste, ni una más. Y confeti solo si hay récord. */}
+      {monedas > 0 && <LluviaDeMonedas cantidad={monedas} />}
+      {record && !menosMovimiento && <Confeti cantidad={24} />}
       <div className={cn('flex justify-center', !menosMovimiento && 'animate-revelar')}>
         <Mascota estado={estado} tamano={130} />
       </div>

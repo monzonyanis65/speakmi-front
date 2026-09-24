@@ -4,12 +4,14 @@ import { Boton } from '@/components/Boton';
 import { Mascota } from '@/components/Mascota';
 import { Ejercicio } from '@/components/ejercicios/Ejercicio';
 import type { Correccion, Respuesta } from '@/components/ejercicios/tipos';
+import { useMenosMovimiento } from '@/lib/movimiento';
+import { sonar, useDespertarSonido } from '@/lib/sonido';
 import { Aviso, CabeceraJuego, Contador, Racha, Reloj } from './Tablero';
-import { useMenosMovimiento } from './movimiento';
+import { Destello, PuntosGanados } from './efectos';
+import { loQueSumaElSiguiente, puntosDelServidor } from './puntos';
 import {
-  multiplicadorDe,
-  puntosPorRacha,
   textoDeFeedback,
+  type CodigoJuego,
   type Marcador,
   type RespuestaCorregida,
   type RondaDeEjercicios,
@@ -63,6 +65,10 @@ export function JuegoDeEjercicios({
   onSalir: () => void;
 }) {
   const menosMovimiento = useMenosMovimiento();
+  // El audio no puede nacer hasta que alguien toque algo. Esto lo deja listo en
+  // el primer toque, que además es el de la primera respuesta: así ya suena.
+  useDespertarSonido();
+
   const [indice, setIndice] = useState(0);
   const [respuesta, setRespuesta] = useState<Respuesta | null>(null);
   const [visto, setVisto] = useState<Visto | null>(null);
@@ -80,10 +86,15 @@ export function JuegoDeEjercicios({
     tira, cada respuesta deja marca y la racha se VE, que es lo que engancha.
   */
   const [historial, setHistorial] = useState<boolean[]>([]);
-  const [puntuacion, setPuntuacion] = useState(0);
   const [racha, setRacha] = useState(0);
 
-  const tope = modo === 'cadena' ? 10 : 5;
+  const codigo: CodigoJuego = modo === 'cadena' ? 'CADENA' : 'CONTRARRELOJ';
+  /*
+    La puntuación no es un estado: es una cuenta de los aciertos, con la misma
+    fórmula que usará el servidor al cerrar la partida. Guardarla aparte era
+    justo lo que permitía que se desviara de la de verdad.
+  */
+  const puntuacion = puntosDelServidor(codigo, aciertos);
   const segundos = modo === 'contrarreloj' ? (ronda.segundos ?? SEGUNDOS_POR_DEFECTO) : 0;
   const [restantes, setRestantes] = useState(segundos);
 
@@ -154,10 +165,16 @@ export function JuegoDeEjercicios({
       setContestados((n) => n + 1);
       setHistorial((anterior) => [...anterior, corregida.isCorrect]);
       setRacha(nuevaRacha);
-      if (corregida.isCorrect) {
-        setAciertos((n) => n + 1);
-        setPuntuacion((p) => p + puntosPorRacha(nuevaRacha, tope));
-      }
+      if (corregida.isCorrect) setAciertos((n) => n + 1);
+
+      /*
+        El sonido va aquí y no en un efecto, porque esto sigue dentro del gesto
+        que lo permitió. A partir de dos seguidas suena el arpegio de la racha,
+        y sube un semitono con cada acierto: la escalera se oye antes de verse.
+      */
+      if (!corregida.isCorrect) sonar('fallo');
+      else if (nuevaRacha >= 2) sonar('combo', { racha: nuevaRacha });
+      else sonar('acierto');
 
       const objeto = typeof corregida.feedback === 'object' ? corregida.feedback : null;
       setVisto({
@@ -208,26 +225,37 @@ export function JuegoDeEjercicios({
           </div>
         )}
         {/*
-          Aciertos, no puntos.
+          Los puntos, en vivo y de verdad.
 
-          La puntuación de la partida la cierra el servidor en `/fin`, y enseñar
-          aquí un número llamado «puntos» que luego sale distinto en la pantalla
-          final se vive como una estafa: se ve subir 118 y al acabar pone 6. Lo
-          que sube durante la partida es lo que se está haciendo —aciertos y
-          racha—, y la puntuación aparece una sola vez, al final, ya cerrada.
+          Antes aquí ponía «aciertos», porque una versión anterior enseñaba unos
+          puntos inventados que no cuadraban con los del final —se veía subir 118
+          y la pantalla final ponía 60— y la salida fue dejar de enseñarlos. La
+          salida buena era la de ahora: calcular exactamente lo mismo que calcula
+          el servidor. La cifra del final la sigue diciendo él; esta solo tiene
+          que coincidir, y coincide.
 
-          En cadena no se enseña: la racha y los aciertos son el MISMO número,
-          porque el primer fallo acaba la partida. Dos ceros uno al lado del otro
-          no informan de nada y hacen pensar que uno de los dos está roto.
+          Con el número a la vista, cada respuesta mueve algo. Sin él, la partida
+          entera era un ejercicio detrás de otro.
         */}
-        {modo === 'contrarreloj' && (
-          <Contador
-            etiqueta="Aciertos"
-            valor={aciertos}
-            tono={aciertos > 0 ? 'acierto' : 'normal'}
-          />
-        )}
+        <Contador
+          etiqueta="Puntos"
+          valor={puntuacion}
+          tono={aciertos > 0 ? 'acierto' : 'normal'}
+          vivo
+        >
+          {visto?.isCorrect && (
+            <PuntosGanados key={contestados} puntos={loQueSumaElSiguiente(codigo, aciertos - 1)} />
+          )}
+        </Contador>
       </CabeceraJuego>
+
+      {/* El fogonazo de la respuesta. Se monta de nuevo con cada una y se borra solo. */}
+      {visto && (
+        <Destello
+          key={contestados}
+          senal={!visto.isCorrect ? 'fallo' : racha >= 3 ? 'combo' : 'acierto'}
+        />
+      )}
 
       {/*
         El ejercicio va centrado, y la racha viaja con él.
@@ -239,13 +267,26 @@ export function JuegoDeEjercicios({
       */}
       <div className="mt-6 flex flex-1 flex-col justify-center">
         <div className="mb-4 flex min-h-8 items-center gap-2">
-          <Racha racha={racha} multiplicador={multiplicadorDe(racha, tope)} />
-          {racha < 2 && (
-            <p className="text-xs text-[var(--texto-suave)]">
-              {modo === 'cadena'
-                ? 'Un fallo y se acaba. Cada acierto vale más que el anterior.'
-                : 'Sin pensarlo mucho: las seguidas valen más.'}
-            </p>
+          <Racha racha={racha} />
+          {/*
+            En cadena se dice cuánto vale el siguiente, y se dice desde el
+            principio: el acierto número n sube el marcador 10n-5, así que el
+            primero paga 5 y el décimo 95. Ver esa cifra crecer antes de
+            contestar es la razón para contestar una más.
+
+            En contrarreloj no se pone: todos valen diez, y repetirlo veinte
+            veces no dice nada.
+          */}
+          {modo === 'cadena' ? (
+            <span className="text-xs font-bold text-[var(--texto-aviso)]">
+              la siguiente vale +{loQueSumaElSiguiente('CADENA', aciertos)}
+            </span>
+          ) : (
+            racha < 2 && (
+              <p className="text-xs text-[var(--texto-suave)]">
+                Sin pensarlo mucho: cada acierto son diez puntos.
+              </p>
+            )
           )}
         </div>
 
@@ -292,7 +333,11 @@ export function JuegoDeEjercicios({
             !visto.isCorrect && !menosMovimiento && 'animate-temblor',
           )}
         >
-          <Mascota estado={visto.isCorrect ? 'celebrando' : 'triste'} tamano={44} />
+          {/* La mascota reacciona: a partir de cinco seguidas ya no celebra, presume. */}
+          <Mascota
+            estado={visto.isCorrect ? (racha >= 5 ? 'orgulloso' : 'celebrando') : 'triste'}
+            tamano={44}
+          />
           <div className="min-w-0 flex-1">
             <p
               className={cn(
@@ -308,7 +353,22 @@ export function JuegoDeEjercicios({
                   ? 'Se rompió la cadena'
                   : 'No era esa'}
             </p>
-            {visto.texto && <p className="mt-0.5 text-sm">{visto.texto}</p>}
+            {/*
+              La buena, al lado de la tuya.
+
+              Fallar sin enterarse de cuál era no enseña nada y encima enfada: el
+              ejercicio de debajo ya marca la correcta, pero cuando el servidor
+              la manda escrita se repite aquí, que es donde está mirando la vista
+              justo después de responder.
+            */}
+            {visto.correcta && (
+              <p className="mt-0.5 text-sm">
+                Era <strong lang="en">{visto.correcta}</strong>
+              </p>
+            )}
+            {visto.texto && visto.texto !== visto.correcta && (
+              <p className="mt-0.5 text-sm">{visto.texto}</p>
+            )}
           </div>
         </div>
       )}

@@ -3,15 +3,12 @@ import { cn } from '@/lib/cn';
 import { Boton } from '@/components/Boton';
 import { Mascota, MascotaConMensaje } from '@/components/Mascota';
 import { decir, hayVoz, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
+import { useMenosMovimiento } from '@/lib/movimiento';
+import { sonar, useDespertarSonido } from '@/lib/sonido';
 import { Aviso, CabeceraJuego, Contador, Racha } from './Tablero';
-import { useMenosMovimiento } from './movimiento';
-import {
-  multiplicadorDe,
-  puntosPorRacha,
-  type Marcador,
-  type RespuestaCorregida,
-  type RondaDeEscucha,
-} from './tipos';
+import { Destello, PuntosGanados } from './efectos';
+import { loQueSumaElSiguiente, puntosDelServidor } from './puntos';
+import type { Marcador, RespuestaCorregida, RondaDeEscucha } from './tipos';
 
 /**
  * Escucha: suena una palabra y hay que decir cuál era.
@@ -45,6 +42,8 @@ export function Escucha({
   onAjustes: () => void;
 }) {
   const menosMovimiento = useMenosMovimiento();
+  useDespertarSonido();
+
   const [voz, setVoz] = useState<'comprobando' | 'si' | 'no'>(() => {
     const ya = vozInglesaYa();
     return ya === 'todavia-no-se' ? 'comprobando' : ya;
@@ -57,9 +56,11 @@ export function Escucha({
 
   const [aciertos, setAciertos] = useState(0);
   const [contestadas, setContestadas] = useState(0);
-  const [puntuacion, setPuntuacion] = useState(0);
   const [racha, setRacha] = useState(0);
 
+  // La misma cuenta que hará el servidor al cerrar: diez por acierto. Así el
+  // número que sube durante la partida es el que sale al final, sin sorpresas.
+  const puntuacion = puntosDelServidor('ESCUCHA', aciertos);
   const actual = ronda.rondas[indice];
 
   const marcador = useRef<Marcador>({ puntuacion: 0, aciertos: 0, total: 0 });
@@ -136,10 +137,11 @@ export function Escucha({
     setAcertada(correcta);
     setContestadas((n) => n + 1);
     setRacha(nuevaRacha);
-    if (correcta) {
-      setAciertos((n) => n + 1);
-      setPuntuacion((p) => p + puntosPorRacha(nuevaRacha));
-    }
+    if (correcta) setAciertos((n) => n + 1);
+
+    if (!correcta) sonar('fallo');
+    else if (nuevaRacha >= 2) sonar('combo', { racha: nuevaRacha });
+    else sonar('acierto');
   }
 
   function avanzar() {
@@ -174,13 +176,27 @@ export function Escucha({
           </p>
           <p className="text-xs text-[var(--texto-suave)]">palabras</p>
         </div>
-        {/* Aciertos y no puntos: la puntuación la cierra el servidor al final,
-            y dos números distintos llamados igual se leen como un engaño. */}
-        <Contador etiqueta="Aciertos" valor={aciertos} tono={aciertos > 0 ? 'acierto' : 'normal'} />
+        {/* Los puntos, con la fórmula del servidor: diez por acierto. Ver
+            `puntos.ts`, que explica por qué se calculan aquí también. */}
+        <Contador
+          etiqueta="Puntos"
+          valor={puntuacion}
+          tono={aciertos > 0 ? 'acierto' : 'normal'}
+          vivo
+        >
+          {acertada && (
+            <PuntosGanados
+              key={contestadas}
+              puntos={loQueSumaElSiguiente('ESCUCHA', aciertos - 1)}
+            />
+          )}
+        </Contador>
       </CabeceraJuego>
 
+      {acertada !== null && <Destello key={contestadas} senal={acertada ? 'acierto' : 'fallo'} />}
+
       <div className="mt-3 min-h-8">
-        <Racha racha={racha} multiplicador={multiplicadorDe(racha)} />
+        <Racha racha={racha} />
       </div>
 
       {/* El botón de oír es lo más grande de la pantalla, porque es el enunciado. */}
@@ -245,7 +261,10 @@ export function Escucha({
             acertada ? 'bg-emerald-50 dark:bg-emerald-950/30' : 'bg-red-50 dark:bg-red-950/30',
           )}
         >
-          <Mascota estado={acertada ? 'celebrando' : 'animando'} tamano={44} />
+          <Mascota
+            estado={acertada ? (racha >= 5 ? 'orgulloso' : 'celebrando') : 'animando'}
+            tamano={44}
+          />
           <p
             className={cn(
               'font-extrabold',

@@ -115,8 +115,12 @@ describe('Escucha', () => {
 
     await waitFor(() => expect(onFin).toHaveBeenCalled());
     const marcador = onFin.mock.calls[0]?.[0] as { aciertos: number; puntuacion: number };
-    // Diez el primero y veinte el segundo seguido: encadenar vale más.
+    /*
+      Diez por acierto, que es exactamente lo que calculará el servidor en
+      `/fin`. Antes aquí se esperaban treinta, con un bonus de racha que el
+      servidor no aplica: era la cifra de la partida yéndose de la del final.
+    */
     expect(marcador.aciertos).toBe(2);
-    expect(marcador.puntuacion).toBe(30);
+    expect(marcador.puntuacion).toBe(20);
   });
 });

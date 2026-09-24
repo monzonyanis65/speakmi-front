@@ -1,5 +1,8 @@
+import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/cn';
-import { useMenosMovimiento } from './movimiento';
+import { useMenosMovimiento } from '@/lib/movimiento';
+import { sonar } from '@/lib/sonido';
+import { NumeroVivo } from './efectos';
 
 /**
  * Las piezas que se repiten en los cuatro juegos: la cabecera con la salida, el
@@ -39,14 +42,34 @@ export function CabeceraJuego({
  * baila de ancho al cambiar y parece que tiembla la pantalla. La barra está
  * debajo para poder mirar de reojo sin leer.
  *
- * Bajo `prefers-reduced-motion` no late: el color y la palabra hacen el trabajo
- * que hacía el latido. Un reloj que parpadea cuando alguien pidió que nada se
- * mueva es el peor sitio posible para saltarse esa preferencia.
+ * Bajo `prefers-reduced-motion` no late ni tictaquea: el color y la palabra
+ * hacen el trabajo que hacía el latido. Un reloj que parpadea cuando alguien
+ * pidió que nada se mueva es el peor sitio posible para saltarse esa
+ * preferencia.
+ *
+ * Los últimos diez segundos suenan, uno a uno, y los últimos tres suenan más
+ * arriba. El tic es lo que hace que se levante la vista del ejercicio sin tener
+ * que mirar el número, que es justo lo que se necesita cuando quedan tres.
  */
 export function Reloj({ restantes, total }: { restantes: number; total: number }) {
   const menosMovimiento = useMenosMovimiento();
   const apurado = restantes <= 10;
+  const ahogado = restantes <= 3;
   const porcentaje = total > 0 ? Math.max(0, Math.min(100, (restantes / total) * 100)) : 0;
+
+  /*
+    Un tic por segundo, y solo si el segundo cambió de verdad.
+
+    El reloj se refresca cuatro veces por segundo para no ir a saltos, así que
+    sin acordarse del último segundo sonado esto pitaría cuatro veces seguidas.
+  */
+  const ultimoTic = useRef<number | null>(null);
+  useEffect(() => {
+    if (!apurado || restantes <= 0) return;
+    if (ultimoTic.current === restantes) return;
+    ultimoTic.current = restantes;
+    sonar('tic', { urgente: restantes <= 3 });
+  }, [apurado, restantes]);
 
   return (
     <div className="min-w-0 flex-1">
@@ -54,22 +77,30 @@ export function Reloj({ restantes, total }: { restantes: number; total: number }
         <span
           aria-hidden
           className={cn(
-            'text-2xl font-extrabold tabular-nums',
+            'font-extrabold tabular-nums transition-all duration-200',
             apurado ? 'text-[var(--texto-aviso)]' : 'text-[var(--texto)]',
+            ahogado ? 'text-4xl' : 'text-2xl',
             apurado && !menosMovimiento && 'animate-latido',
           )}
         >
           {restantes}
         </span>
-        <span aria-hidden className="text-xs text-[var(--texto-suave)]">
-          {apurado ? '¡se acaba!' : 'segundos'}
+        <span
+          aria-hidden
+          className={cn(
+            'text-xs',
+            apurado ? 'font-bold text-[var(--texto-aviso)]' : 'text-[var(--texto-suave)]',
+          )}
+        >
+          {ahogado ? '¡ya!' : apurado ? '¡se acaba!' : 'segundos'}
         </span>
       </div>
       <div className="mt-1 h-2 overflow-hidden rounded-full bg-[var(--superficie)]">
         <div
           className={cn(
             'h-full rounded-full transition-[width] duration-300',
-            apurado ? 'bg-aviso' : 'bg-marca-600',
+            ahogado ? 'bg-fallo' : apurado ? 'bg-aviso' : 'bg-marca-600',
+            ahogado && !menosMovimiento && 'animate-latido',
           )}
           style={{ width: `${porcentaje}%` }}
         />
@@ -87,18 +118,29 @@ export function Reloj({ restantes, total }: { restantes: number; total: number }
   );
 }
 
-/** Un dato del marcador: puntos, racha, parejas que faltan. */
+/**
+ * Un dato del marcador: puntos, racha, parejas que faltan.
+ *
+ * Con `vivo` el número pega un salto cada vez que cambia. Es opcional y no va
+ * por defecto porque hay contadores que cambian solos —el tiempo de parejas
+ * cambia cada segundo— y uno que bota sin parar deja de significar nada.
+ */
 export function Contador({
   etiqueta,
   valor,
   tono = 'normal',
+  vivo = false,
+  children,
 }: {
   etiqueta: string;
   valor: string | number;
   tono?: 'normal' | 'acierto' | 'aviso';
+  vivo?: boolean;
+  /** Lo que flota sobre el contador al cambiar, si algo flota. */
+  children?: React.ReactNode;
 }) {
   return (
-    <div className="shrink-0 text-right">
+    <div className="relative shrink-0 text-right">
       <p
         className={cn(
           'text-xl font-extrabold tabular-nums leading-none',
@@ -106,8 +148,9 @@ export function Contador({
           tono === 'aviso' && 'text-[var(--texto-aviso)]',
         )}
       >
-        {valor}
+        {vivo ? <NumeroVivo valor={valor} /> : valor}
       </p>
+      {children}
       <p className="mt-0.5 text-[10px] uppercase tracking-wide text-[var(--texto-suave)]">
         {etiqueta}
       </p>
@@ -116,29 +159,52 @@ export function Contador({
 }
 
 /**
- * El multiplicador de la racha.
+ * La racha: el contador de aciertos seguidos.
  *
  * Es lo único de la pantalla que sube solo por ir bien, y por eso está: ver el
- * «×3» crecer es lo que hace que apetezca encadenar otra.
+ * número crecer y cambiar de color es lo que hace que apetezca encadenar otra.
+ * Cuanto más alta, más grande y más caliente el color, y a partir de siete
+ * lleva tres llamas en vez de una.
+ *
+ * No pone «×3».
+ *
+ * Un multiplicador escrito promete que el acierto siguiente vale el triple, y en
+ * contrarreloj todos los aciertos valen diez, se venga de donde se venga. Lo que
+ * de verdad vale el siguiente lo dice cada juego al lado, cuando lo sabe.
  */
-export function Racha({ racha, multiplicador }: { racha: number; multiplicador: number }) {
+export function Racha({ racha }: { racha: number }) {
   const menosMovimiento = useMenosMovimiento();
   if (racha < 2) return null;
 
+  const tramo = racha >= 7 ? 2 : racha >= 4 ? 1 : 0;
+
   return (
     <span
+      key={racha}
       className={cn(
-        'inline-flex min-h-7 items-center gap-1 rounded-full bg-acento-600 px-2.5 text-xs font-extrabold text-white',
+        'inline-flex min-h-7 items-center gap-1 rounded-full px-2.5 font-extrabold text-white',
+        TRAMOS[tramo],
         !menosMovimiento && 'animate-crecer',
       )}
     >
-      <span aria-hidden>🔥</span>
-      <span>
-        ×{multiplicador} · {racha} seguidas
-      </span>
+      <span aria-hidden>{tramo === 2 ? '🔥🔥🔥' : '🔥'}</span>
+      <span>{racha} seguidas</span>
     </span>
   );
 }
+
+/*
+  Los tres tramos de la racha.
+
+  El tamaño sube con el color: dos seguidas es una nota al pie, siete seguidas
+  tiene que verse desde la otra punta de la mesa. Los tres fondos son oscuros
+  porque la letra va en blanco.
+*/
+const TRAMOS = [
+  'bg-acento-600 text-xs',
+  'bg-orange-600 text-sm',
+  'bg-gradient-to-r from-orange-600 to-red-600 text-base',
+] as const;
 
 /**
  * Algo salió mal y hay que decirlo en voz alta.

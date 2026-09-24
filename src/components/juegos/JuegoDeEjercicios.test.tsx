@@ -55,7 +55,7 @@ describe('JuegoDeEjercicios', () => {
     expect(screen.queryByRole('button', { name: 'RESPONDER' })).not.toBeInTheDocument();
   });
 
-  it('la racha se ve crecer y suma más al marcador', async () => {
+  it('la racha se ve crecer y los puntos son los que dará el servidor', async () => {
     const usuario = userEvent.setup();
     const responder = vi.fn(() => Promise.resolve({ isCorrect: true }));
     const { onFin } = renderizar('contrarreloj', responder);
@@ -66,10 +66,41 @@ describe('JuegoDeEjercicios', () => {
     await usuario.click(screen.getByRole('button', { name: 'SEGUIR' }));
     await usuario.click(await screen.findByRole('button', { name: /is/ }));
     expect(await screen.findByText('¡Bien! 2 seguidas')).toBeInTheDocument();
+    expect(screen.getByText('2 seguidas')).toBeInTheDocument();
 
     await usuario.click(screen.getByRole('button', { name: 'SEGUIR' }));
     await waitFor(() => expect(onFin).toHaveBeenCalled());
-    expect(onFin.mock.calls[0]?.[0]).toMatchObject({ puntuacion: 30, aciertos: 2, total: 2 });
+    /*
+      Veinte, diez por acierto: la misma cuenta que hace `puntosDe` en el
+      servidor. Aquí ponía treinta, con un bonus de racha que solo existía en el
+      navegador; eso es justo lo que hacía que la pantalla final dijera otra
+      cosa.
+    */
+    expect(onFin.mock.calls[0]?.[0]).toMatchObject({ puntuacion: 20, aciertos: 2, total: 2 });
+  });
+
+  /*
+    En cadena la escalera es de verdad: el acierto número n sube el marcador
+    10n-5, igual que `puntosDe` allí. Se comprueba junto al cartel de «la
+    siguiente vale +X», porque es una promesa que hay que cumplir.
+  */
+  it('en cadena promete lo que vale el siguiente acierto, y lo paga', async () => {
+    const usuario = userEvent.setup();
+    const responder = vi.fn(() => Promise.resolve({ isCorrect: true }));
+    const { onFin } = renderizar('cadena', responder);
+
+    expect(await screen.findByText('la siguiente vale +5')).toBeInTheDocument();
+
+    await usuario.click(screen.getByRole('button', { name: /is/ }));
+    await usuario.click(await screen.findByRole('button', { name: 'SEGUIR' }));
+    expect(await screen.findByText('la siguiente vale +15')).toBeInTheDocument();
+
+    await usuario.click(await screen.findByRole('button', { name: /is/ }));
+    await usuario.click(await screen.findByRole('button', { name: 'SEGUIR' }));
+
+    await waitFor(() => expect(onFin).toHaveBeenCalled());
+    // 5 + 15 = 20, que es 2² × 5.
+    expect(onFin.mock.calls[0]?.[0]).toMatchObject({ puntuacion: 20, aciertos: 2 });
   });
 
   it('en cadena, el primer fallo acaba la partida', async () => {
