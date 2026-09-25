@@ -80,6 +80,70 @@ export const NIVELES: Nivel[] = [
     descripcion: 'Restaurante, planes, comparaciones y cómo has cambiado.',
     ejemplo: 'What would you like?',
   },
+  {
+    codigo: 'L9',
+    numero: 9,
+    cefr: 'B1',
+    titulo: 'Gente y costumbres',
+    descripcion: 'Cómo es alguien por dentro, costumbres que cambiaron y experiencias que contar.',
+    ejemplo: "She's the kind of person who never forgets a name.",
+  },
+  {
+    codigo: 'L10',
+    numero: 10,
+    cefr: 'B1',
+    titulo: 'La vida práctica',
+    descripcion: 'Devolver algo, reclamar y pedir un favor sin sonar brusco.',
+    ejemplo: 'I was wondering if you could help me.',
+  },
+  {
+    codigo: 'L11',
+    numero: 11,
+    cefr: 'B1',
+    titulo: 'Contar y explicar',
+    descripcion: 'Narrar lo que pasó en orden y elegir cómo hablar de lo que viene.',
+    ejemplo: "I'm meeting her on Friday.",
+  },
+  {
+    codigo: 'L12',
+    numero: 12,
+    cefr: 'B1+',
+    titulo: 'Opinar y negociar',
+    descripcion: 'Condicionales, normas y consejos, y discrepar sin sonar brusco.',
+    ejemplo: 'If I were you, I’d wait.',
+  },
+  {
+    codigo: 'L13',
+    numero: 13,
+    cefr: 'B2',
+    titulo: 'Trabajo y estudios',
+    descripcion: 'La voz pasiva, el registro formal y todo el lenguaje de una entrevista.',
+    ejemplo: "I've been working here for three years.",
+  },
+  {
+    codigo: 'L14',
+    numero: 14,
+    cefr: 'B2',
+    titulo: 'Sociedad y actualidad',
+    descripcion: 'Contar lo que dijeron otros, deducir lo que no te cuentan y defender tu postura.',
+    ejemplo: "It can't have been him.",
+  },
+  {
+    codigo: 'L15',
+    numero: 15,
+    cefr: 'B2',
+    titulo: 'Cultura y medios',
+    descripcion: 'Lo que no pasó, lo que uno lamenta y lo que se dice entre líneas.',
+    ejemplo: 'If I had known, I would have called you.',
+  },
+  {
+    codigo: 'L16',
+    numero: 16,
+    cefr: 'B2',
+    titulo: 'Abstracto y profesional',
+    descripcion: 'Énfasis, frases largas encadenadas, la palabra exacta y cerrar un acuerdo.',
+    ejemplo: 'Never have I seen anything like it.',
+  },
 ];
 
 /**
@@ -94,7 +158,7 @@ export const NIVELES: Nivel[] = [
  * curso: entre empezar un A2 y terminarlo hay meses de trabajo. Por eso el
  * mapeo usa además A1+ y A2+, que marcan la segunda mitad del tramo.
  *
- * Los tres últimos todavía no tienen curso. Salen igualmente, y en gris, porque
+ * Los dos últimos todavía no tienen curso. Salen igualmente, y en gris, porque
  * esconderlos daría a entender que B1 es el final del inglés. Ver la escalera
  * entera y saber en qué peldaño estás vale más que un listado que se corta sin
  * explicar por qué.
@@ -191,7 +255,7 @@ export const TRAMOS: Tramo[] = [
     ],
     horas: '350-400 horas',
     examenes: ['Cambridge B1 Preliminary (PET)', 'IELTS 4-5', 'TOEFL iBT 42-71'],
-    niveles: ['L8'],
+    niveles: ['L8', 'L9', 'L10', 'L11', 'L12'],
   },
   {
     letra: 'B2',
@@ -208,7 +272,7 @@ export const TRAMOS: Tramo[] = [
     ],
     horas: '500-600 horas',
     examenes: ['Cambridge B2 First (FCE)', 'IELTS 5.5-6.5', 'TOEFL iBT 72-94'],
-    niveles: [],
+    niveles: ['L13', 'L14', 'L15', 'L16'],
   },
   {
     letra: 'C1',

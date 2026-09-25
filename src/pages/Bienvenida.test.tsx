@@ -25,7 +25,7 @@ beforeEach(() => {
 });
 
 describe('elección de nivel', () => {
-  it('muestra los ocho niveles del curso', () => {
+  it('muestra todos los niveles del curso', () => {
     renderizar();
 
     // Sin sesión en la prueba, el encabezado es el genérico.
@@ -68,12 +68,12 @@ describe('elección de nivel', () => {
     expect(new Set(dentro).size).toBe(dentro.length);
   });
 
-  it('dice claramente que B2, C1 y C2 todavía no tienen curso', () => {
-    // Cortar la lista en B1 daría a entender que ahí se acaba el inglés.
+  it('dice claramente que C1 y C2 todavía no tienen curso', () => {
+    // Cortar la lista en B2 daría a entender que ahí se acaba el inglés.
     renderizar();
 
     const vacios = TRAMOS.filter((t) => t.niveles.length === 0);
-    expect(vacios.map((t) => t.letra)).toEqual(['B2', 'C1', 'C2']);
+    expect(vacios.map((t) => t.letra)).toEqual(['C1', 'C2']);
     expect(screen.getAllByText(/Todavía no hay curso/)).toHaveLength(vacios.length);
   });
 
