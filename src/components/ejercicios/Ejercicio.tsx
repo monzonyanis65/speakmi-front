@@ -38,6 +38,26 @@ function Instruccion({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-[var(--texto-suave)]">{children}</p>;
 }
 
+/**
+ * Un orden al azar de `cuantos` posiciones, con Fisher-Yates.
+ *
+ * No con `sort(() => Math.random() - 0.5)`, que es el atajo de siempre y sale
+ * torcido: el comparador tiene que ser consistente y ese no lo es, así que el
+ * resultado depende del algoritmo de ordenación. Medido en este Node con
+ * cuatro elementos, cada uno se quedaba en su sitio el 28 % de las veces en
+ * lugar del 25 %, y el orden original salía 1,5 veces más de lo que debía.
+ *
+ * Es una fuga pequeña, pero es gratis no tenerla.
+ */
+function barajarIndices(cuantos: number): number[] {
+  const orden = Array.from({ length: cuantos }, (_, i) => i);
+  for (let i = cuantos - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [orden[i], orden[j]] = [orden[j]!, orden[i]!];
+  }
+  return orden;
+}
+
 function OpcionMultiple({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio) {
   const [elegida, setElegida] = useState<number | null>(null);
   const prompt = ejercicio.prompt as {
@@ -317,15 +337,20 @@ function Emparejar({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
   const [pares, setPares] = useState<Array<number | null>>(() => prompt.left.map(() => null));
   const [activa, setActiva] = useState<number | null>(null);
 
+  // Se barajan las de la derecha para que emparejar tenga algo de mérito: el
+  // 85 % del contenido trae `pairs: [0,1,2,3]`, porque al escribir un ejercicio
+  // uno pone cada pareja en su fila. Sin barajar se resuelve sin leer.
+  const [ordenDerecha, setOrdenDerecha] = useState(() => barajarIndices(prompt.right.length));
+
   useEffect(() => {
     setPares(prompt.left.map(() => null));
     setActiva(null);
-  }, [ejercicio.code, prompt.left]);
-
-  // Se barajan las de la derecha para que emparejar tenga algo de mérito.
-  const [ordenDerecha] = useState(() =>
-    prompt.right.map((_, i) => i).sort(() => Math.random() - 0.5),
-  );
+    // También el orden, y no es un detalle: este componente NO lleva `key`, así
+    // que React reutiliza la misma instancia de un ejercicio al siguiente. Sin
+    // esto, el segundo emparejamiento de una lección hereda el orden del
+    // primero, y si tiene distinto número de parejas quedan botones en blanco.
+    setOrdenDerecha(barajarIndices(prompt.right.length));
+  }, [ejercicio.code, prompt.left, prompt.right]);
 
   function emparejar(indiceDerecha: number) {
     if (activa === null) return;
