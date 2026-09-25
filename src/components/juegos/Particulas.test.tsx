@@ -22,9 +22,14 @@ import type { RondaDeParticulas } from './tipos';
  */
 
 /** Un reloj largo: en las pruebas que no van del reloj, que no venza. */
-const RELOJ_LARGO = { lecturaMs: 10_000, barraMs: 60_000 };
+const RELOJ_LARGO = {
+  lecturaMs: 10_000,
+  barraMs: 60_000,
+  escalones: [60_000],
+  pasosAtrasAlFallar: 3,
+};
 
-function rondaDe(reloj = RELOJ_LARGO): RondaDeParticulas {
+function rondaDe(reloj: RondaDeParticulas['reloj'] = RELOJ_LARGO): RondaDeParticulas {
   // La pausa de lectura va en CADA situación, así que la del reloj se reparte a
   // todas: si no, una prueba que acorta el reloj no acortaría nada.
   const lecturaMs = reloj.lecturaMs;
@@ -137,7 +142,9 @@ describe('La partícula', () => {
     existió.
   */
   it('quedarse sin tiempo se manda al servidor como una respuesta más', async () => {
-    const { onResponder } = renderizar(rondaDe({ lecturaMs: 10, barraMs: 30 }));
+    const { onResponder } = renderizar(
+      rondaDe({ lecturaMs: 10, barraMs: 30, escalones: [30], pasosAtrasAlFallar: 3 }),
+    );
 
     await waitFor(() => expect(onResponder).toHaveBeenCalledWith('p1', 'tiempo'));
     expect(screen.getByText('Se acabó el tiempo')).toBeInTheDocument();

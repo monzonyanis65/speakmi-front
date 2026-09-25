@@ -227,7 +227,21 @@ export interface SituacionDeParticula {
 export interface RondaDeParticulas {
   code: string;
   rondas: SituacionDeParticula[];
-  reloj: { lecturaMs: number; barraMs: number };
+  reloj: {
+    lecturaMs: number;
+    /** Lo que dura la barra al empezar, sin racha todavía. */
+    barraMs: number;
+    /**
+     * `escalones[n]` son los milisegundos de barra con n aciertos seguidos.
+     *
+     * Llega calculado y no como fórmula: el reloj es lo que decide si el juego
+     * enseña o es un muro, y una calibración que vive en dos sitios acaba
+     * desincronizada sin que nadie se entere hasta jugarlo.
+     */
+    escalones: number[];
+    /** Cuántos escalones se retroceden al fallar o al quedarse sin tiempo. */
+    pasosAtrasAlFallar: number;
+  };
 }
 
 /** `POST /api/games/:code/respuesta`. */

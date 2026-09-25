@@ -111,6 +111,14 @@ export function Particulas({
   const [aciertos, setAciertos] = useState(0);
   const [contestadas, setContestadas] = useState(0);
   const [racha, setRacha] = useState(0);
+  /**
+   * En qué escalón del reloj vamos.
+   *
+   * Sube uno por acierto y baja `pasosAtrasAlFallar` al fallar, igual que en
+   * FALSOS_AMIGOS. Los milisegundos de cada escalón los manda el servidor ya
+   * calculados, para que la calibración no viva en dos sitios.
+   */
+  const [paso, setPaso] = useState(0);
   /*
     La racha viva se rompe al fallar; la que PAGA es la más larga de la partida.
     Se guarda aparte para que el marcador en vivo enseñe lo mismo que va a
@@ -186,13 +194,20 @@ export function Particulas({
       setRachaMaxima((mejor) => Math.max(mejor, nuevaRacha));
       if (buena) setAciertos((n) => n + 1);
 
+      // El reloj sube de uno en uno y baja de varios: aprieta a quien encadena
+      // y cede a quien se atasca. Quedarse sin tiempo también cede, que es el
+      // caso en el que más falta hace.
+      setPaso((actualPaso) =>
+        buena ? actualPaso + 1 : Math.max(actualPaso - ronda.reloj.pasosAtrasAlFallar, 0),
+      );
+
       avisar(actual.id, respuesta);
 
       if (!buena) sonar('fallo');
       else if (nuevaRacha >= 2) sonar('combo', { racha: nuevaRacha });
       else sonar('acierto');
     },
-    [actual, avisar, fase, racha],
+    [actual, avisar, fase, racha, ronda.reloj.pasosAtrasAlFallar],
   );
 
   const avanzar = useCallback(() => {
@@ -221,7 +236,8 @@ export function Particulas({
 
     // La de esta situación; la de la ronda solo por si llega una sin ella.
     const lecturaMs = actual.lecturaMs ?? ronda.reloj.lecturaMs;
-    const total = lecturaMs + ronda.reloj.barraMs;
+    const barraMs = escalonDe(ronda, paso);
+    const total = lecturaMs + barraMs;
     const inicio = performance.now();
     let cuadro = 0;
     let ultimoSegundo = Number.POSITIVE_INFINITY;
@@ -247,8 +263,8 @@ export function Particulas({
 
       // Mientras dura la lectura la barra se queda llena; después baja.
       const gastado = Math.max(0, transcurrido - lecturaMs);
-      const restante = Math.max(0, ronda.reloj.barraMs - gastado);
-      const fraccion = ronda.reloj.barraMs > 0 ? restante / ronda.reloj.barraMs : 0;
+      const restante = Math.max(0, barraMs - gastado);
+      const fraccion = barraMs > 0 ? restante / barraMs : 0;
 
       if (menosMovimiento) {
         const segundo = Math.ceil(restante / 1000);
@@ -265,7 +281,7 @@ export function Particulas({
 
     cuadro = requestAnimationFrame(latido);
     return () => cancelAnimationFrame(cuadro);
-  }, [actual, fase, menosMovimiento, responder, ronda.reloj.barraMs, ronda.reloj.lecturaMs]);
+  }, [actual, fase, menosMovimiento, paso, responder, ronda]);
 
   /** La pausa que enseña: corta si se acertó, larga si hay que leer la buena. */
   useEffect(() => {
@@ -377,7 +393,7 @@ export function Particulas({
             apurado={apurado}
             ahogado={ahogado}
             menosMovimiento={menosMovimiento}
-            barraMs={ronda.reloj.barraMs}
+            barraMs={escalonDe(ronda, paso)}
           />
 
           {actual.particulas.map((particula, posicion) => {
@@ -606,4 +622,11 @@ function LoQueEnsena({
       </div>
     </div>
   );
+}
+
+/** Los escalones vienen del servidor; más allá del último, se repite el último. */
+function escalonDe(ronda: RondaDeParticulas, paso: number): number {
+  const escalones = ronda.reloj.escalones;
+  if (!escalones || escalones.length === 0) return ronda.reloj.barraMs;
+  return escalones[Math.min(Math.max(paso, 0), escalones.length - 1)]!;
 }
