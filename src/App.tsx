@@ -15,12 +15,14 @@ import { Bienvenida } from '@/pages/Bienvenida';
 import { Ruta } from '@/pages/Ruta';
 import { Leccion } from '@/pages/Leccion';
 import { Guia } from '@/pages/Guia';
+import { Examen } from '@/pages/Examen';
 import { Menu } from '@/pages/Menu';
 import { Ajustes } from '@/pages/Ajustes';
 import { Perfil } from '@/pages/Perfil';
 import { Seguridad } from '@/pages/Seguridad';
 import { Tienda } from '@/pages/Tienda';
 import { Juegos } from '@/pages/Juegos';
+import { Liga } from '@/pages/Liga';
 import { Juego } from '@/pages/Juego';
 import { Llamada } from '@/pages/Llamada';
 import { MiloVivo } from '@/components/MiloVivo';
@@ -114,6 +116,15 @@ export default function App() {
                 </SoloConSesion>
               }
             />
+            {/* El examen que cierra un nivel. Se llega desde el final de la ruta. */}
+            <Route
+              path="/examen"
+              element={
+                <SoloConSesion>
+                  <Examen />
+                </SoloConSesion>
+              }
+            />
             <Route
               path="/menu"
               element={
@@ -175,6 +186,14 @@ export default function App() {
               element={
                 <SoloConSesion>
                   <Juego />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/liga"
+              element={
+                <SoloConSesion>
+                  <Liga />
                 </SoloConSesion>
               }
             />

@@ -71,7 +71,18 @@ function OpcionMultiple({ ejercicio, bloqueado, onCambio, resultado }: PropsEjer
   return (
     <div>
       <Instruccion>{prompt.instruction_es}</Instruccion>
-      <p className="mt-3 font-[var(--font-lectura)] text-xl leading-relaxed">{prompt.question}</p>
+      {/*
+        Los saltos de línea del enunciado se respetan.
+
+        En los ejercicios de lectura el enunciado son DOS cosas pegadas: un texto
+        corto y, tras una línea en blanco, la pregunta sobre él. Sin esto se
+        pintaban seguidos, y la pregunta quedaba escondida al final del párrafo
+        como si formara parte de la historia. Pasa en la prueba de nivel y en el
+        examen de nivel, que es donde viven esos textos.
+      */}
+      <p className="mt-3 whitespace-pre-line font-[var(--font-lectura)] text-xl leading-relaxed">
+        {prompt.question}
+      </p>
 
       <div className="mt-6 grid gap-3">
         {prompt.options.map((opcion, indice) => {

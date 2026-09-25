@@ -8,6 +8,20 @@ import { NivelVacio } from '@/components/NivelVacio';
 import { MascotaConMensaje } from '@/components/Mascota';
 import { NodoLeccion, type EstadoNodo } from '@/components/NodoLeccion';
 
+interface EstadoExamen {
+  levelCode: string | null;
+  leccionesHechas: number;
+  leccionesTotales: number;
+  desbloqueado: boolean;
+  /** Si el nivel tiene examen escrito. Un nivel nuevo puede no tenerlo todavía. */
+  hayExamen: boolean;
+  aprobado: boolean;
+  intentos: number;
+  enCurso: boolean;
+  ultimo: { score: number; answered: number; minimo: number; aprobado: boolean } | null;
+  cursoTerminado: boolean;
+}
+
 interface Leccion {
   code: string;
   titleEs: string;
@@ -138,6 +152,15 @@ export function Ruta() {
     enabled: Boolean(codigoNivel),
   });
 
+  // El examen del final. Va en consulta aparte porque cambia por su cuenta —se
+  // abre al terminar la última lección— y porque el temario se puede cachear y
+  // esto no.
+  const { data: examen } = useQuery({
+    queryKey: ['examen', 'estado', codigoNivel],
+    queryFn: () => api.get<EstadoExamen>('/exam'),
+    enabled: Boolean(codigoNivel),
+  });
+
   // Sin nivel no hay ruta que enseñar, así que se vuelve a elegirlo. Esto pasa
   // si alguien entra por la barra de direcciones antes de haberlo escogido.
   useEffect(() => {
@@ -261,9 +284,116 @@ export function Ruta() {
                 </ol>
               </section>
             ))}
+
+            {data && data.units.length > 0 && examen && (
+              <ExamenDelNivel estado={examen} onAbrir={() => navegar('/examen')} />
+            )}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * El final del camino.
+ *
+ * Antes no había nada aquí: se terminaba la última lección del nivel y la ruta
+ * se acababa sin más, como una escalera que da a una pared. Ahora hay una
+ * puerta, y se ve desde el principio aunque esté cerrada: saber que al final hay
+ * un examen cambia cómo se hacen las veinte lecciones de antes.
+ */
+function ExamenDelNivel({ estado, onAbrir }: { estado: EstadoExamen; onAbrir: () => void }) {
+  const navegar = useNavigate();
+  const faltan = Math.max(0, estado.leccionesTotales - estado.leccionesHechas);
+
+  /*
+    Un nivel puede tener sus cuatro unidades escritas y todavía no tener examen:
+    el contenido se escribe nivel a nivel y el banco de preguntas va detrás. Sin
+    este caso, quien terminara ese nivel vería «te quedan 0 lecciones» para
+    siempre y se quedaría encerrado en él. Mientras el examen no exista, se dice
+    y se deja pasar a mano, que es como se pasaba antes de que hubiera examen.
+  */
+  if (!estado.hayExamen) {
+    return (
+      <section className="min-w-0 rounded-2xl border border-[var(--borde)] bg-[var(--superficie)] p-5">
+        <h2 className="text-lg font-bold">Final del nivel</h2>
+        <p className="mt-2 text-sm text-[var(--texto-suave)]">
+          Este nivel todavía no tiene examen. Cuando termines sus lecciones puedes pasar al
+          siguiente tú mismo.
+        </p>
+        <button
+          type="button"
+          onClick={() => navegar('/nivel')}
+          className="mt-4 min-h-11 rounded-xl border border-[var(--borde)] px-4 py-2 text-sm font-medium transition hover:border-marca-400"
+        >
+          Elegir otro nivel
+        </button>
+      </section>
+    );
+  }
+
+  const nodo: EstadoNodo = estado.aprobado ? 'hecha' : estado.desbloqueado ? 'actual' : 'bloqueada';
+
+  return (
+    <section className="min-w-0">
+      <div className="animate-entrada rounded-2xl border-b-4 border-slate-900 bg-slate-800 p-5 text-white dark:border-black dark:bg-slate-900">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-300">
+          Final del nivel
+        </p>
+        <h2 className="mt-1 text-lg font-bold">Examen del nivel</h2>
+        <p className="mt-2 text-sm text-slate-200">
+          {estado.aprobado
+            ? estado.cursoTerminado
+              ? 'Lo aprobaste, y con él el curso entero.'
+              : 'Aprobado. Ya estás en el nivel siguiente.'
+            : estado.desbloqueado
+              ? 'Doce preguntas de todo el nivel, con material que no has visto en las lecciones. Hay que acertar tres de cada cuatro.'
+              : `Se abre cuando termines las ${estado.leccionesTotales} lecciones. Te ${
+                  faltan === 1 ? 'queda' : 'quedan'
+                } ${faltan}.`}
+        </p>
+
+        {/*
+          Cómo fue la última vez, con el número que hacía falta al lado. Un
+          «suspendiste» a secas no dice qué distancia había; «ocho de doce,
+          hacían falta nueve» sí, y es lo que hace que se vuelva a intentar.
+        */}
+        {!estado.aprobado && estado.ultimo && (
+          <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-sm text-slate-100">
+            La última vez sacaste {estado.ultimo.score} de {estado.ultimo.answered}; hacían falta{' '}
+            {estado.ultimo.minimo}. Puedes repetirlo cuando quieras: el examen no es el mismo.
+          </p>
+        )}
+      </div>
+
+      <ol className="relative mt-6 grid min-w-0 justify-items-center before:absolute before:inset-y-4 before:left-1/2 before:-z-10 before:w-0.5 before:-translate-x-1/2 before:border-l-4 before:border-dotted before:border-[var(--borde)]">
+        <NodoLeccion
+          titulo={estado.enCurso ? 'Seguir el examen' : 'Examen del nivel'}
+          tipo="Examen"
+          icono="🏆"
+          estado={nodo}
+          desvio={0}
+          retraso={0}
+          onAbrir={onAbrir}
+        />
+      </ol>
+
+      {/*
+        Fin de curso. Aprobar el último nivel no abre ninguno nuevo, y quedarse
+        mirando la misma ruta terminada sin que nadie diga nada sería la peor
+        manera de acabar meses de trabajo.
+      */}
+      {estado.cursoTerminado && (
+        <div className="mt-6 rounded-2xl border border-marca-300 bg-marca-50 p-5 text-center dark:border-marca-700 dark:bg-marca-600/15">
+          <p className="text-xl font-extrabold">Terminaste el curso</p>
+          <p className="mt-2 text-sm text-[var(--texto-suave)]">
+            No hay más niveles por delante. Lo que mantiene el inglés a partir de aquí no son
+            lecciones nuevas: es usarlo. El repaso, los juegos y las conversaciones siguen ahí todos
+            los días.
+          </p>
+        </div>
+      )}
+    </section>
   );
 }

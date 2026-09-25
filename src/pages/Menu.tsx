@@ -24,6 +24,12 @@ const ENTRADAS: Entrada[] = [
     a: '/juegos',
   },
   {
+    icono: '🏆',
+    titulo: 'Liga y amigos',
+    descripcion: 'Tu semana, la clasificación y la gente que estudia contigo',
+    a: '/liga',
+  },
+  {
     icono: '👤',
     titulo: 'Mi perfil',
     descripcion: 'Tu nombre, tu nivel y cómo llevas el curso',
