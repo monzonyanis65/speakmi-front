@@ -211,13 +211,47 @@ const EMOJI: Record<string, string> = {
 };
 
 /**
+ * Palabras que significan dos cosas, y qué significado dibuja SU emoji.
+ *
+ * El dibujo va pegado a la palabra inglesa, pero una palabra puede tener dos
+ * sentidos en el curso y el emoji solo vale para uno:
+ *
+ *   book  📕  vale para «libro», no para «reservar» (L11-U3)
+ *   live  🏠  vale para «vivir», no para «en directo» (L15-U4)
+ *
+ * Se vio jugando a la lluvia de palabras: caía «book» con su libro dibujado y
+ * la cesta buena decía «reservar». Quien jugaba buscó «libro», no lo encontró y
+ * dio el juego por roto, con toda la razón — el dibujo le estaba diciendo otra
+ * cosa que la respuesta.
+ *
+ * De las veinte palabras del curso con emoji y más de una traducción, solo
+ * estas dos cambian de sentido de verdad; las otras dieciocho son variantes de
+ * redacción («vecino» / «el vecino») donde el dibujo vale igual.
+ */
+const SENTIDO_DEL_EMOJI: Record<string, string> = {
+  book: 'libro',
+  live: 'vivir',
+};
+
+/**
  * El emoji de una palabra, o `null` si no tiene uno que no mienta.
  *
  * Devolver `null` es parte del trato: quien pinta la carta decide qué hacer con
  * el hueco, y lo que hace es dar el sitio a la letra. Ver `Parejas.tsx`.
+ *
+ * `significado` es opcional porque no todos los sitios lo tienen a mano. Sin
+ * él se devuelve el emoji igual: el riesgo es de dos palabras del curso, y un
+ * dibujo de menos en todas las demás sería peor que el fallo que evita.
  */
-export function emojiDe(palabra: string): string | null {
-  return EMOJI[palabra.trim().toLowerCase()] ?? null;
+export function emojiDe(palabra: string, significado?: string): string | null {
+  const clave = palabra.trim().toLowerCase();
+  const emoji = EMOJI[clave];
+  if (!emoji) return null;
+
+  const dibuja = SENTIDO_DEL_EMOJI[clave];
+  if (dibuja && significado && !significado.trim().toLowerCase().includes(dibuja)) return null;
+
+  return emoji;
 }
 
 /** Cuántas palabras tienen dibujo. Lo usa la prueba que vigila la cobertura. */

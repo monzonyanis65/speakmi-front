@@ -106,7 +106,9 @@ export function Parejas({
             id: pareja.id,
             lado: 'en' as const,
             texto: pareja.en,
-            emoji: emojiDe(pareja.en),
+            // Con el significado: el mismo dibujo no vale para los dos
+            // sentidos de una palabra, y aquí enseñaría la pareja equivocada.
+            emoji: emojiDe(pareja.en, pareja.es),
           },
           {
             clave: `${pareja.id}-es`,

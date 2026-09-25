@@ -465,7 +465,12 @@ function Arcade({
             {
               palabra,
               es: ola.cestas.find((cesta) => cesta.id === palabra.cestaId)?.es ?? '',
-              emoji: emojiDe(palabra.en),
+              // Con el significado, para que el dibujo no diga otra cosa que la
+              // cesta: «book» es un libro o es reservar, y no el mismo emoji.
+              emoji: emojiDe(
+                palabra.en,
+                ola.cestas.find((cesta) => cesta.id === palabra.cestaId)?.es,
+              ),
               carril: carriles[indice % carriles.length] ?? indice,
               duracion: caida,
               // Cada una se bambolea a su ritmo: tres cosas cayendo al mismo
@@ -1240,7 +1245,7 @@ function PorTurnos({
     setIndice((n) => n + 1);
   };
 
-  const emoji = emojiDe(turno.palabra.en);
+  const emoji = emojiDe(turno.palabra.en, turno.es);
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 py-4">

@@ -25,6 +25,9 @@ import type { RondaDeParticulas } from './tipos';
 const RELOJ_LARGO = { lecturaMs: 10_000, barraMs: 60_000 };
 
 function rondaDe(reloj = RELOJ_LARGO): RondaDeParticulas {
+  // La pausa de lectura va en CADA situación, así que la del reloj se reparte a
+  // todas: si no, una prueba que acorta el reloj no acortaría nada.
+  const lecturaMs = reloj.lecturaMs;
   return {
     code: 'PARTICULAS',
     reloj,
@@ -40,6 +43,7 @@ function rondaDe(reloj = RELOJ_LARGO): RondaDeParticulas {
         ejemploEn: 'Can you look after my cat?',
         separable: false,
         nivel: 'A2',
+        lecturaMs,
       },
       {
         id: 'p2',
@@ -52,6 +56,7 @@ function rondaDe(reloj = RELOJ_LARGO): RondaDeParticulas {
         ejemploEn: "Don't give up.",
         separable: false,
         nivel: 'A2',
+        lecturaMs,
       },
     ],
   };

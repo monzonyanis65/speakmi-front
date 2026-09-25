@@ -55,7 +55,12 @@ export function Juego() {
 
   const ronda = useQuery({
     queryKey: ['juego', code, partida],
-    queryFn: () => api.get<unknown>(`/games/${code}/ronda`),
+    /*
+      `?otra=1` a partir de la segunda vuelta, y solo lo mira el de cinco
+      letras: entrar al juego enseña tu partida del día —para poder volver a
+      verla y compartirla— y pedir otra palabra es lo que arranca una nueva.
+    */
+    queryFn: () => api.get<unknown>(`/games/${code}/ronda${partida > 0 ? '?otra=1' : ''}`),
     enabled: valido,
     retry: false,
     /*
@@ -220,6 +225,7 @@ export function Juego() {
           onIntentar={intentarPalabra}
           onTerminar={cerrarPartida}
           onSalir={salir}
+          onOtra={otraPartida}
         />
       )}
 

@@ -52,6 +52,9 @@ export function Escucha({
   const [indice, setIndice] = useState(0);
   const [elegida, setElegida] = useState<string | null>(null);
   const [acertada, setAcertada] = useState<boolean | null>(null);
+  /** Cuál era la buena, según el servidor. Aquí no se puede deducir. */
+  const [laBuena, setLaBuena] = useState<string | null>(null);
+  const [noSePudo, setNoSePudo] = useState(false);
   const [sonando, setSonando] = useState(false);
 
   const [aciertos, setAciertos] = useState(0);
@@ -123,38 +126,57 @@ export function Escucha({
   async function responder(opcion: string) {
     if (!actual || elegida !== null) return;
     setElegida(opcion);
+    setNoSePudo(false);
 
     /*
-      La verdad está en el navegador: `diceEn` ES la palabra que sonó. Se
-      pregunta igualmente al servidor, porque es él quien lleva la cuenta, pero
-      si no contesta no se pierde la ronda ni se inventa nada: se compara con lo
-      que ya se sabe, que da exactamente el mismo resultado.
-    */
-    const local = opcion.trim().toLowerCase() === actual.diceEn.trim().toLowerCase();
-    let correcta = local;
+      Quién es la buena SOLO lo sabe el servidor, y esto es lo que aquí estuvo
+      mal mucho tiempo.
 
+      Se comparaba la opción pulsada contra `diceEn`, con el argumento de que
+      «la palabra que sonó ya está en el navegador». Pero `diceEn` es la palabra
+      en INGLÉS y las opciones son sus significados en ESPAÑOL: «apple» contra
+      «manzana» no coincide nunca. O sea que ninguna opción se pintaba de verde,
+      la elegida se pintaba SIEMPRE de rojo con su equis, y encima el servidor
+      decía «¡Esa era!» y sumaba los puntos. Acertar y que te digan que has
+      fallado es de las peores cosas que puede hacer un juego.
+
+      La ronda no trae la respuesta a propósito —sería servírsela a quien mire la
+      red— y aquí se puede esperar sin coste: este juego no tiene reloj.
+    */
     try {
       const corregida = await onResponder(actual.id, opcion);
-      correcta = corregida.isCorrect;
+      const correcta = corregida.isCorrect;
+      const dicha =
+        typeof corregida.feedback === 'object' && corregida.feedback
+          ? corregida.feedback.correcta
+          : undefined;
+
+      setLaBuena(correcta ? opcion : (dicha ?? null));
+
+      const nuevaRacha = correcta ? racha + 1 : 0;
+      setRachaMaxima((mejor) => Math.max(mejor, nuevaRacha));
+      setAcertada(correcta);
+      setContestadas((n) => n + 1);
+      setRacha(nuevaRacha);
+      if (correcta) setAciertos((n) => n + 1);
+
+      if (!correcta) sonar('fallo');
+      else if (nuevaRacha >= 2) sonar('combo', { racha: nuevaRacha });
+      else sonar('acierto');
     } catch {
-      correcta = local;
+      // Sin servidor no hay veredicto, y inventarlo es lo que causó el fallo de
+      // arriba. Se devuelve la ronda como estaba para volver a intentarlo, que
+      // es mejor que cantar un acierto o un fallo que no sabemos.
+      setElegida(null);
+      setNoSePudo(true);
     }
-
-    const nuevaRacha = correcta ? racha + 1 : 0;
-    setRachaMaxima((mejor) => Math.max(mejor, nuevaRacha));
-    setAcertada(correcta);
-    setContestadas((n) => n + 1);
-    setRacha(nuevaRacha);
-    if (correcta) setAciertos((n) => n + 1);
-
-    if (!correcta) sonar('fallo');
-    else if (nuevaRacha >= 2) sonar('combo', { racha: nuevaRacha });
-    else sonar('acierto');
   }
 
   function avanzar() {
     setElegida(null);
     setAcertada(null);
+    setLaBuena(null);
+    setNoSePudo(false);
     setIndice((n) => n + 1);
   }
 
@@ -229,7 +251,7 @@ export function Escucha({
       <div className="mt-8 grid flex-1 content-start gap-3">
         {actual.opciones.map((opcion) => {
           const esLaSuya = elegida === opcion;
-          const esLaBuena = elegida !== null && opcion === actual.diceEn;
+          const esLaBuena = laBuena !== null && opcion === laBuena;
 
           return (
             <button
@@ -261,6 +283,12 @@ export function Escucha({
         })}
       </div>
 
+      {noSePudo && (
+        <div className="mt-4">
+          <Aviso tono="aviso">No pudimos comprobarlo. Vuelve a tocar tu respuesta.</Aviso>
+        </div>
+      )}
+
       {acertada !== null && (
         <div
           role="status"
@@ -279,11 +307,18 @@ export function Escucha({
               acertada ? 'text-[var(--texto-acierto)]' : 'text-[var(--texto-fallo)]',
             )}
           >
+            {/*
+              Al fallar se dice la palabra Y lo que significa. «Sonaba apple» a
+              secas no enseña nada a quien no sabía qué era «apple»: justo el
+              que acaba de fallar.
+            */}
             {acertada
               ? racha >= 2
                 ? `¡Esa era! ${racha} seguidas`
                 : '¡Esa era!'
-              : `Sonaba «${actual.diceEn}»`}
+              : laBuena
+                ? `Sonaba «${actual.diceEn}»: ${laBuena}`
+                : `Sonaba «${actual.diceEn}»`}
           </p>
         </div>
       )}

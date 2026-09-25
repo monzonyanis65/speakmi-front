@@ -96,6 +96,14 @@ export interface RondaDeCincoLetras {
   /** Si la partida de hoy ya se cerró y cobró en el servidor. */
   cerrada: boolean;
   palabra?: string;
+  /**
+   * Si es LA palabra del día o una extra.
+   *
+   * La del día es la misma para todo el mundo y es la que se comparte en
+   * cuadraditos. Las extra son para seguir jugando: compartirlas no diría nada,
+   * porque cada cual tuvo la suya.
+   */
+  esDelDia: boolean;
 }
 
 /** `POST /api/games/CINCO_LETRAS/respuesta`. */
@@ -196,6 +204,14 @@ export interface SituacionDeParticula {
   /** Si admite el objeto en medio: `pick up the phone` / `pick the phone up`. */
   separable: boolean;
   nivel: 'A2' | 'B1';
+  /**
+   * Cuánto se deja leer ESTA situación antes de que la barra empiece a bajar.
+   *
+   * Va por situación y no por partida porque de eso depende: una frase de
+   * treinta caracteres no necesita lo mismo que una de cincuenta, y darles el
+   * mismo rato castiga a la larga sin premiar a la corta.
+   */
+  lecturaMs: number;
 }
 
 /**

@@ -219,7 +219,9 @@ export function Particulas({
   useEffect(() => {
     if (!actual || fase !== 'jugando') return;
 
-    const total = ronda.reloj.lecturaMs + ronda.reloj.barraMs;
+    // La de esta situación; la de la ronda solo por si llega una sin ella.
+    const lecturaMs = actual.lecturaMs ?? ronda.reloj.lecturaMs;
+    const total = lecturaMs + ronda.reloj.barraMs;
     const inicio = performance.now();
     let cuadro = 0;
     let ultimoSegundo = Number.POSITIVE_INFINITY;
@@ -244,7 +246,7 @@ export function Particulas({
       }
 
       // Mientras dura la lectura la barra se queda llena; después baja.
-      const gastado = Math.max(0, transcurrido - ronda.reloj.lecturaMs);
+      const gastado = Math.max(0, transcurrido - lecturaMs);
       const restante = Math.max(0, ronda.reloj.barraMs - gastado);
       const fraccion = ronda.reloj.barraMs > 0 ? restante / ronda.reloj.barraMs : 0;
 

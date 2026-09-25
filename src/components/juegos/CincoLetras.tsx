@@ -56,12 +56,15 @@ export function CincoLetras({
   onIntentar,
   onTerminar,
   onSalir,
+  onOtra,
 }: {
   ronda: RondaDeCincoLetras;
   /** Manda la palabra escrita y devuelve los colores. Lanza si no se pudo. */
   onIntentar: (palabra: string) => Promise<IntentoCorregido>;
   onTerminar: (marcador: Marcador) => Promise<ResultadoFinal>;
   onSalir: () => void;
+  /** Pide otra palabra y empieza una partida nueva. */
+  onOtra: () => void;
 }) {
   const menosMovimiento = useMenosMovimiento();
   useDespertarSonido();
@@ -235,7 +238,10 @@ export function CincoLetras({
       <CabeceraJuego onSalir={onSalir}>
         <div className="min-w-0 flex-1">
           <p className="text-lg font-extrabold leading-none">
-            Cinco letras <span className="text-[var(--texto-suave)]">#{ronda.numero}</span>
+            Cinco letras{' '}
+            <span className="text-[var(--texto-suave)]">
+              {ronda.esDelDia ? `#${ronda.numero}` : 'extra'}
+            </span>
           </p>
           <p className="text-xs text-[var(--texto-suave)]">
             {acabado
@@ -292,12 +298,14 @@ export function CincoLetras({
           estado={estado}
           palabra={palabra}
           numero={ronda.numero}
+          esDelDia={ronda.esDelDia}
           intentos={intentos}
           resultado={resultado}
           guardando={guardando}
           noSeGuardo={noSeGuardo}
           yaVenia={yaVenia}
           menosMovimiento={menosMovimiento}
+          onOtra={onOtra}
           onSalir={onSalir}
         />
       ) : (
@@ -593,6 +601,7 @@ function Final({
   estado,
   palabra,
   numero,
+  esDelDia,
   intentos,
   resultado,
   guardando,
@@ -600,10 +609,12 @@ function Final({
   yaVenia,
   menosMovimiento,
   onSalir,
+  onOtra,
 }: {
   estado: EstadoDeCincoLetras;
   palabra: string | null;
   numero: number;
+  esDelDia: boolean;
   intentos: IntentoDeCincoLetras[];
   resultado: ResultadoFinal | null;
   guardando: boolean;
@@ -611,6 +622,7 @@ function Final({
   yaVenia: boolean;
   menosMovimiento: boolean;
   onSalir: () => void;
+  onOtra: () => void;
 }) {
   const ganada = estado === 'ganada';
   const [copiado, setCopiado] = useState(false);
@@ -697,44 +709,60 @@ function Final({
 
       {noSeGuardo && (
         <div className="mt-3">
-          <Aviso tono="aviso">
-            No pudimos guardar la partida, así que no suma monedas. La palabra de hoy ya está
-            jugada; vuelve mañana.
-          </Aviso>
+          <Aviso tono="aviso">No pudimos guardar la partida, así que no suma monedas.</Aviso>
         </div>
       )}
 
       {/*
-        Los cuadraditos, que son lo que se comparte.
+        Los cuadraditos, que son lo que se comparte, y SOLO en la del día.
 
         No llevan ni una letra: dicen cómo fue sin decir cuál era, que es lo que
-        permite enseñárselo a alguien que todavía no ha jugado.
+        permite enseñárselo a alguien que todavía no ha jugado. Eso solo
+        significa algo si los dos jugaron la misma palabra, así que en una
+        partida extra no se ofrecen: compartir «3/6» de una palabra que te tocó
+        solo a ti no dice nada.
       */}
-      <pre
-        aria-label="Tu resultado en cuadraditos, para compartir"
-        className="mt-4 overflow-x-auto rounded-2xl bg-[var(--superficie)] p-3 text-center text-base leading-tight"
-      >
-        {cuadraditos}
-      </pre>
+      {esDelDia && (
+        <>
+          <pre
+            aria-label="Tu resultado en cuadraditos, para compartir"
+            className="mt-4 overflow-x-auto rounded-2xl bg-[var(--superficie)] p-3 text-center text-base leading-tight"
+          >
+            {cuadraditos}
+          </pre>
 
-      {noSeCopio && (
-        <p className="mt-2 text-center text-xs text-[var(--texto-aviso)]">
-          Tu navegador no nos deja copiar. Selecciona los cuadraditos de arriba.
-        </p>
+          {noSeCopio && (
+            <p className="mt-2 text-center text-xs text-[var(--texto-aviso)]">
+              Tu navegador no nos deja copiar. Selecciona los cuadraditos de arriba.
+            </p>
+          )}
+        </>
       )}
 
       <div className="mt-4 grid gap-2">
-        <Boton tamano="grande" tono={copiado ? 'acierto' : 'marca'} onClick={() => void copiar()}>
-          {copiado ? '¡COPIADO!' : 'COMPARTIR RESULTADO'}
+        {esDelDia && (
+          <Boton tamano="grande" tono={copiado ? 'acierto' : 'marca'} onClick={() => void copiar()}>
+            {copiado ? '¡COPIADO!' : 'COMPARTIR RESULTADO'}
+          </Boton>
+        )}
+        {/*
+          Otra palabra, aquí mismo. Antes esto decía «vuelve mañana» y se
+          acababa el juego: quien quería practicar más se encontraba una puerta
+          cerrada, que es lo contrario de lo que hace falta.
+        */}
+        <Boton tamano="grande" tono={esDelDia ? 'suave' : 'marca'} onClick={onOtra}>
+          OTRA PALABRA
         </Boton>
         <Boton tono="suave" onClick={onSalir}>
           Volver a los juegos
         </Boton>
       </div>
 
-      <p className="mt-3 text-center text-xs text-[var(--texto-suave)]">
-        Mañana hay otra palabra, la misma para todo el mundo.
-      </p>
+      {esDelDia && (
+        <p className="mt-3 text-center text-xs text-[var(--texto-suave)]">
+          Mañana hay otra palabra del día, la misma para todo el mundo.
+        </p>
+      )}
     </div>
   );
 }

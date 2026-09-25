@@ -42,6 +42,7 @@ const RONDA: RondaDeCincoLetras = {
   estado: 'jugando',
   restantes: 6,
   cerrada: false,
+  esDelDia: true,
 };
 
 function renderizar(ronda: Partial<RondaDeCincoLetras> = {}, respuestas: IntentoCorregido[] = []) {
@@ -57,6 +58,7 @@ function renderizar(ronda: Partial<RondaDeCincoLetras> = {}, respuestas: Intento
     Promise.resolve({ puntuacion: 50, mejorPuntuacion: 50, monedas: 6, recordNuevo: true }),
   );
   const onSalir = vi.fn();
+  const onOtra = vi.fn();
 
   render(
     <CincoLetras
@@ -64,10 +66,11 @@ function renderizar(ronda: Partial<RondaDeCincoLetras> = {}, respuestas: Intento
       onIntentar={onIntentar}
       onTerminar={onTerminar}
       onSalir={onSalir}
+      onOtra={onOtra}
     />,
   );
 
-  return { onIntentar, onTerminar, onSalir };
+  return { onIntentar, onTerminar, onSalir, onOtra };
 }
 
 /*
@@ -296,8 +299,9 @@ describe('Cinco letras', () => {
     expect(cuadraditos.textContent).not.toMatch(/[A-Z]/);
   });
 
-  it('si ya se jugó hoy, se ve el resultado y no se puede jugar otra vez', async () => {
-    renderizar({
+  it('acabada la del día se puede pedir otra palabra, no «vuelve mañana»', async () => {
+    const usuario = userEvent.setup();
+    const { onOtra } = renderizar({
       intentos: [fila('APPLE', 'sssss')],
       estado: 'ganada',
       restantes: 5,
@@ -306,9 +310,30 @@ describe('Cinco letras', () => {
     });
 
     expect(await screen.findByText('¡A la primera!')).toBeInTheDocument();
-    expect(screen.getByText(/Ya la jugaste hoy/)).toBeInTheDocument();
+    // El teclado desaparece: ESTA partida se acabó.
     expect(screen.queryByRole('button', { name: 'Q' })).not.toBeInTheDocument();
-    expect(screen.getByText('Mañana hay otra palabra, la misma para todo el mundo.'));
+    // Pero el juego no. Antes aquí solo se podía salir.
+    await usuario.click(screen.getByRole('button', { name: 'OTRA PALABRA' }));
+    expect(onOtra).toHaveBeenCalled();
+  });
+
+  it('una palabra extra no se comparte, porque cada cual tuvo la suya', async () => {
+    renderizar({
+      esDelDia: false,
+      intentos: [fila('APPLE', 'sssss')],
+      estado: 'ganada',
+      restantes: 5,
+      cerrada: true,
+      palabra: 'APPLE',
+    });
+
+    expect(await screen.findByText('¡A la primera!')).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Tu resultado en cuadraditos, para compartir'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /COMPARTIR/ })).not.toBeInTheDocument();
+    // Y sigue habiendo por dónde seguir.
+    expect(screen.getByRole('button', { name: 'OTRA PALABRA' })).toBeInTheDocument();
   });
 
   it('al perder también se enseña cuál era', async () => {
@@ -342,6 +367,7 @@ describe('Cinco letras', () => {
           Promise.resolve({ puntuacion: 0, mejorPuntuacion: 0, monedas: 0, recordNuevo: false })
         }
         onSalir={() => undefined}
+        onOtra={() => undefined}
       />,
     );
 
