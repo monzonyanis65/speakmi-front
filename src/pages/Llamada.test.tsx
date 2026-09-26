@@ -152,7 +152,8 @@ let soltarTurno: (() => void) | null = null;
 function servidor({
   correccion = CORRECCION,
   lento = false,
-}: { correccion?: unknown | null; lento?: boolean } = {}) {
+  oido,
+}: { correccion?: unknown | null; lento?: boolean; oido?: string } = {}) {
   soltarTurno = null;
 
   return vi.fn((url: string) => {
@@ -160,6 +161,8 @@ function servidor({
       Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(cuerpo) });
 
     if (url.includes('/tutor/scenarios')) return responder(ESCENARIOS);
+    // Sin `oido`, Whisper no está: la ruta no responde y se usa lo del navegador.
+    if (url.includes('/speech/transcribe') && oido !== undefined) return responder({ text: oido });
     if (url.includes('/finish')) return responder(RESUMEN);
     if (url.includes('/turn')) {
       const cuerpo = { reply: RESPUESTA, correction: correccion };
@@ -202,13 +205,58 @@ async function entrar(usuario: ReturnType<typeof userEvent.setup>) {
   await waitFor(() => expect(dichas).toContain(APERTURA), { timeout: 4000 });
 }
 
+/** Si el grabador de mentira llegó a arrancar. */
+let grabando = false;
+
+/**
+ * Un micrófono que graba de mentira: al parar entrega unos kilobytes de audio
+ * falso, que es lo que la llamada manda a transcribir.
+ */
+function montarMicrofonoFalso() {
+  grabando = false;
+
+  class GrabadorFalso {
+    static isTypeSupported = () => true;
+    state: 'inactive' | 'recording' = 'inactive';
+    mimeType = 'audio/webm';
+    ondataavailable: ((evento: { data: Blob }) => void) | null = null;
+    onstop: (() => void) | null = null;
+
+    start() {
+      this.state = 'recording';
+      grabando = true;
+    }
+    stop() {
+      this.state = 'inactive';
+      this.ondataavailable?.({ data: new Blob([new Uint8Array(4000)], { type: 'audio/webm' }) });
+      this.onstop?.();
+    }
+  }
+
+  vi.stubGlobal('MediaRecorder', GrabadorFalso);
+  Object.defineProperty(navigator, 'mediaDevices', {
+    configurable: true,
+    value: { getUserMedia: () => Promise.resolve({ getTracks: () => [{ stop: vi.fn() }] }) },
+  });
+}
+
+/** La petición que llegó a una ruta, con su cuerpo. */
+function peticionA(falso: ReturnType<typeof servidor>, ruta: string) {
+  const llamada = falso.mock.calls.find(([url]) => String(url).includes(ruta)) as
+    [string, RequestInit] | undefined;
+  return llamada;
+}
+
 beforeEach(() => {
   ReconocedorFalso.ultimo = null;
   vi.stubGlobal('SpeechRecognition', ReconocedorFalso);
   montarVozFalsa();
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  Reflect.deleteProperty(navigator, 'mediaDevices');
+});
 
 describe('llamada con la mascota', () => {
   it('ofrece los escenarios que devuelve el servidor', async () => {
@@ -373,5 +421,65 @@ describe('llamada con la mascota', () => {
     await usuario.click(await screen.findByRole('button', { name: /Muy fácil/ }));
 
     expect(await screen.findByText(/Bien dicho/)).toBeInTheDocument();
+  });
+
+  it('manda lo que entendió Whisper, no el «jazz» del navegador', async () => {
+    const falso = servidor({ oido: 'Yes.' });
+    vi.stubGlobal('fetch', falso);
+    montarMicrofonoFalso();
+    const usuario = userEvent.setup();
+
+    await entrar(usuario);
+    await usuario.click(await screen.findByRole('button', { name: 'Pulsa para hablar' }));
+    await waitFor(() => expect(grabando).toBe(true));
+    act(() => ReconocedorFalso.ultimo!.oye('jazz'));
+    await usuario.click(screen.getByRole('button', { name: 'Pulsa para enviar' }));
+
+    await waitFor(() => expect(peticionA(falso, '/turn')).toBeTruthy());
+    expect(JSON.parse(peticionA(falso, '/turn')![1].body as string)).toEqual({ text: 'Yes.' });
+
+    // La pista para Whisper es lo último que dijo la mascota.
+    expect(peticionA(falso, '/speech/transcribe')![0]).toContain(encodeURIComponent(APERTURA));
+    // Y la conversación se abrió como llamada, para que el tutor lo sepa.
+    expect(JSON.parse(peticionA(falso, '/tutor/conversations')![1].body as string)).toMatchObject({
+      mode: 'voice',
+    });
+  });
+
+  it('si Whisper no está, sigue con lo que entendió el navegador', async () => {
+    const falso = servidor();
+    vi.stubGlobal('fetch', falso);
+    montarMicrofonoFalso();
+    const usuario = userEvent.setup();
+
+    await entrar(usuario);
+    await usuario.click(await screen.findByRole('button', { name: 'Pulsa para hablar' }));
+    await waitFor(() => expect(grabando).toBe(true));
+    act(() => ReconocedorFalso.ultimo!.oye('I would like a coffee'));
+    await usuario.click(screen.getByRole('button', { name: 'Pulsa para enviar' }));
+
+    await waitFor(() => expect(dichas).toContain(RESPUESTA));
+    expect(JSON.parse(peticionA(falso, '/turn')![1].body as string)).toEqual({
+      text: 'I would like a coffee',
+    });
+  });
+
+  it('en el repaso se puede practicar la pronunciación de la frase corregida', async () => {
+    vi.stubGlobal('fetch', servidor());
+    const usuario = userEvent.setup();
+
+    await entrar(usuario);
+    await usuario.click(await screen.findByRole('button', { name: 'Pulsa para hablar' }));
+    act(() => ReconocedorFalso.ultimo!.oye('I wanting a coffee'));
+    await usuario.click(screen.getByRole('button', { name: 'Pulsa para enviar' }));
+    await waitFor(() => expect(dichas).toContain(RESPUESTA));
+
+    await usuario.click(screen.getByRole('button', { name: 'Colgar la llamada' }));
+    await usuario.click(await screen.findByRole('button', { name: /Muy fácil/ }));
+    await usuario.click(await screen.findByRole('button', { name: /Practicar la pronunciación/ }));
+
+    // Lo que se practica es la frase ya corregida, no la que tenía el fallo.
+    expect(await screen.findByText(/Escúchala y dila en voz alta/)).toBeInTheDocument();
+    expect(screen.getAllByText(/I would like a coffee/).length).toBeGreaterThan(0);
   });
 });

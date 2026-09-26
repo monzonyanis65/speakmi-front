@@ -95,6 +95,9 @@ async function ejecutar<T>(
 ): Promise<T> {
   const { body, timeoutMs = 20_000, headers, sinRenovar, ...rest } = options;
   const token = proveedorToken();
+  // El audio de la llamada viaja tal cual, con su tipo: pasarlo a JSON lo
+  // engordaría un tercio y obligaría al servidor a deshacerlo.
+  const binario = body instanceof Blob;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -107,11 +110,17 @@ async function ejecutar<T>(
       credentials: 'include',
       headers: {
         Accept: 'application/json',
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(body !== undefined
+          ? {
+              'Content-Type': binario
+                ? body.type || 'application/octet-stream'
+                : 'application/json',
+            }
+          : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(body !== undefined ? { body: binario ? body : JSON.stringify(body) } : {}),
     });
   } catch (error) {
     throw new NetworkError(error);

@@ -7,6 +7,8 @@ import { useNombreMascota } from '@/lib/mascota-contexto';
 import { Boton } from '@/components/Boton';
 import { Mascota } from '@/components/Mascota';
 import { NOMBRE_CATEGORIA } from '@/components/ejercicios/tipos';
+import { LeerEnVozAlta } from '@/components/ejercicios/LeerEnVozAlta';
+import { grabar, type Grabacion } from '@/lib/grabacion';
 import { escuchar, estaDisponible, type SesionEscucha } from '@/lib/reconocimiento';
 import { callar, decir, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
 
@@ -74,6 +76,13 @@ const MOTIVOS: Record<string, string> = {
   network: 'Se cortó la conexión del reconocimiento. Comprueba internet y vuelve a pulsar.',
 };
 
+/**
+ * Fallos del reconocedor tras los que tampoco hay grabación que valga: si el
+ * navegador no deja usar el micrófono, no lo deja ni para reconocer ni para
+ * grabar. Con cualquier otro, la grabación puede seguir sola.
+ */
+const SIN_PERMISO = new Set(['not-allowed', 'service-not-allowed']);
+
 const esperar = (ms: number) => new Promise((listo) => setTimeout(listo, ms));
 
 /**
@@ -104,6 +113,8 @@ export function Llamada() {
   const [error, setError] = useState<string | null>(null);
   const [valoracion, setValoracion] = useState<Valoracion | null>(null);
   const [resumen, setResumen] = useState<Resumen | null>(null);
+  /** Qué frase tuya se está practicando en el repaso, si alguna. */
+  const [practicando, setPracticando] = useState<number | null>(null);
 
   const [puedeEscuchar] = useState(() => estaDisponible());
   /*
@@ -126,12 +137,25 @@ export function Llamada() {
   */
   const vozActual = useRef(0);
 
+  /** El audio de tu turno, que al terminar transcribe Whisper. */
+  const grabacion = useRef<Grabacion | null>(null);
+  /*
+    Abrir el micrófono para grabar tarda un momento. Si en ese momento el turno
+    ya se cerró, esa grabación llega tarde y se tira: este número dice si sigue
+    siendo la de ahora.
+  */
+  const escuchaActual = useRef(0);
+  /** Lo último que dijo la mascota, que es la pista que recibe Whisper. */
+  const fraseMascota = useRef('');
+
   useEffect(() => {
     montado.current = true;
     return () => {
       montado.current = false;
       sesion.current?.cancelar();
       sesion.current = null;
+      grabacion.current?.cancelar();
+      grabacion.current = null;
       callar();
     };
   }, []);
@@ -157,11 +181,19 @@ export function Llamada() {
 
   // --- Hablar y escuchar, que nunca se pisan -------------------------------
 
+  function soltarGrabacion() {
+    escuchaActual.current += 1;
+    grabacion.current?.cancelar();
+    grabacion.current = null;
+  }
+
   async function hablar(texto: string) {
     sesion.current?.cancelar();
     sesion.current = null;
+    soltarGrabacion();
     const marca = (vozActual.current += 1);
 
+    fraseMascota.current = texto;
     setFrase(texto);
     setParcial('');
     setMomento('hablando');
@@ -176,6 +208,8 @@ export function Llamada() {
   function ponerseAEscuchar() {
     setAviso(null);
     setParcial('');
+    soltarGrabacion();
+    const marca = escuchaActual.current;
 
     /*
       Un fallo del motor dispara `onError` y acto seguido `onend`, que llama a
@@ -190,19 +224,19 @@ export function Llamada() {
       onFinal: (resultado) => {
         sesion.current = null;
         if (fallo || !montado.current) return;
-
-        const dicho = resultado.texto.trim();
-        if (!dicho) {
-          setMomento('tuTurno');
-          setAviso('No se oyó nada. Acércate al micrófono y vuelve a pulsar.');
-          return;
-        }
-        void responder(dicho);
+        void cerrarTurno(resultado.texto.trim());
       },
       onError: (motivo) => {
         fallo = true;
         sesion.current = null;
         if (!montado.current) return;
+
+        // En algunos Android el reconocedor y la grabación no comparten el
+        // micrófono y el primero se rinde. Si la grabación sigue viva, se
+        // sigue escuchando solo con ella: al pulsar, Whisper hace el trabajo.
+        if (grabacion.current && !SIN_PERMISO.has(motivo)) return;
+
+        soltarGrabacion();
         setMomento('tuTurno');
         setAviso(MOTIVOS[motivo] ?? 'El micrófono falló. Vuelve a pulsar para intentarlo.');
       },
@@ -218,6 +252,68 @@ export function Llamada() {
 
     sesion.current = abierta;
     setMomento('escuchando');
+
+    void grabar().then((nueva) => {
+      if (!nueva) return;
+      if (escuchaActual.current !== marca || !montado.current) {
+        nueva.cancelar();
+        return;
+      }
+      grabacion.current = nueva;
+    });
+  }
+
+  /** El botón de enviar: se para de escuchar y se cierra el turno. */
+  function terminarDeHablar() {
+    // Con el reconocedor en marcha, pararlo dispara `onFinal`, y eso cierra.
+    if (sesion.current) {
+      sesion.current.detener();
+      return;
+    }
+    // Si el reconocedor se rindió y solo quedaba la grabación, se cierra aquí.
+    if (grabacion.current) void cerrarTurno('');
+  }
+
+  /**
+   * Decide qué dijiste y lo manda.
+   *
+   * Manda lo que entendió Whisper, que con la pista de la última frase de la
+   * mascota acierta donde el navegador falla. Si Whisper no está, tarda
+   * demasiado o no oyó nada, se queda con lo del navegador: la llamada nunca
+   * se para por culpa de esto.
+   */
+  async function cerrarTurno(delNavegador: string) {
+    const marcaVoz = vozActual.current;
+    const actual = grabacion.current;
+    grabacion.current = null;
+    escuchaActual.current += 1;
+
+    setMomento('pensando');
+    let dicho = delNavegador;
+
+    const audio = actual ? await actual.terminar() : null;
+    if (audio && audio.size > 1000) {
+      try {
+        const oido = await api.post<{ text: string }>(
+          `/speech/transcribe?context=${encodeURIComponent(fraseMascota.current)}`,
+          audio,
+          { timeoutMs: 15_000 },
+        );
+        if (oido.text.trim()) dicho = oido.text.trim();
+      } catch {
+        // Sin Whisper se sigue con lo que entendió el navegador.
+      }
+    }
+
+    // Mientras se transcribía pudieron colgar: entonces ya no hay a quién contestar.
+    if (!montado.current || vozActual.current !== marcaVoz) return;
+
+    if (!dicho) {
+      setMomento('tuTurno');
+      setAviso('No se oyó nada. Acércate al micrófono y vuelve a pulsar.');
+      return;
+    }
+    void responder(dicho);
   }
 
   async function responder(dicho: string) {
@@ -262,7 +358,7 @@ export function Llamada() {
       const [inicio] = await Promise.all([
         api.post<{ conversationId: string; opening: string; titleEs?: string }>(
           '/tutor/conversations',
-          { scenarioCode: elegido.code },
+          { scenarioCode: elegido.code, mode: 'voice' },
         ),
         esperar(ESPERA_LLAMADA),
       ]);
@@ -284,6 +380,7 @@ export function Llamada() {
     vozActual.current += 1;
     sesion.current?.cancelar();
     sesion.current = null;
+    soltarGrabacion();
     callar();
     setFase('valorando');
 
@@ -410,6 +507,34 @@ export function Llamada() {
                     ))}
                   </ul>
                 )}
+
+                {/*
+                  Decirla bien una vez, en voz alta y con la corrección puesta,
+                  es lo que hace que la próxima salga sola. La lectura en voz
+                  alta dice palabra por palabra cuál no se entendió.
+                */}
+                {practicando === indice ? (
+                  <div className="mt-4 border-t-2 border-[var(--borde)] pt-4">
+                    <LeerEnVozAlta
+                      ejercicio={{
+                        code: 'llamada',
+                        prompt: {
+                          instruction_es: 'Escúchala y dila en voz alta, bien dicha.',
+                          referenceText: turno.correccion?.corrected || turno.texto,
+                        },
+                      }}
+                      onTerminado={() => undefined}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPracticando(indice)}
+                    className="boton-3d mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] px-4 text-sm font-bold hover:border-marca-400"
+                  >
+                    <span aria-hidden>🎙️</span> Practicar la pronunciación
+                  </button>
+                )}
               </li>
             );
           })}
@@ -520,8 +645,8 @@ export function Llamada() {
           <Mascota estado="animando" tamano={110} className="mx-auto" />
           <h1 className="mt-3 text-2xl font-extrabold">¿De qué hablamos?</h1>
           <p className="mt-2 text-sm text-[var(--texto-suave)]">
-            Te llamo y hablamos en inglés, en voz alta. No te corrijo durante la llamada: lo vemos
-            al colgar.
+            Te llamo y hablamos en inglés, en voz alta. No te corrijo durante la llamada: al colgar
+            vemos lo que dijiste y practicas la pronunciación de cada frase.
           </p>
         </div>
 
@@ -681,7 +806,7 @@ export function Llamada() {
           disabled={momento === 'hablando' || momento === 'pensando'}
           onClick={() => {
             if (momento === 'tuTurno') ponerseAEscuchar();
-            else if (momento === 'escuchando') sesion.current?.detener();
+            else if (momento === 'escuchando') terminarDeHablar();
           }}
         >
           {etiquetaBoton}
