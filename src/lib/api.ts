@@ -47,7 +47,14 @@ export class NetworkError extends Error {
   }
 }
 
-const BASE = import.meta.env.VITE_API_URL ?? '';
+/**
+ * Dónde vive la API. Se exporta porque no todo lo que se le pide es JSON: el
+ * audio de la voz del servidor se descarga como binario y necesita la misma
+ * dirección base sin pasar por `apiFetch`.
+ */
+export const URL_API: string = import.meta.env.VITE_API_URL ?? '';
+
+const BASE = URL_API;
 
 /**
  * Cómo se consigue el token. Se inyecta desde fuera para que este archivo no

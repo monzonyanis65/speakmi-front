@@ -419,6 +419,202 @@
   }
 }
 
+/*
+  LA CARRERA DE SINTAXIS (juego CARRERA).
+
+  Igual que las de la lluvia, estas se invocan ESCRITAS A MANO desde
+  `Carrera.tsx` con `style={{ animation: 'carrera-… ' }}` y no con una clase
+  `animate-*`, porque la duración de cada puerta la calcula el servidor y es
+  distinta en cada una: depende de lo larga que sea su frase y de la racha que
+  se lleve. Si algún día se limpian animaciones sin uso, buscar `carrera-`.
+
+  Todas mueven `transform` y `opacity` y nada más, que es lo único que el
+  navegador puede mover sin volver a calcular la página. Y son TODO el reloj del
+  juego: no hay ningún `requestAnimationFrame` en la pista. Cuándo llega una
+  puerta lo dice el `animationend` de su propia animación, así que el tiempo lo
+  lleva el compositor y no el hilo de JavaScript, que es lo que hace que la
+  carrera siga yendo a 60 fotogramas mientras React pinta el marcador.
+
+  Los recorridos van en `--carrera-alto`, que lo pone el componente con la
+  altura medida de la pista: un móvil de pie y uno tumbado no tienen la misma
+  distancia hasta Milo, y una puerta tiene que tardar lo mismo en los dos.
+*/
+
+/*
+  La puerta acercándose: el desplazamiento.
+
+  LINEAL a propósito, por lo mismo que la caída de la lluvia: una puerta que
+  acelera al final se come el medio segundo en el que da tiempo a cambiarse de
+  carril, y ese medio segundo es justo lo que este juego mide.
+
+  Y los tres portales NO salen del punto de fuga: empiezan ya separados al 85 %
+  de su distancia final. Esta es LA renuncia del juego y conviene decirla
+  entera, porque cuesta casi toda la perspectiva.
+
+  A 320 px la pista mide unos 292 px y cada portal ocupa el 30 %, o sea 88 px.
+  Tres portales a tamaño natural ocupan los 292 px justos. Así que cualquier
+  convergencia obliga a encogerlos, y encogerlos encoge la palabra que hay
+  dentro, que es lo único que hay que leer. Con la convergencia de verdad —los
+  tres saliendo del punto de fuga— la palabra empieza a cuatro píxeles y no se
+  puede leer hasta media ventana: el juego estaría cobrando el tiempo de
+  lectura que calcula el servidor sin darlo, que es exactamente el error que
+  dejó injugable a otro juego de esta casa.
+
+  Con el 85 % de separación y el 78 % de tamaño, la palabra arranca a trece
+  píxeles y se lee desde el primer instante, y los portales no se tocan. A
+  cambio, la profundidad la ponen el recorrido, el asfalto corriendo y que Milo
+  no cambie de tamaño; los portales solo crecen un 28 %. Es menos bonito y es
+  lo correcto: aquí lo que no se puede negociar es el tiempo de leer.
+
+  `--carrera-carril` vale -1, 0 o 1, y el porcentaje se mide sobre el ancho del
+  propio portal, que es el 30 % de la pista.
+*/
+@keyframes carrera-puerta-mover {
+  from {
+    transform: translate3d(
+      calc(var(--carrera-carril, 0) * 85%),
+      calc(var(--carrera-alto, 300px) * 0.22),
+      0
+    );
+  }
+  to {
+    transform: translate3d(
+      calc(var(--carrera-carril, 0) * 100%),
+      calc(var(--carrera-alto, 300px) * 0.6),
+      0
+    );
+  }
+}
+
+/*
+  La puerta acercándose: el tamaño.
+
+  Va en una capa aparte del desplazamiento y crece más deprisa al final, que es
+  lo que hace que se lea como profundidad aunque el recorrido sea lineal.
+
+  Del 78 % al 100 %, y el suelo del 78 % lo pone LA LETRA. Aquí hubo un intento
+  de darle más profundidad al arco (del 50 %) y contrarrestarlo con una
+  animación propia de la palabra para que ella creciera menos. No funciona: la
+  palabra vive DENTRO del arco, así que las dos escalas se multiplican y la
+  letra salía al 41 % —siete píxeles— por muy bien que estuviera escrita la
+  animación de la palabra. Se vio en las capturas. Una escala sola, la del
+  arco, y la palabra la acompaña: trece píxeles al aparecer, dieciocho al
+  llegar.
+*/
+@keyframes carrera-puerta-crecer {
+  0% {
+    transform: scale(0.78);
+    opacity: 0.6;
+  }
+  15% {
+    opacity: 1;
+  }
+  55% {
+    transform: scale(0.86);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/*
+  Las rayas del asfalto, que son toda la sensación de velocidad.
+
+  Seis y ni una más, con `aria-hidden`. Van infinitas y con retardo negativo
+  escalonado, así que el suelo ya está corriendo cuando aparece la pantalla. La
+  duración la pone `--carrera-ritmo`, que baja con la racha: es lo que hace que
+  ir bien se SIENTA más rápido sin tocar el reloj de las puertas.
+*/
+@keyframes carrera-raya {
+  from {
+    transform: translate3d(0, calc(var(--carrera-alto, 300px) * 0.14), 0) scaleX(0.66);
+    opacity: 0.15;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  to {
+    transform: translate3d(0, calc(var(--carrera-alto, 300px) * 0.95), 0) scaleX(1);
+    opacity: 0.85;
+  }
+}
+
+/* El trote de Milo: sube, baja y se balancea. El ritmo también sale de la racha. */
+@keyframes carrera-trote {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-3deg);
+  }
+  50% {
+    transform: translate3d(0, -8px, 0) rotate(3deg);
+  }
+}
+
+/* El impulso del portal bueno: Milo pega un tirón hacia adelante. */
+@keyframes carrera-impulso {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  30% {
+    transform: translate3d(0, -14px, 0) scale(1.14);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* Y el frenazo del malo: se clava y se va hacia atrás. Sin sacudir la pantalla. */
+@keyframes carrera-frenazo {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0);
+  }
+  25% {
+    transform: translate3d(-9px, 5px, 0) rotate(-9deg);
+  }
+  60% {
+    transform: translate3d(5px, 3px, 0) rotate(5deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0);
+  }
+}
+
+/* Los puntos que se ganan, flotando sobre el portal que se cruzó. */
+@keyframes carrera-premio {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.8);
+  }
+  25% {
+    opacity: 1;
+    transform: translateY(-14px) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-46px) scale(1);
+  }
+}
+
+/* El cartel de que el cazador aprieta, o de que la carrera acaba. */
+@keyframes carrera-cartel {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1.07);
+  }
+  72% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
 /* El cartel de «empezar» flota sobre el nodo, como un globo atado. */
 @keyframes flotar {
   0%,
@@ -571,4 +767,65 @@ body {
 :focus-visible {
   outline: 3px solid var(--color-marca-500);
   outline-offset: 2px;
+}
+
+/*
+  AL COMPÁS (juego BEAT): el fondo de la fiebre.
+
+  Se invoca con la clase `.beat-fiebre` escrita a mano y no con una utilidad
+  `animate-*`, porque son dos animaciones a la vez sobre el mismo elemento —el
+  color y el barrido— y eso no cabe en una sola variable de tema. Si algún día
+  se limpian animaciones sin uso, buscar `beat-`.
+
+  LO QUE ESTO NO HACE, Y ES LO IMPORTANTE
+
+  No parpadea. «Psicodélico» tiene una lectura fácil y peligrosa —destellos a
+  pantalla completa— que es exactamente lo que provoca crisis fotosensibles: la
+  norma de accesibilidad pone el límite en tres destellos por segundo. Aquí no
+  hay ninguno: la luminosidad no cambia, lo que cambia es el TONO, y cambia
+  despacio (una vuelta entera de color cada seis segundos). Da la sensación de
+  color imposible sin un solo cambio brusco de brillo.
+
+  Y va al 22 % sobre un degradado que se apaga hacia el centro, así que el texto
+  que hay debajo conserva su contraste. Un fondo de fiebre que no deja leer las
+  notas no es una recompensa, es un castigo por ir bien.
+
+  Con `prefers-reduced-motion` el componente ni siquiera lo pinta; el bloque de
+  arriba que congela todas las animaciones es la segunda red por si acaso.
+*/
+.beat-fiebre {
+  background:
+    radial-gradient(90% 60% at 20% 0%, rgba(217, 70, 239, 0.22), transparent 70%),
+    radial-gradient(90% 60% at 80% 100%, rgba(101, 163, 13, 0.22), transparent 70%);
+  animation:
+    beat-tono 6s linear infinite,
+    beat-vaiven 3.6s ease-in-out infinite;
+}
+
+@keyframes beat-tono {
+  from {
+    filter: hue-rotate(0deg);
+  }
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
+/*
+  El vaivén: un desplazamiento pequeño del degradado, no del contenido. Mueve
+  `background-position` y nada más, así que no obliga a recalcular la página y
+  no arrastra ni una letra de sitio.
+*/
+@keyframes beat-vaiven {
+  0%,
+  100% {
+    background-position:
+      0% 0%,
+      0% 0%;
+  }
+  50% {
+    background-position:
+      0% 30%,
+      0% -30%;
+  }
 }

@@ -210,6 +210,227 @@ export function sonar(nombre: Sonido, opciones: OpcionesDeSonido = {}): void {
   }
 }
 
+/* ──────────────────────  EL RITMO, PARA «AL COMPÁS»  ────────────────────── */
+
+/**
+ * Lo que un juego de ritmo necesita y `sonar` no puede dar.
+ *
+ * `sonar` toca AHORA: se llama cuando pasa algo y suena unos milisegundos
+ * después. Con eso se hacen avisos, y con avisos no se hace un compás. Un juego
+ * de ritmo necesita decir «este bombo suena en el segundo 12,600 exacto» con
+ * varios segundos de antelación, porque programar audio con `setTimeout` o con
+ * `requestAnimationFrame` falla por decenas de milisegundos y eso se OYE: un
+ * desajuste de 20 ms entre dos golpes ya se nota.
+ *
+ * La Web Audio API sí sabe hacerlo: `oscillator.start(t)` con `t` en el reloj
+ * del propio audio lo programa en el hilo de audio, que no se entera de si el
+ * navegador va justo de trabajo ni de cuántos fotogramas se perdieron. Es la
+ * única forma de que una canción suene en su sitio, y es lo que estas funciones
+ * abren al resto de la casa.
+ *
+ * Todo esto es AÑADIDO: no cambia ni una línea de lo de arriba, y `sonar` sigue
+ * haciendo exactamente lo mismo para los otros diez juegos.
+ */
+
+/**
+ * El reloj del audio, si se puede tener.
+ *
+ * Devuelve `null` exactamente en los mismos casos en los que `sonar` no suena
+ * —apagado, sin gesto todavía, con `prefers-reduced-motion`, sin soporte— y eso
+ * es a propósito: quien lo pide tiene que estar preparado para jugar sin él. En
+ * «Al compás» eso significa llevar el compás con la vista, que es justo lo que
+ * hace falta para que el juego funcione con movimiento reducido.
+ */
+export function contextoDeAudio(): AudioContext | null {
+  if (!encendido || !hayGesto() || quiereMenosMovimiento()) return null;
+  return asegurarContexto();
+}
+
+/**
+ * Un canal propio para el juego, que se puede callar y tirar de golpe.
+ *
+ * Sin él, una partida abandonada a media canción dejaría sonando todo lo que ya
+ * estuviera programado, que pueden ser varios segundos de bombos en una pantalla
+ * que ya no existe. Con un `GainNode` propio basta con desconectarlo.
+ */
+export function abrirCanal(): GainNode | null {
+  const ctx = contextoDeAudio();
+  if (!ctx || !maestro) return null;
+
+  const canal = ctx.createGain();
+  canal.gain.value = 1;
+  canal.connect(maestro);
+  return canal;
+}
+
+export type Percusion =
+  /** El bombo: el pulso fuerte. */
+  | 'bombo'
+  /** La caja, en los pulsos 2 y 4. */
+  | 'caja'
+  /** El charles, que subdivide y es lo que se siente como «velocidad». */
+  | 'charles'
+  /** Una nota acertada. */
+  | 'nota'
+  /** Acertada EN EL PULSO. Suena más arriba, y es todo lo que gana. */
+  | 'perfecto'
+  /** Nota fallada o escapada. */
+  | 'perdida';
+
+/**
+ * Programa un golpe para el instante `cuando`, en el reloj del contexto.
+ *
+ * `cuando` es tiempo ABSOLUTO de `AudioContext.currentTime`, no un retraso. Es
+ * la diferencia entre «suena dentro de 600 ms, más o menos» y «suena en el
+ * segundo 12,600», y es toda la diferencia entre un compás y un ruido.
+ */
+export function golpe(canal: GainNode, tipo: Percusion, cuando: number): void {
+  if (!contexto) return;
+
+  switch (tipo) {
+    /*
+      El bombo: una onda que CAE de 150 a 45 hercios en una décima.
+
+      Un bombo no es una nota grave, es una caída. Con la frecuencia fija suena
+      a pitido de horno; deslizándola hacia abajo el oído lo oye como un golpe,
+      que es exactamente lo que hacen las cajas de ritmos desde 1980.
+    */
+    case 'bombo':
+      enCanal(canal, { frecuencia: 150, hasta: 45, inicio: cuando, duracion: 0.13, tipo: 'sine' });
+      break;
+
+    // La caja: un chasquido de ruido con un cuerpo grave debajo.
+    case 'caja':
+      ruido(canal, cuando, 0.14, 1400, 0.5);
+      enCanal(canal, {
+        frecuencia: 190,
+        hasta: 120,
+        inicio: cuando,
+        duracion: 0.09,
+        tipo: 'triangle',
+        volumen: 0.45,
+      });
+      break;
+
+    // El charles: ruido cortísimo y muy agudo.
+    case 'charles':
+      ruido(canal, cuando, 0.035, 7000, 0.22);
+      break;
+
+    case 'nota':
+      enCanal(canal, { frecuencia: 880, inicio: cuando, duracion: 0.09, volumen: 0.5 });
+      break;
+
+    /*
+      El «perfecto»: la misma nota con su quinta encima.
+
+      No paga ni un punto —lo explica `beat.ts`— así que todo lo que gana quien
+      clava el pulso es esto. Por eso tiene que notarse: es un acorde y no una
+      nota suelta.
+    */
+    case 'perfecto':
+      enCanal(canal, { frecuencia: 1046.5, inicio: cuando, duracion: 0.1, volumen: 0.5 });
+      enCanal(canal, {
+        frecuencia: 1568,
+        inicio: cuando + 0.01,
+        duracion: 0.14,
+        tipo: 'triangle',
+        volumen: 0.4,
+      });
+      break;
+
+    /*
+      La nota perdida, y a propósito SUAVE.
+
+      En un juego de ritmo se falla mucho y seguido. El castigo sonoro de
+      `sonar('fallo')` repetido treinta veces en cincuenta segundos convierte la
+      partida en una regañina, y lo que hace falta después de fallar es volver a
+      engancharse al compás.
+    */
+    case 'perdida':
+      enCanal(canal, {
+        frecuencia: 180,
+        hasta: 110,
+        inicio: cuando,
+        duracion: 0.12,
+        tipo: 'sawtooth',
+        volumen: 0.3,
+      });
+      break;
+  }
+}
+
+/**
+ * El ruido de la caja y del charles.
+ *
+ * Es el único sonido de toda la aplicación que necesita una FUENTE y no un
+ * oscilador, porque el ruido blanco no es una onda periódica: hay que
+ * fabricarlo muestra a muestra. Medio segundo a la frecuencia del contexto son
+ * unos 24 000 números, se genera UNA vez y se reutiliza en cada golpe. Sigue
+ * siendo cero bytes descargados.
+ */
+let muestraDeRuido: AudioBuffer | null = null;
+
+function ruido(
+  canal: GainNode,
+  inicio: number,
+  duracion: number,
+  corte: number,
+  volumen: number,
+): void {
+  const ctx = contexto;
+  if (!ctx) return;
+
+  if (!muestraDeRuido) {
+    muestraDeRuido = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate);
+    const datos = muestraDeRuido.getChannelData(0);
+    for (let i = 0; i < datos.length; i += 1) datos[i] = Math.random() * 2 - 1;
+  }
+
+  const fuente = ctx.createBufferSource();
+  fuente.buffer = muestraDeRuido;
+
+  // Un paso alto: sin él la caja suena a soplido y se come el bombo.
+  const filtro = ctx.createBiquadFilter();
+  filtro.type = 'highpass';
+  filtro.frequency.value = corte;
+
+  const sobre = ctx.createGain();
+  sobre.gain.setValueAtTime(volumen, inicio);
+  sobre.gain.exponentialRampToValueAtTime(0.0001, inicio + duracion);
+
+  fuente.connect(filtro);
+  filtro.connect(sobre);
+  sobre.connect(canal);
+  fuente.start(inicio);
+  fuente.stop(inicio + duracion + 0.02);
+}
+
+/** Una `nota`, pero saliendo por el canal del juego en vez de por el maestro. */
+function enCanal(canal: GainNode, datos: Nota): void {
+  const ctx = contexto;
+  if (!ctx) return;
+
+  const { frecuencia, inicio, duracion, hasta, tipo = 'square', volumen = 0.7 } = datos;
+  const oscilador = ctx.createOscillator();
+  const sobre = ctx.createGain();
+
+  oscilador.type = tipo;
+  oscilador.frequency.setValueAtTime(frecuencia, inicio);
+  if (hasta) {
+    oscilador.frequency.exponentialRampToValueAtTime(Math.max(hasta, 1), inicio + duracion);
+  }
+
+  sobre.gain.setValueAtTime(0.0001, inicio);
+  sobre.gain.exponentialRampToValueAtTime(Math.max(volumen, 0.0002), inicio + 0.006);
+  sobre.gain.exponentialRampToValueAtTime(0.0001, inicio + duracion);
+
+  oscilador.connect(sobre);
+  sobre.connect(canal);
+  oscilador.start(inicio);
+  oscilador.stop(inicio + duracion + 0.05);
+}
+
 /**
  * El interruptor, para pintarlo.
  *
@@ -261,6 +482,9 @@ export function useDespertarSonido(): void {
 /** Para las pruebas: deja el módulo como recién cargado. */
 export function reiniciarSonidoParaPruebas(): void {
   contexto = null;
+  // La muestra de ruido se fabrica contra un contexto concreto: con otro no
+  // vale, así que se olvida con él.
+  muestraDeRuido = null;
   maestro = null;
   despierto = false;
   encendido = leerPreferencia();

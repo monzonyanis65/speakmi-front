@@ -9,9 +9,8 @@ const hayVozInglesa = vi.fn(() => Promise.resolve(true));
 
 vi.mock('@/lib/voz', () => ({
   decir: (texto: string) => decir(texto),
-  // Falso a propósito: solo se usa para callar al sintetizador al salir, y en
-  // jsdom no hay ninguno al que callar.
-  hayVoz: () => false,
+  // Solo se usa para callar al salir, y en jsdom no hay nada a lo que callar.
+  callar: () => {},
   hayVozInglesa: () => hayVozInglesa(),
   vozInglesaYa: () => vozInglesaYa(),
 }));

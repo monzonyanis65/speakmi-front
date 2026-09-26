@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { Boton } from '@/components/Boton';
 import { Mascota, MascotaConMensaje } from '@/components/Mascota';
-import { decir, hayVoz, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
+import { callar, decir, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
 import { useMenosMovimiento } from '@/lib/movimiento';
 import { sonar, useDespertarSonido } from '@/lib/sonido';
 import { Aviso, CabeceraJuego, Contador, Racha } from './Tablero';
@@ -115,7 +115,11 @@ export function Escucha({
   // Al salir, que no siga hablando por encima de la siguiente pantalla.
   useEffect(() => {
     return () => {
-      if (hayVoz()) window.speechSynthesis.cancel();
+      // `callar()` y no `speechSynthesis.cancel()`: desde que el audio puede
+      // venir del servidor, cancelar el sintetizador no para un archivo que ya
+      // está sonando, y al salir a mitad de palabra quedaba un segundo de cola
+      // encima de la pantalla siguiente.
+      callar();
     };
   }, []);
 

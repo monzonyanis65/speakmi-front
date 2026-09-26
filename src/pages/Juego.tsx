@@ -14,6 +14,11 @@ import { Lluvia } from '@/components/juegos/Lluvia';
 import { CincoLetras } from '@/components/juegos/CincoLetras';
 import { FalsosAmigos } from '@/components/juegos/FalsosAmigos';
 import { Particulas } from '@/components/juegos/Particulas';
+import { Brecha } from '@/components/juegos/Brecha';
+import { Mercado } from '@/components/juegos/Mercado';
+import { Neon } from '@/components/juegos/Neon';
+import { Carrera } from '@/components/juegos/Carrera';
+import { Beat } from '@/components/juegos/Beat';
 import {
   esCodigoJuego,
   FICHAS,
@@ -26,6 +31,13 @@ import {
   type RondaDeEscucha,
   type RondaDeFalsosAmigos,
   type RondaDeParticulas,
+  type RondaDeBrecha,
+  type RespuestaDeMercado,
+  type RondaDeMercado,
+  type RondaDeNeon,
+  type RondaDeCarrera,
+  type RondaDeBeat,
+  type VeredictoDeNeon,
   type RondaDeLluvia,
   type RondaDeParejas,
 } from '@/components/juegos/tipos';
@@ -105,6 +117,61 @@ export function Juego() {
   const corregirRonda = useCallback(
     (rondaId: string, answer: string) =>
       api.post<RespuestaCorregida>(`/games/${code}/respuesta`, { rondaId, answer }),
+    [code],
+  );
+
+  /**
+   * Lo mismo, pero mandando una SECUENCIA entera.
+   *
+   * BRECHA no contesta una cosa: ejecuta varias en un orden, y lo que hay que
+   * corregir es la maniobra completa. Va aparte y no ensanchando `corregirRonda`
+   * porque lo que viaja no es la misma forma —una lista de gestos en vez de una
+   * respuesta suelta— y mezclarlas dejaría a los otros seis juegos aceptando
+   * algo que ninguno sabe mandar.
+   */
+  const corregirSecuencia = useCallback(
+    (rondaId: string, answer: string[]) =>
+      api.post<RespuestaCorregida>(`/games/${code}/respuesta`, { rondaId, answer }),
+    [code],
+  );
+
+  /**
+   * Una mitad de atender a un cliente en MERCADO.
+   *
+   * Va aparte porque es la única que manda las DOS formas: el objeto forjado es
+   * una lista de runas y la respuesta al regateo es una sola opción. Y porque
+   * lo que vuelve es más gordo que un `RespuestaCorregida` normal —la frase
+   * buena, la que montaste, por qué no valía cada señuelo que colaste y si lo
+   * que dijiste ofende—, que es justo lo que hace que fallar enseñe algo.
+   *
+   * Aquí SÍ se espera la respuesta antes de pintar nada, al revés que en CAEN,
+   * FALSOS_AMIGOS, PARTICULAS y BRECHA. Es lo que permite que la ronda llegue
+   * sin soluciones dentro: este juego no tiene reloj, así que el viaje al
+   * servidor no le quita el instante a nadie.
+   */
+  const responderMercado = useCallback(
+    (rondaId: string, answer: string | string[]) =>
+      api.post<RespuestaDeMercado>(`/games/${code}/respuesta`, { rondaId, answer }),
+    [code],
+  );
+
+  /**
+   * Una pregunta del caso de NEON.
+   *
+   * Manda el índice de la opción pulsada COMO TEXTO, porque el contrato de
+   * `/respuesta` acepta las dos formas y el servidor entiende el número escrito
+   * igual que el número. Lo que vuelve es más gordo que un `RespuestaCorregida`
+   * normal —la línea del expediente que desmiente lo que elegiste, por qué la
+   * buena era la buena, qué contesta el sospechoso—, y eso es todo lo que este
+   * juego enseña al fallar.
+   *
+   * Aquí también SE ESPERA, como en MERCADO y por lo mismo: sin reloj, el viaje
+   * al servidor no le quita el instante a nadie, y a cambio la ronda puede
+   * llegar sin una sola respuesta dentro.
+   */
+  const responderNeon = useCallback(
+    (rondaId: string, answer: string) =>
+      api.post<VeredictoDeNeon>(`/games/${code}/respuesta`, { rondaId, answer }),
     [code],
   );
 
@@ -279,10 +346,97 @@ export function Juego() {
         cada partícula pulsada —y cada barra que se vacía sin pulsar nada— se
         manda y se espera a que lleguen todas antes de cerrar la partida.
       */}
+      {/*
+        BRECHA, igual que CAEN y PARTICULAS: la ronda le llega con la secuencia
+        buena dentro porque la falla crítica tiene que verse en el momento del
+        gesto equivocado, pero cada maniobra —y cada ventana que se agota sin
+        terminarla— se manda y se espera a que lleguen todas antes de cerrar la
+        partida.
+      */}
+      {code === 'BRECHA' && (
+        <Brecha
+          ronda={datos as RondaDeBrecha}
+          onResponder={corregirSecuencia}
+          onFin={terminar}
+          onSalir={salir}
+        />
+      )}
+
       {code === 'PARTICULAS' && (
         <Particulas
           ronda={datos as RondaDeParticulas}
           onResponder={corregirRonda}
+          onFin={terminar}
+          onSalir={salir}
+        />
+      )}
+
+      {/*
+        MERCADO es el único que NO recibe la solución con la ronda, y por eso
+        es el único que espera al servidor antes de pintar el resultado. Se lo
+        puede permitir porque no tiene reloj: montar una frase lleva medio
+        minuto, así que los trescientos milisegundos de red no le quitan el
+        instante a nadie, y a cambio la respuesta no se puede leer en la
+        pestaña de red.
+      */}
+      {code === 'MERCADO' && (
+        <Mercado
+          ronda={datos as RondaDeMercado}
+          onResponder={responderMercado}
+          onFin={terminar}
+          onSalir={salir}
+        />
+      )}
+
+      {/*
+        NEON, igual que MERCADO: la ronda llega sin respuestas y cada pregunta
+        espera al servidor. Aquí la razón pesa aún más, porque este juego
+        consiste ENTERO en averiguar las respuestas: mandarlas por delante sería
+        servir la solución del crucigrama con el crucigrama.
+      */}
+      {/*
+        BEAT usa `corregirRonda` como CAEN, FALSOS_AMIGOS y PARTICULAS: la
+        ronda le llega con la pastilla buena dentro porque la ventana de
+        acierto dura 800 ms y un viaje al servidor se comería más de un tercio,
+        pero cada nota —y cada una que pasa de largo sin que nadie pulse— se
+        manda y se espera a que lleguen todas antes de cerrar la partida.
+
+        Y recibe `onAjustes` como ESCUCHA, porque también comprueba si hay voz
+        inglesa. La diferencia es lo que hace cuando no la hay: ESCUCHA no se
+        puede jugar, y aquí solo se cae una de las dos formas de jugar.
+      */}
+      {code === 'BEAT' && (
+        <Beat
+          ronda={datos as RondaDeBeat}
+          onResponder={corregirRonda}
+          onFin={terminar}
+          onSalir={salir}
+          onAjustes={() => navegar('/ajustes')}
+        />
+      )}
+
+      {/*
+        CARRERA usa `corregirRonda` por lo mismo que CAEN y FALSOS_AMIGOS: la
+        ronda le llega con la opción buena dentro porque entre que Milo cruza el
+        portal y se ve si coge impulso o frena no cabe un viaje al servidor, y
+        menos con la puerta siguiente ya acercándose. Pero cada puerta cruzada se
+        manda y se espera a que lleguen todas antes de cerrar la partida, porque
+        si el `/fin` adelantara a las últimas, la puntuación final saldría por
+        debajo de la que se acaba de ver subir.
+      */}
+      {code === 'CARRERA' && (
+        <Carrera
+          ronda={datos as RondaDeCarrera}
+          onResponder={corregirRonda}
+          onFin={terminar}
+          onSalir={salir}
+        />
+      )}
+
+      {code === 'NEON' && (
+        <Neon
+          ronda={datos as RondaDeNeon}
+          onResponder={responderNeon}
           onFin={terminar}
           onSalir={salir}
         />

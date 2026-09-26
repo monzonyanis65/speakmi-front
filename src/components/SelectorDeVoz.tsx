@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { usePreferencias } from '@/lib/preferencias';
 import { decir, elegirVoz, hayVoz, listarVoces, vozElegida, type VozDisponible } from '@/lib/voz';
+import { servidorPuedeHablar, servidorPuedeHablarYa } from '@/lib/voz-servidor';
 
 /** Lo que se dice al probar una voz. Corto, y con sonidos que delatan lo malo. */
 const FRASE_DE_PRUEBA = 'Hello! This is how I sound. Nice to meet you.';
@@ -21,7 +22,18 @@ export function SelectorDeVoz() {
   const [sonando, setSonando] = useState<string | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [buscando, setBuscando] = useState(true);
+  /*
+    Si podemos poner nosotros el audio. Cambia por completo lo que hay que
+    decirle a quien no tiene voces: con servidor esto es una nota tranquila, y
+    sin él sigue siendo el aviso de que media aplicación no va a sonar.
+  */
+  const [servidor, setServidor] = useState(servidorPuedeHablarYa);
   const { preferencias, guardar } = usePreferencias();
+
+  useEffect(() => {
+    if (servidor !== 'todavia-no-se') return;
+    void servidorPuedeHablar().then((puede) => setServidor(puede ? 'si' : 'no'));
+  }, [servidor]);
 
   useEffect(() => {
     void (async () => {
@@ -49,19 +61,43 @@ export function SelectorDeVoz() {
     setSonando(null);
   }
 
-  if (!hayVoz()) return null;
+  // Sin sintetizador y sin servidor no hay nada que elegir ni nada que contar
+  // aquí: el aviso lo da el propio ejercicio cuando toca hacerlo.
+  if (!hayVoz() && servidor !== 'si') return null;
 
   // Mientras se buscan no se dice nada: tardan unos segundos en aparecer y un
   // aviso que sale y desaparece solo asusta para nada.
   if (buscando) return null;
 
   /*
-    Sin ninguna voz inglesa no hay nada que elegir, y callarse sería lo peor:
-    los dictados y las frases clave se quedarían mudos sin explicación. Se dice
-    qué pasa y cómo se arregla, que son tres toques en Windows.
+    Sin ninguna voz inglesa no hay nada que elegir, pero sí algo que contar, y
+    ya no es lo mismo según haya servidor o no.
+
+    Con servidor esto deja de ser un problema: se oye igual, solo que el audio
+    baja de internet en vez de fabricarlo el aparato. Se dice porque se nota
+    —hace falta conexión la primera vez— y porque instalar una voz local sigue
+    siendo mejor: va sin conexión y suena al instante.
+
+    Sin servidor se queda el aviso de siempre, que es el honesto: los dictados y
+    las frases clave no van a sonar, y se explica cómo arreglarlo.
   */
   if (voces.length === 0) {
-    return (
+    return servidor === 'si' ? (
+      <section className="rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-4">
+        <p className="flex items-center gap-2 text-sm font-bold">
+          <span aria-hidden>☁️</span>
+          El inglés te lo ponemos nosotros
+        </p>
+        <p className="mt-2 text-xs text-[var(--texto-suave)]">
+          Este equipo no tiene ninguna voz en inglés, así que el audio lo genera Speakmi y te llega
+          por internet. Funciona en todo: dictados, pares mínimos y el juego de Escucha.
+        </p>
+        <p className="mt-2 text-xs text-[var(--texto-suave)]">
+          Si instalas una voz inglesa en el equipo, la usaremos a ella: va sin conexión y suena al
+          instante. En Windows: Configuración → Hora e idioma → Voz → Agregar voces.
+        </p>
+      </section>
+    ) : (
       <section className="rounded-2xl border-2 border-dashed border-[var(--color-aviso)] bg-[var(--superficie)] p-4">
         <p className="flex items-center gap-2 text-sm font-bold">
           <span aria-hidden>🔇</span>

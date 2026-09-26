@@ -8,7 +8,7 @@ import { Boton } from '@/components/Boton';
 import { Mascota } from '@/components/Mascota';
 import { NOMBRE_CATEGORIA } from '@/components/ejercicios/tipos';
 import { escuchar, estaDisponible, type SesionEscucha } from '@/lib/reconocimiento';
-import { decir, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
+import { callar, decir, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
 
 interface Escenario {
   code: string;
@@ -75,15 +75,6 @@ const MOTIVOS: Record<string, string> = {
 };
 
 const esperar = (ms: number) => new Promise((listo) => setTimeout(listo, ms));
-
-/** Corta lo que se esté diciendo. `decir` no expone esto y colgar tiene que callar. */
-function callar() {
-  try {
-    window.speechSynthesis?.cancel();
-  } catch {
-    // Navegador sin sintetizador: no había nada que cortar.
-  }
-}
 
 /**
  * Llamada con la mascota: se habla en voz alta y se escucha, sin teclado.

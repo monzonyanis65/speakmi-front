@@ -5,6 +5,7 @@ import { cn } from '@/lib/cn';
 import { useState } from 'react';
 import { Explicacion } from '@/components/Explicacion';
 import { decir, hayVoz } from '@/lib/voz';
+import { servidorPuedeHablarYa } from '@/lib/voz-servidor';
 import { MascotaConMensaje } from '@/components/Mascota';
 
 interface Regla {
@@ -139,9 +140,10 @@ export function Guia() {
 /**
  * Una frase clave de la unidad, con su traducción y su botón para oírla.
  *
- * Se oye con el sintetizador del navegador, el mismo que usa el dictado. Leer
- * una frase en inglés sin saber cómo suena sirve de poco: se aprende escrita y
- * luego no se reconoce al oírla.
+ * Se oye con el sintetizador del navegador, el mismo que usa el dictado, y si el
+ * aparato no tiene voz inglesa lo pone el servidor. Leer una frase en inglés sin
+ * saber cómo suena sirve de poco: se aprende escrita y luego no se reconoce al
+ * oírla.
  */
 function FraseClave({ palabra, retraso }: { palabra: Palabra; retraso: number }) {
   const [sonando, setSonando] = useState(false);
@@ -158,7 +160,9 @@ function FraseClave({ palabra, retraso }: { palabra: Palabra; retraso: number })
       className="flex animate-entrada items-start gap-3 rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-3"
       style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
     >
-      {hayVoz() && (
+      {/* El botón sale si hay CON QUÉ decirlo, sea el aparato o el servidor: un
+          navegador sin sintetizador ya no significa quedarse sin oírlo. */}
+      {(hayVoz() || servidorPuedeHablarYa() === 'si') && (
         <button
           type="button"
           onClick={() => void reproducir()}

@@ -1,10 +1,24 @@
+import {
+  decirEnServidor,
+  pararAudioDelServidor,
+  servidorPuedeHablar,
+  servidorPuedeHablarYa,
+} from '@/lib/voz-servidor';
+
 /**
- * Decir una frase en inglés con la voz del sistema.
+ * Decir una frase en inglés, con la voz que haya.
  *
- * Se usa el sintetizador del navegador, que es gratis, funciona sin claves y no
- * gasta cuota de nadie. A cambio, la voz depende del equipo: en un Windows
- * recién instalado puede no haber ninguna en inglés, y por eso todo esto avisa
- * en vez de fallar en silencio.
+ * Lo primero es siempre el sintetizador del navegador: es gratis, funciona sin
+ * conexión y suena al instante. El problema es que depende del equipo, y en un
+ * Android en español —o en un Windows recién instalado— puede no haber ninguna
+ * voz inglesa. Antes, ahí se acababa el asunto: la aplicación avisaba bien, pero
+ * los dictados, los pares mínimos y el juego de Escucha se quedaban sin poder
+ * hacerse.
+ *
+ * Por eso hay un segundo intento: que hable el servidor. Ver `voz-servidor.ts`.
+ * Sigue sin sonar nada con una voz española leyendo inglés, que era y sigue
+ * siendo lo único inaceptable, y si tampoco hay servidor se avisa igual que
+ * antes. El aviso no se quita: deja de ser la única salida.
  */
 
 const CLAVE_VOZ = 'speakmi.voz';
@@ -62,6 +76,21 @@ async function vocesListas(): Promise<SpeechSynthesisVoice[]> {
  * hueco y luego el contenido, que se ve como un parpadeo.
  */
 export function vozInglesaYa(): 'si' | 'no' | 'todavia-no-se' {
+  const aqui = vozInglesaDelAparatoYa();
+  if (aqui === 'si') return 'si';
+
+  const servidor = servidorPuedeHablarYa();
+  if (servidor === 'si') return 'si';
+
+  // Un «no» solo se afirma cuando se sabe de los dos. Mientras falte uno, la
+  // respuesta honesta es que todavía no se sabe, y quien pregunta enseña
+  // «buscando una voz» en vez de un aviso que a lo mejor hay que retirar.
+  if (aqui === 'todavia-no-se' || servidor === 'todavia-no-se') return 'todavia-no-se';
+  return 'no';
+}
+
+/** Lo que este aparato puede hacer por su cuenta, sin contar con el servidor. */
+function vozInglesaDelAparatoYa(): 'si' | 'no' | 'todavia-no-se' {
   if (!hayVoz()) return 'no';
   const voces = window.speechSynthesis.getVoices();
   if (!voces.length) return 'todavia-no-se';
@@ -69,14 +98,34 @@ export function vozInglesaYa(): 'si' | 'no' | 'todavia-no-se' {
 }
 
 /**
- * ¿Hay alguna voz inglesa instalada?
+ * ¿Se puede oír inglés aquí, de la forma que sea?
  *
- * Importa más de lo que parece. Si no la hay, el navegador no se queda mudo:
+ * Importa más de lo que parece. Sin voz inglesa, el navegador no se queda mudo:
  * lee el inglés con la voz que tenga, que aquí suele ser española. Eso no es un
  * defecto de sonido, es enseñar mal: «beach» leído por una voz española suena a
  * otra palabra. Antes que eso, mejor no reproducir nada y decirlo.
+ *
+ * Lo que cambia respecto de antes es que «no hay voz en este aparato» ya no
+ * significa «no hay forma de oírlo»: queda el servidor. Por eso la pregunta que
+ * se hace la aplicación es esta y no «¿hay una voz instalada?».
  */
 export async function hayVozInglesa(): Promise<boolean> {
+  // Si ya se sabe que sí, ni se espera a la lista de voces ni se pregunta nada.
+  if (vozInglesaYa() === 'si') return true;
+
+  /*
+    Las dos preguntas a la vez, no una detrás de otra.
+
+    `vocesListas()` puede tardar hasta cinco segundos en un navegador que no
+    publica su lista. Encadenar la del servidor detrás dejaría a quien no tiene
+    voces —justo a quien esto viene a rescatar— mirando una pantalla de espera
+    el doble de tiempo.
+  */
+  const [aqui, servidor] = await Promise.all([hayVozInglesaDelAparato(), servidorPuedeHablar()]);
+  return aqui || servidor;
+}
+
+async function hayVozInglesaDelAparato(): Promise<boolean> {
   const voces = await vocesListas();
   return voces.some((voz) => voz.lang.toLowerCase().startsWith('en'));
 }
@@ -196,26 +245,39 @@ export interface OpcionesDecir {
   vozId?: string;
 }
 
+/** Corta lo que esté sonando, venga del aparato o del servidor. */
+export function callar(): void {
+  pararAudioDelServidor();
+  if (hayVoz()) window.speechSynthesis.cancel();
+}
+
 /** Lee el texto en voz alta. Resuelve cuando termina, o si no se pudo. */
 export async function decir(texto: string, opciones: OpcionesDecir = {}): Promise<void> {
-  if (!hayVoz() || !texto.trim()) return;
+  const limpio = texto.trim();
+  if (!limpio) return;
 
   // Cortar lo anterior: si alguien pulsa dos veces, no deben solaparse.
-  window.speechSynthesis.cancel();
+  callar();
 
-  const voces = await vocesListas();
+  const velocidad = opciones.velocidad ?? 0.95;
+
+  const voces = hayVoz() ? await vocesListas() : [];
   const voz = opciones.vozId
     ? (voces.find((v) => v.voiceURI === opciones.vozId) ?? (await vozAUsar()))
     : await vozAUsar();
 
   /*
-    Sin voz inglesa no se reproduce nada.
+    Sin voz inglesa en el aparato, que lo diga el servidor.
 
-    Dejarlo sonar sería peor que el silencio: el navegador usaría la voz que
-    tenga, y una española leyendo inglés enseña una pronunciación que no existe.
-    Quien llama a esto debe comprobar antes `hayVozInglesa()` y explicarlo.
+    Lo que sigue sin hacerse nunca es dejar sonar la voz que haya: una española
+    leyendo inglés enseña una pronunciación que no existe, y eso es peor que el
+    silencio. Si el servidor tampoco puede, no suena nada y quien llama debe
+    haber comprobado antes `hayVozInglesa()` para explicarlo.
   */
-  if (!voz || !voz.lang.toLowerCase().startsWith('en')) return;
+  if (!voz || !voz.lang.toLowerCase().startsWith('en')) {
+    await decirEnServidor(limpio, velocidad);
+    return;
+  }
 
   const frase = new SpeechSynthesisUtterance(texto);
   frase.lang = voz.lang;
@@ -223,7 +285,7 @@ export async function decir(texto: string, opciones: OpcionesDecir = {}): Promis
     0.95 y no 1: un pelín más lento se entiende mejor sin que suene ralentizado.
     Antes estaba en 0.9, que ya se notaba arrastrado y sonaba más artificial.
   */
-  frase.rate = opciones.velocidad ?? 0.95;
+  frase.rate = velocidad;
   /*
     Un punto por debajo del tono neutro. Las voces sintéticas tienden a sonar
     agudas y planas, y bajarlas un poco las acerca a una voz hablada.

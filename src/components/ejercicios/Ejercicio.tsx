@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
-import { decir, hayVoz, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
+import { callar, decir, hayVoz, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
 import type { Correccion, PropsEjercicio } from './tipos';
 
 /**
@@ -512,10 +512,13 @@ function Dictado({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
 
   // La frase puede seguir sonando cuando ya se pasó de ejercicio. Si se tocara
   // el estado después, React se quejaría de un cambio sobre algo que ya no está.
+  // Y se calla: el audio del servidor es un archivo sonando, no se para solo al
+  // cambiar de pantalla como hacía el sintetizador.
   useEffect(() => {
     montado.current = true;
     return () => {
       montado.current = false;
+      callar();
     };
   }, []);
 
@@ -627,8 +630,8 @@ function AvisoSinVoz({
       <div className="mt-6 rounded-2xl border border-dashed border-[var(--borde)] p-6 text-center text-sm text-[var(--texto-suave)]">
         {motivo === 'navegador' ? (
           <p>
-            Este navegador no puede leer en voz alta, así que este ejercicio no se puede hacer aquí.
-            Prueba con Chrome, o sáltalo.
+            Este navegador no puede leer en voz alta y tampoco hemos podido ponerte el audio
+            nosotros, así que este ejercicio no se puede hacer aquí. Prueba con Chrome, o sáltalo.
           </p>
         ) : (
           <>
@@ -638,6 +641,15 @@ function AvisoSinVoz({
             <p className="mt-2">
               No lo leemos con una voz española a propósito: pronunciaría mal y aprenderías el
               sonido equivocado.
+            </p>
+            {/*
+              Se dice que se intentó, porque desde que existe la voz del servidor
+              llegar a este aviso significa que fallaron las dos cosas. Sin esta
+              línea parecería que ni lo intentamos.
+            */}
+            <p className="mt-2">
+              Tampoco hemos podido ponértelo desde Speakmi. Si no tienes conexión, vuelve a
+              intentarlo más tarde.
             </p>
             <p className="mt-2">
               En Windows: Configuración → Hora e idioma → Voz → Agregar voces. Mientras tanto,
@@ -658,19 +670,32 @@ function AvisoSinVoz({
  */
 type EstadoVoz = 'buscando' | 'si' | 'sinNavegador' | 'sinIdioma';
 
+/**
+ * Cuando no se puede, por qué no se puede.
+ *
+ * Son dos cosas distintas y el aviso que corresponde es distinto: o el navegador
+ * no sabe hablar, o sabe pero no tiene inglés. Lo que ya NO se distingue aquí es
+ * si el audio lo pone el aparato o el servidor: eso lo decide `decir()`, y esta
+ * pantalla solo necesita saber si va a sonar algo.
+ */
+function motivoDeNoPoder(): EstadoVoz {
+  return hayVoz() ? 'sinIdioma' : 'sinNavegador';
+}
+
 function useVozInglesa(): EstadoVoz {
   // Se arranca con lo que ya se sabe. Si la lista está publicada, y lo está
   // salvo en los primeros segundos, no se pasa nunca por «buscando» y la
   // pantalla no parpadea.
   const [estado, setEstado] = useState<EstadoVoz>(() => {
-    if (!hayVoz()) return 'sinNavegador';
     const ya = vozInglesaYa();
-    return ya === 'si' ? 'si' : ya === 'no' ? 'sinIdioma' : 'buscando';
+    if (ya === 'si') return 'si';
+    if (ya === 'todavia-no-se') return 'buscando';
+    return motivoDeNoPoder();
   });
 
   useEffect(() => {
     if (estado !== 'buscando') return;
-    void hayVozInglesa().then((hay) => setEstado(hay ? 'si' : 'sinIdioma'));
+    void hayVozInglesa().then((hay) => setEstado(hay ? 'si' : motivoDeNoPoder()));
   }, [estado]);
 
   return estado;
@@ -748,11 +773,13 @@ function ParMinimo({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio
     setVeces(0);
   }, [ejercicio.code]);
 
-  // Las palabras pueden seguir sonando cuando ya se pasó de ejercicio.
+  // Las palabras pueden seguir sonando cuando ya se pasó de ejercicio, y el
+  // audio del servidor no se corta solo al cambiar de pantalla.
   useEffect(() => {
     montado.current = true;
     return () => {
       montado.current = false;
+      callar();
     };
   }, []);
 
