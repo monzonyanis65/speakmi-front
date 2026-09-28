@@ -65,6 +65,12 @@ function repartirError(error: unknown): { actual?: string; nueva?: string; gener
     return { actual: 'Esa no es tu contraseña actual. Vuelve a escribirla.' };
   }
 
+  // Llega cuando la pantalla creía que la cuenta no tenía contraseña y sí la
+  // tiene: pasa si la sesión guardada es de antes de enlazarla con Google.
+  if (error.code === 'AUTH-013') {
+    return { general: 'Tu cuenta ya tiene contraseña. Vuelve a entrar y escríbela aquí arriba.' };
+  }
+
   if (error.status === 404) {
     return {
       general:
@@ -108,6 +114,14 @@ export function Seguridad() {
 
 /** El formulario de cambio de contraseña, con su medidor y sus tres campos. */
 function CambiarContrasena({ retraso }: { retraso: number }) {
+  /*
+    Quien creó la cuenta con Google no tiene ninguna contraseña, y pedirle «tu
+    contraseña actual» es pedirle algo que no existe: se quedaba sin poder
+    ponerse una. Ante la duda —una sesión guardada de antes de que el servidor
+    contara esto— se asume que sí la tiene, que es el camino de siempre.
+  */
+  const tieneContrasena = useSesion((estado) => estado.usuario?.tieneContrasena ?? true);
+
   const [actual, setActual] = useState('');
   const [nueva, setNueva] = useState('');
   const [repetida, setRepetida] = useState('');
@@ -115,13 +129,20 @@ function CambiarContrasena({ retraso }: { retraso: number }) {
   const [hecho, setHecho] = useState(false);
 
   const cambiar = useMutation({
-    mutationFn: (datos: { currentPassword: string; newPassword: string }) =>
+    mutationFn: (datos: { currentPassword?: string; newPassword: string }) =>
       api.post<void>('/auth/change-password', datos),
     onSuccess: () => {
       setActual('');
       setNueva('');
       setRepetida('');
       setHecho(true);
+
+      // A partir de ahora la cuenta SÍ tiene contraseña, y la próxima vez que
+      // se abra esta pantalla hay que pedir la actual.
+      const usuario = useSesion.getState().usuario;
+      if (usuario && !usuario.tieneContrasena) {
+        useSesion.getState().setSesion({ ...usuario, tieneContrasena: true });
+      }
     },
   });
 
@@ -136,10 +157,12 @@ function CambiarContrasena({ retraso }: { retraso: number }) {
     // contraseñas que ni siquiera coinciden para que el servidor conteste que
     // no es hacerle esperar por nada.
     const fallos: Record<string, string> = {};
-    if (actual.length === 0) fallos.actual = 'Escribe la contraseña con la que entras ahora.';
+    if (tieneContrasena && actual.length === 0) {
+      fallos.actual = 'Escribe la contraseña con la que entras ahora.';
+    }
     if (nueva.length < LARGO_MINIMO) {
       fallos.nueva = `La nueva necesita al menos ${LARGO_MINIMO} caracteres. Cuanto más larga, mejor.`;
-    } else if (nueva === actual) {
+    } else if (tieneContrasena && nueva === actual) {
       fallos.nueva = 'Esa es la que ya tienes. Escribe una distinta.';
     }
     if (repetida !== nueva) {
@@ -149,7 +172,10 @@ function CambiarContrasena({ retraso }: { retraso: number }) {
     setErroresLocales(fallos);
     if (Object.keys(fallos).length > 0) return;
 
-    cambiar.mutate({ currentPassword: actual, newPassword: nueva });
+    cambiar.mutate({
+      ...(tieneContrasena ? { currentPassword: actual } : {}),
+      newPassword: nueva,
+    });
   }
 
   const delServidor = repartirError(cambiar.error);
@@ -162,25 +188,31 @@ function CambiarContrasena({ retraso }: { retraso: number }) {
       className="mt-6 animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-5"
       style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
     >
-      <h2 className="font-bold">Cambiar tu contraseña</h2>
+      <h2 className="font-bold">
+        {tieneContrasena ? 'Cambiar tu contraseña' : 'Ponte una contraseña'}
+      </h2>
       <p className="mt-1 text-sm text-[var(--texto-suave)]">
-        Necesitas la que usas ahora. Las demás sesiones abiertas siguen como estaban.
+        {tieneContrasena
+          ? 'Necesitas la que usas ahora. Las demás sesiones abiertas siguen como estaban.'
+          : 'Entraste con Google, así que no tienes ninguna. Ponte una y podrás entrar también con tu correo.'}
       </p>
 
       <form onSubmit={enviar} className="mt-4 grid gap-4" noValidate>
-        <Campo
-          id="seg-actual"
-          etiqueta="Tu contraseña actual"
-          valor={actual}
-          onChange={setActual}
-          autoComplete="current-password"
-          error={errorActual}
-        />
+        {tieneContrasena && (
+          <Campo
+            id="seg-actual"
+            etiqueta="Tu contraseña actual"
+            valor={actual}
+            onChange={setActual}
+            autoComplete="current-password"
+            error={errorActual}
+          />
+        )}
 
         <div>
           <Campo
             id="seg-nueva"
-            etiqueta="Tu contraseña nueva"
+            etiqueta={tieneContrasena ? 'Tu contraseña nueva' : 'Tu contraseña'}
             valor={nueva}
             onChange={setNueva}
             autoComplete="new-password"
@@ -210,7 +242,7 @@ function CambiarContrasena({ retraso }: { retraso: number }) {
 
         <Campo
           id="seg-repetida"
-          etiqueta="Repite la nueva"
+          etiqueta={tieneContrasena ? 'Repite la nueva' : 'Repítela'}
           valor={repetida}
           onChange={setRepetida}
           autoComplete="new-password"
@@ -231,12 +263,16 @@ function CambiarContrasena({ retraso }: { retraso: number }) {
             role="status"
             className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
           >
-            Contraseña cambiada. Úsala la próxima vez que entres.
+            Contraseña guardada. Úsala la próxima vez que entres.
           </p>
         )}
 
         <Boton type="submit" disabled={cambiar.isPending} className="min-h-12">
-          {cambiar.isPending ? 'Cambiando…' : 'Cambiar contraseña'}
+          {cambiar.isPending
+            ? 'Guardando…'
+            : tieneContrasena
+              ? 'Cambiar contraseña'
+              : 'Poner contraseña'}
         </Boton>
       </form>
     </section>

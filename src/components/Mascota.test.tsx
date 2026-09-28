@@ -12,6 +12,7 @@ import {
   type Visema,
 } from './mascotas/coreografia';
 import { ESPECIES as CATALOGO } from './mascotas';
+import { hayLienzo2D, olvidarSoporte } from './mascotas/dibujo';
 
 /**
  * El pivote de una capa, sin la tercera componente.
@@ -45,7 +46,125 @@ function pivoteDe(capa: SVGGElement | null): string {
  * estado y a qué ritmo. Es mejor sitio, además, porque es donde de verdad se
  * decide cómo se mueve el personaje. Que los resortes luego lo ejecuten bien se
  * mira en el navegador, que es donde se ve.
+ *
+ *
+ * AVISO IMPORTANTE DESDE QUE MILO VA EN LIENZO
+ *
+ * Milo ya NO se pinta con el esqueleto SVG en el navegador: va en un lienzo de
+ * mapa de bits con el motor de `mascotas/motor.ts`. Pero jsdom no trae lienzo,
+ * así que aquí `Mascota` cae en el camino de repuesto y todo lo que este
+ * archivo mira del marcado es EL REPUESTO, no lo que ve la gente.
+ *
+ * Eso podría ser una trampa —pruebas verdes sobre un dibujo que ya nadie ve—,
+ * así que:
+ *
+ *   - La primera prueba de abajo comprueba EXPRESAMENTE que en este entorno no
+ *     hay lienzo, para que el motivo esté escrito y verificado y no supuesto.
+ *   - Y la siguiente monta un lienzo de mentira y comprueba que ENTONCES sale
+ *     el camino nuevo. Sin ella, este archivo entero podría seguir en verde con
+ *     el motor de lienzo roto o directamente desconectado.
+ *   - Lo que se ve de verdad se comprueba en `mascotas/motor.test.ts` y
+ *     `mascotas/dibujo.test.ts`, que sí prueban el motor nuevo.
+ *
+ * El repuesto sigue mereciendo estas pruebas porque mueve a las otras cuatro
+ * especies, que siguen siendo SVG.
  */
+
+/**
+ * Correr algo como si el navegador tuviera lienzo de dos dimensiones.
+ *
+ * Basta con un contexto de mentira: lo único que `Mascota` pregunta es si
+ * `getContext('2d')` contesta algo. Lo que se dibuje dentro no se mira aquí
+ * —para eso está `dibujo.test.ts`—, aquí solo importa por qué camino sale.
+ */
+function conLienzo<T>(hacer: () => T): T {
+  const original = HTMLCanvasElement.prototype.getContext;
+  const falso = new Proxy(
+    { canvas: null },
+    {
+      get: (_, clave) => (clave === 'canvas' ? null : () => ({ addColorStop() {} })),
+      set: () => true,
+    },
+  );
+  HTMLCanvasElement.prototype.getContext = (() => falso) as never;
+  olvidarSoporte();
+  try {
+    return hacer();
+  } finally {
+    HTMLCanvasElement.prototype.getContext = original;
+    olvidarSoporte();
+  }
+}
+
+describe('qué motor sale por dónde', () => {
+  it('en las pruebas no hay lienzo, así que Milo sale por el repuesto SVG', () => {
+    /*
+      Esto no es un detalle de fontanería: es la licencia para que todo lo que
+      viene después de este archivo mire el marcado SVG. Si algún día jsdom
+      trajera lienzo, o alguien añadiera el paquete que lo aporta, esta prueba
+      se pondría roja y avisaría de que el resto ya no comprueba lo que cree.
+    */
+    expect(hayLienzo2D()).toBe(false);
+    const { container } = render(<Mascota />);
+    expect(container.querySelector('svg')).not.toBeNull();
+    expect(container.querySelector('canvas')).toBeNull();
+  });
+
+  it('con lienzo, Milo va en lienzo: es lo que ve la gente', () => {
+    conLienzo(() => {
+      const { container } = render(<Mascota estado="celebrando" />);
+      expect(container.querySelector('canvas'), 'Milo no usa el motor nuevo').not.toBeNull();
+      // Y no se queda además el SVG debajo: sería pintar dos veces al mismo
+      // pájaro y que un lector de pantalla lo leyera dos veces.
+      expect(container.querySelector('svg')).toBeNull();
+    });
+  });
+
+  it('las otras cuatro especies siguen en SVG aunque haya lienzo', () => {
+    // El motor de lienzo dibuja a Milo a mano, trazo a trazo, y eso no se
+    // generaliza a un catálogo. Mientras no estén portadas, el esqueleto SVG
+    // las mueve: es peor tenerlas mal que tenerlas como estaban.
+    conLienzo(() => {
+      for (const especie of ['PET_GATO', 'PET_PERRO', 'PET_BUHO', 'PET_ZORRO'] as Especie[]) {
+        const { container } = render(<Mascota especie={especie} />);
+        expect(container.querySelector('svg'), `${especie} perdió su dibujo`).not.toBeNull();
+        expect(container.querySelector('canvas')).toBeNull();
+      }
+    });
+  });
+
+  it('los dos motores dicen lo mismo al lector de pantalla', () => {
+    /*
+      La etiqueta accesible se calcula una sola vez y se le pasa a los dos, y
+      esta prueba es lo que impide que vuelvan a separarse. Quien no ve el
+      dibujo también lleva el gorro puesto.
+    */
+    const enSvg = render(<Mascota atuendo="OUTFIT_CORONA" />)
+      .container.querySelector('svg')
+      ?.getAttribute('aria-label');
+    const enLienzo = conLienzo(() =>
+      render(<Mascota atuendo="OUTFIT_CORONA" />)
+        .container.querySelector('[role="img"]')
+        ?.getAttribute('aria-label'),
+    );
+    expect(enLienzo).toBe(enSvg);
+    expect(enLienzo).toContain('corona');
+  });
+
+  it('el lienzo ocupa exactamente el tamaño pedido, ni uno más', () => {
+    /*
+      El lienzo SOBRESALE de su caja para que quepa el salto, así que la caja
+      tiene que seguir midiendo lo que mide para que las treinta pantallas que
+      usan a Milo no se recoloquen. Medido en la caja de fuera, no en el lienzo.
+    */
+    conLienzo(() => {
+      const { container } = render(<Mascota tamano={44} />);
+      const caja = container.querySelector<HTMLElement>('[role="img"]')!;
+      expect(caja.style.width).toBe('44px');
+      expect(caja.style.height).toBe('44px');
+    });
+  });
+});
 
 const TODOS: EstadoMascota[] = [
   'neutral',

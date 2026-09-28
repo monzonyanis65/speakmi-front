@@ -7,9 +7,12 @@ import {
   NOMBRE_ATUENDO,
   type Atuendo,
   type CejasEspecie,
+  type DefinicionEspecie,
   type Especie,
   type Visema,
 } from './mascotas';
+import { hayLienzo2D } from './mascotas/dibujo';
+import { MiloLienzo } from './mascotas/MiloLienzo';
 import { useMascotaEquipada } from '@/lib/mascota-contexto';
 import {
   aperturaDeVoz,
@@ -195,6 +198,32 @@ function useMenosMovimiento(): boolean {
   return quieto;
 }
 
+/**
+ * La mascota de Speakmi.
+ *
+ * Esto es el reparto y nada más: decide qué animal es, si lleva algo puesto y
+ * en qué estado está DE VERDAD —que no siempre es el que le piden—, y con eso
+ * elige motor.
+ *
+ *
+ * POR QUÉ HAY DOS MOTORES
+ *
+ * Milo se mueve con física en un lienzo de mapa de bits (`mascotas/motor.ts` y
+ * `mascotas/MiloLienzo.tsx`): extremidades de goma, volumen conservado y un
+ * salto de cinco fases. Las otras cuatro especies siguen con el esqueleto de
+ * piezas SVG que hay debajo.
+ *
+ * No es un trabajo a medias escondido: es que el motor nuevo dibuja a Milo A
+ * MANO, trazo a trazo, y eso no se generaliza a un catálogo. El esqueleto SVG
+ * existe justamente porque el movimiento se escribe una vez y las cinco formas
+ * se enchufan; el lienzo invierte ese trato. Portar el gato, el perro, el búho
+ * y el zorro son cuatro dibujos nuevos con sus bocas, sus cejas y sus hocicos,
+ * y hasta que estén, tenerlos parados en SVG es mejor que tenerlos mal.
+ *
+ * El esqueleto SVG sirve además de repuesto: donde no hay lienzo de dos
+ * dimensiones —las pruebas corren sobre jsdom, que no lo tiene— Milo sale por
+ * ahí. Por eso las dos caras están dibujadas con las MISMAS coordenadas.
+ */
 export function Mascota({
   estado = 'neutral',
   especie,
@@ -259,6 +288,79 @@ export function Mascota({
   */
   const animal = ESPECIES[cual] ?? ESPECIES.PET_MILO;
   const prendaConocida = prenda && prenda in NOMBRE_ATUENDO ? prenda : null;
+
+  /*
+    Lo que lee un lector de pantalla, calculado UNA vez para los dos motores.
+
+    Quien no ve el dibujo también lleva el gorro puesto, y que la etiqueta salga
+    de aquí y no de cada motor es lo que garantiza que el lienzo y el SVG digan
+    exactamente lo mismo. Duplicada, se habría quedado desfasada en uno de los
+    dos el día que se añada el sexto atuendo.
+  */
+  const etiqueta = prendaConocida
+    ? `${animal.etiqueta}, con ${NOMBRE_ATUENDO[prendaConocida]}`
+    : animal.etiqueta;
+
+  if (animal === ESPECIES.PET_MILO && hayLienzo2D()) {
+    return (
+      <MiloLienzo
+        estado={enEscena}
+        atuendo={prendaConocida}
+        intensidad={intensidad}
+        tamano={tamano}
+        etiqueta={etiqueta}
+        className={className}
+        quieto={quieto}
+      />
+    );
+  }
+
+  return (
+    <MascotaSvg
+      estado={estado}
+      enEscena={enEscena}
+      animal={animal}
+      prendaConocida={prendaConocida}
+      intensidad={intensidad}
+      tamano={tamano}
+      className={className}
+      quieto={quieto}
+      etiqueta={etiqueta}
+    />
+  );
+}
+
+/**
+ * El esqueleto de piezas SVG: las otras cuatro especies, y Milo de repuesto.
+ *
+ * Todo lo que hay aquí abajo es el motor anterior, intacto. Se conserva entero
+ * y no recortado porque sigue moviendo a cuatro de los cinco animales, y porque
+ * las decisiones que lleva dentro —los pivotes en coordenadas del lienzo, el
+ * cruce de bocas en opacidad, las seis capas que no pueden pisarse— costaron
+ * medirlas y siguen siendo ciertas.
+ */
+function MascotaSvg({
+  estado,
+  enEscena,
+  animal,
+  prendaConocida,
+  intensidad,
+  tamano,
+  className,
+  quieto,
+  etiqueta,
+}: {
+  estado: EstadoMascota;
+  /** El estado que se pinta, que no siempre es el que piden: ver `seCalma`. */
+  enEscena: EstadoMascota;
+  animal: DefinicionEspecie;
+  prendaConocida: Atuendo | null;
+  intensidad?: number;
+  tamano: number;
+  className?: string;
+  quieto: boolean;
+  etiqueta: string;
+}) {
   const ojoAbierto = enEscena !== 'pensando' && enEscena !== 'durmiendo';
   const hablando = enEscena === 'hablando';
 
@@ -786,11 +888,7 @@ export function Mascota({
       width={tamano}
       height={tamano}
       role="img"
-      aria-label={
-        prendaConocida
-          ? `${animal.etiqueta}, con ${NOMBRE_ATUENDO[prendaConocida]}`
-          : animal.etiqueta
-      }
+      aria-label={etiqueta}
       /*
         `overflow-visible` porque el dibujo ocupa el lienzo entero y cualquier
         pose que suba se recorta contra el borde. Medido: al saltar, al búho le

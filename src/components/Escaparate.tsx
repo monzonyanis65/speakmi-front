@@ -56,7 +56,17 @@ export function Escaparate({ especie, atuendo, pie }: Props) {
   const gesto = GUION[paso % GUION.length]!.estado;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--fondo)] px-4 pb-4 pt-6">
+    /*
+      El hueco de arriba es `pt-10` y no `pt-6` desde que Milo salta de verdad.
+
+      El motor de lienzo llega a subir la coronilla 34 px por encima de la caja
+      de la mascota en la cúspide del salto, y esta tarjeta recorta
+      (`overflow-hidden`, que hace falta para las esquinas redondas y para el
+      foco de detrás). Con 24 px de hueco se le cortaban los diez últimos justo
+      en el fotograma que más se mira. Medido a 160 px, que es el tamaño de
+      aquí.
+    */
+    <div className="relative overflow-hidden rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--fondo)] px-4 pb-4 pt-10">
       {/*
         Un foco detrás, muy suave. Es lo que separa «una figura sobre un fondo»
         de «una figura en un sitio», y cuesta un degradado.
@@ -69,11 +79,24 @@ export function Escaparate({ especie, atuendo, pie }: Props) {
       <div className="relative flex flex-col items-center">
         <Mascota estado={gesto} especie={especie} atuendo={atuendo} tamano={160} />
 
-        {/* La sombra del suelo. Sin ella el animal parece estar cayendo. */}
-        <div
-          aria-hidden
-          className="-mt-3 h-3 w-24 rounded-[50%] bg-black/10 blur-[2px] dark:bg-black/40"
-        />
+        {/*
+          La sombra del suelo. Sin ella el animal parece estar cayendo.
+
+          Milo no la lleva: su motor de lienzo pinta la suya, y además es mejor
+          —se ensancha cuando se agacha y se encoge y se aclara cuando despega—.
+          Puestas las dos se veía el desajuste: dos óvalos grises de distinto
+          tamaño, uno quieto y otro moviéndose, que juntos parecen una mancha.
+
+          Las otras cuatro especies siguen en SVG y no tienen sombra propia, así
+          que para ellas sigue siendo imprescindible. No ocupa alto —`-mt-3`
+          cancela el `h-3`—, así que quitarla no recoloca nada.
+        */}
+        {especie !== 'PET_MILO' && (
+          <div
+            aria-hidden
+            className="-mt-3 h-3 w-24 rounded-[50%] bg-black/10 blur-[2px] dark:bg-black/40"
+          />
+        )}
 
         <p className="mt-3 text-lg font-extrabold">{NOMBRE_ESPECIE[especie]}</p>
         {pie && <p className="mt-0.5 text-center text-xs text-[var(--texto-suave)]">{pie}</p>}

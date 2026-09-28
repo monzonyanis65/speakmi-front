@@ -18,6 +18,8 @@ import { Brecha } from '@/components/juegos/Brecha';
 import { Mercado } from '@/components/juegos/Mercado';
 import { Neon } from '@/components/juegos/Neon';
 import { Carrera } from '@/components/juegos/Carrera';
+import { Horda } from '@/components/juegos/Horda';
+import { Derrape } from '@/components/juegos/Derrape';
 import { Beat } from '@/components/juegos/Beat';
 import {
   esCodigoJuego,
@@ -36,6 +38,8 @@ import {
   type RondaDeMercado,
   type RondaDeNeon,
   type RondaDeCarrera,
+  type RondaDeHorda,
+  type RondaDeDerrape,
   type RondaDeBeat,
   type VeredictoDeNeon,
   type RondaDeLluvia,
@@ -427,6 +431,43 @@ export function Juego() {
       {code === 'CARRERA' && (
         <Carrera
           ronda={datos as RondaDeCarrera}
+          onResponder={corregirRonda}
+          onFin={terminar}
+          onSalir={salir}
+        />
+      )}
+
+      {/*
+        HORDA usa `corregirRonda` por lo mismo que CAEN, CARRERA y PARTICULAS:
+        la ronda le llega con el compuesto bueno dentro porque el instante en
+        que Milo toca el segundo orbe es el instante en el que su arma sube de
+        rango o no sube, y ahí no cabe un viaje al servidor con la horda
+        encima. Pero cada compuesto cerrado —y cada cofre que se cierra sin que
+        nadie elija— se manda y se espera a que lleguen todos antes de cerrar
+        la partida, porque si el `/fin` adelantara a los últimos, la puntuación
+        final saldría por debajo de la que se acaba de ver subir.
+      */}
+      {code === 'HORDA' && (
+        <Horda
+          ronda={datos as RondaDeHorda}
+          onResponder={corregirRonda}
+          onFin={terminar}
+          onSalir={salir}
+        />
+      )}
+
+      {/*
+        DERRAPE usa `corregirRonda` por lo mismo que CARRERA: la ronda le llega
+        con la palabra buena dentro porque entre que el coche pasa por la
+        bifurcación y se ve si derrapa o se va a la grava no cabe un viaje al
+        servidor. Pero cada curva tomada —y cada una a la que se llega sin haber
+        girado— se manda y se espera a que lleguen todas antes de cerrar la
+        partida, porque si el `/fin` adelantara a las últimas, la puntuación
+        final saldría por debajo de la que se acaba de ver subir.
+      */}
+      {code === 'DERRAPE' && (
+        <Derrape
+          ronda={datos as RondaDeDerrape}
           onResponder={corregirRonda}
           onFin={terminar}
           onSalir={salir}

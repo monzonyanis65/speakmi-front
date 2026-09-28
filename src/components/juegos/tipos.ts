@@ -23,6 +23,8 @@ export const CODIGOS = [
   'NEON',
   'BEAT',
   'CARRERA',
+  'HORDA',
+  'DERRAPE',
 ] as const;
 
 export type CodigoJuego = (typeof CODIGOS)[number];
@@ -38,6 +40,16 @@ export interface JuegoDelCatalogo {
   descripcionEs: string;
   mejorPuntuacion: number | null;
   jugadasHoy: number;
+  /**
+   * Por qué este juego todavía no se puede jugar, o `null` si se puede.
+   *
+   * Lo manda el servidor ya escrito y con el nivel en el que se abre. Viene de
+   * respetar el nivel de verdad: hay juegos cuyo contenido empieza en A2 y a
+   * quien va por los tres primeros niveles no les queda nada honesto que
+   * servirles. Es texto y no un booleano porque un juego apagado sin explicar
+   * es peor que un juego difícil.
+   */
+  bloqueadoEs?: string | null;
 }
 
 /** `GET /api/games/:code/ronda` para CONTRARRELOJ y CADENA. */
@@ -622,8 +634,34 @@ export interface PuertaDeCarrera {
   id: string;
   /** La frase inglesa con el hueco marcado con `___`. */
   frase: string;
-  /** Las tres opciones, en el orden de los carriles. */
+  /**
+   * Las opciones de la fila de ABAJO, en el orden de los carriles.
+   *
+   * En una puerta sencilla son las tres y se cruzan corriendo —o saltando, o
+   * rodando, si la puerta trae `estorbo`—. En una PUERTA DOBLE son las tres de
+   * abajo y se cruzan rodando.
+   */
   opciones: string[];
+  /**
+   * Las de la fila de ARRIBA, que se cruzan saltando. Solo en las dobles.
+   *
+   * Van en el MISMO orden de carriles que `opciones`, y eso es lo que hace que
+   * la puerta doble enseñe algo: el par de un carril es `[altas[n],
+   * opciones[n]]`, y ese par es el contraste que se pregunta. El servidor
+   * baraja los pares enteros y nunca lo de dentro, porque la fila significa lo
+   * que dice `ejes`.
+   */
+  altas?: string[];
+  /** Qué afirma cada fila de una puerta doble. Sin esto el gesto sería un volado. */
+  ejes?: { arriba: string; abajo: string };
+  /**
+   * La reja de una puerta sencilla: `valla` se salta, `barra` se rueda.
+   *
+   * La llevan los TRES portales o ninguno. Una valla delante de un solo arco
+   * sería un cartel que dice dónde está —o dónde no está— la respuesta, y se
+   * leería antes que la frase.
+   */
+  estorbo?: 'valla' | 'barra';
   correcta: string;
   /** La regla en una línea. Se enseña al fallar, que es cuando hace falta. */
   ensena: string;
@@ -639,8 +677,16 @@ export interface PuertaDeCarrera {
    * calibraciones distintas.
    */
   lecturaMs: number;
-  /** Y lo que cuesta mirar y leer sus tres portales. Tampoco se aprieta. */
+  /** Y lo que cuesta mirar y leer sus portales. Tampoco se aprieta. */
   portalesMs: number;
+  /**
+   * Y lo que cuesta el GESTO: 450 ms en las puertas que piden saltar o rodar,
+   * cero en las que se cruzan corriendo. Tampoco se aprieta con la racha, y por
+   * un motivo propio: comprimirlo no haría saltar más rápido, haría imposible
+   * saltar. En la puerta catorce, con el reflejo en su suelo de 1,4 s, el salto
+   * se habría comido la decisión entera.
+   */
+  gestoMs: number;
 }
 
 /**
@@ -684,6 +730,251 @@ export interface RondaDeCarrera {
      * con la fórmula de siempre y el marcador en vivo enseña esa misma.
      */
     tramosDeCombo: Array<{ desde: number; multiplicador: number }>;
+  };
+}
+
+/* ────────────────────────────  DERRAPE  ──────────────────────────── */
+
+/**
+ * Una curva: la glosa en español y las dos palabras de sus ramas.
+ *
+ * Viene con `correcta` dentro, igual que las puertas de CARRERA y las cartas de
+ * FALSOS_AMIGOS, y por el mismo motivo: entre que el coche pasa por la
+ * bifurcación y se ve si derrapa o se va a la grava no cabe un viaje al
+ * servidor. El servidor sigue corrigiendo curva a curva y llevando la cuenta;
+ * esto solo sirve para pintar el derrape al instante y para poder enseñar la
+ * regla en los dos segundos y medio que se pasan en la grava.
+ *
+ * `opciones` YA VIENE BARAJADA por el servidor y en el orden de las ramas: la de
+ * la izquierda y la de la derecha. Aquí no se toca. Si se barajara otra vez, el
+ * texto que se manda al corregir dejaría de coincidir con la rama que se tomó.
+ */
+export interface CurvaDeDerrape {
+  id: string;
+  /** En qué vuelta va, 1 o 2. Es lo que parte el crono en dos tiempos. */
+  vuelta: number;
+  /** Qué curva del trazado es. La 3 de la vuelta 2 es el mismo par que la 3 de la 1. */
+  curva: number;
+  /** La glosa en español. Es lo que hay que traducir a la palabra exacta. */
+  pista: string;
+  /** Las dos palabras, en el orden de las ramas. */
+  opciones: string[];
+  correcta: string;
+  /** La regla en una línea. Se lee en la grava, que es cuando hace falta. */
+  ensena: string;
+  /** Qué entrena esta curva. Se resume al terminar la carrera. */
+  foco: string;
+  /**
+   * Lo que cuesta leer ESTA pista, según el servidor.
+   *
+   * La glosa está en español y se lee a 20 caracteres por segundo, no a los 16
+   * con los que se calibró CARRERA: allí lo que se lee es una frase inglesa que
+   * hay que entender para actuar y aquí es la lengua materna. Lo que sí va a 16
+   * son los carteles, que están en inglés y son justamente las palabras que
+   * todavía no se dominan. Los dos números viven en el servidor para que no pueda
+   * haber dos calibraciones distintas.
+   */
+  pistaMs: number;
+  /** Y lo que cuesta mirar y leer sus dos carteles en inglés. Tampoco se aprieta. */
+  cartelesMs: number;
+}
+
+/**
+ * `GET /api/games/DERRAPE/ronda`.
+ *
+ * El reloj llega TROCEADO desde el servidor, igual que el de CARRERA: la ventana
+ * de una curva son sus `pistaMs` más sus `cartelesMs` más `escalones[racha]`, y
+ * solo el último sumando se acorta al encadenar. Apretar la lectura no haría el
+ * juego más difícil, lo haría imposible.
+ *
+ * Y llega además el `crono`, que es lo que hace de esto una contrarreloj de
+ * verdad y no un marcador disfrazado. Las constantes viajan enteras en lugar de
+ * los tiempos ya calculados porque el tiempo de un sector depende de en qué orden
+ * se acierte, que es justo lo que todavía no ha pasado. Lo que importa es que la
+ * fórmula es la MISMA que hay en `back/src/modules/games/derrape.ts`: el crono
+ * que se ve subir se puede reconstruir entero desde las respuestas que el
+ * servidor corrigió, así que se puede enseñar sin prometer nada que luego no
+ * cuadre.
+ */
+export interface RondaDeDerrape {
+  code: string;
+  curvas: CurvaDeDerrape[];
+  circuito: {
+    vueltas: number;
+    curvasPorVuelta: number;
+  };
+  reloj: {
+    /** `escalones[n]` son los milisegundos de decidir con n aciertos seguidos. */
+    escalones: number[];
+    /** Cuántos escalones se aflojan al fallar o al llegar sin girar. */
+    pasosAtrasAlFallar: number;
+  };
+  crono: {
+    /** Lo que dura la salida de una curva antes de premios y castigos. */
+    salidaMs: number;
+    /**
+     * Lo que descuenta el primer derrape, y lo que suma cada eslabón de cadena.
+     *
+     * La cadena acelera EL COCHE y no los puntos, y lo dice con esas palabras en
+     * pantalla. Es la distinción que `Tablero.tsx` dejó escrita: un multiplicador
+     * al lado de una puntuación que no multiplica se lee como una estafa, y en
+     * esta aplicación ya pasó. Aquí lo que la cadena multiplica es verdad hasta la
+     * última milésima, porque el crono sale de esta misma constante.
+     */
+    derrapeBaseMs: number;
+    derrapePorEslabonMs: number;
+    eslabonesMaximos: number;
+    /** Lo que cuesta la rama mala, y lo que cuesta llegar sin haber girado. */
+    gravaMs: number;
+    muroMs: number;
+  };
+}
+
+/* ────────────────────────────  HORDA  ──────────────────────────── */
+
+/**
+ * Una escena de la arena: lo que pide y los cinco orbes entre los que se elige.
+ *
+ * Viene con `compuesto` dentro —la respuesta— igual que las olas de CAEN y las
+ * puertas de CARRERA, y por el mismo motivo: el instante en que Milo toca el
+ * segundo orbe es el instante en el que el arma sube de rango o no sube, y ahí
+ * no cabe un viaje al servidor con la horda encima. El servidor sigue
+ * corrigiendo escena a escena y llevando la cuenta; esto solo sirve para que el
+ * golpe se vea al tocarlo y para poder enseñar el compuesto entero al fallar.
+ *
+ * Los dos orbes de `verbos` forman LOS DOS un compuesto real con la partícula
+ * buena, y las tres `particulas` forman LAS TRES un compuesto real con el verbo
+ * bueno. Es lo que impide acertar por descarte en cualquiera de los dos ejes, y
+ * lo sortea el servidor. Aquí no se toca ninguna de las dos listas.
+ */
+export interface EscenaDeHorda {
+  id: string;
+  /** La escena en español. Nunca nombra la dirección de la partícula. */
+  situacionEs: string;
+  verbos: string[];
+  particulas: string[];
+  /** El compuesto bueno: `turn off`. */
+  compuesto: string;
+  /** Qué familia de arma sube al acertarlo. La decide la partícula. */
+  familia: FamiliaDeArma;
+  significadoEs: string;
+  ejemploEn: string;
+  separable: boolean;
+}
+
+/** Un cofre de jefe: el modismo con el hueco y sus tres opciones. */
+export interface CofreDeHorda {
+  id: string;
+  /** La frase inglesa con el hueco marcado con `___`. */
+  frase: string;
+  /** Lo que decide cuál es: «to hit the ___» tiene dos respuestas reales. */
+  significadoEs: string;
+  opciones: string[];
+  correcta: string;
+  ejemploEn: string;
+  /**
+   * Lo que cuesta leer ESTE cofre, según el servidor.
+   *
+   * No se calcula aquí y no se aprieta nunca con la racha. Leer una frase nueva
+   * que hay que entender para actuar va a 14-18 caracteres por segundo, no a
+   * 28, y suponer de más es lo que dejó injugables a otros juegos de esta casa.
+   * Los dos segundos que pedía el encargo no dan ni para la mitad de un cofre.
+   */
+  lecturaMs: number;
+}
+
+/** La curva de la horda, de principio a fin de la partida. */
+export interface OleadaDeHorda {
+  aparicionInicial: number;
+  aparicionFinal: number;
+  vidaInicial: number;
+  vidaFinal: number;
+  velocidadInicial: number;
+  velocidadFinal: number;
+  maximoSombras: number;
+}
+
+/** Las cuatro formas que puede tomar el arma. La decide la partícula. */
+export type FamiliaDeArma = 'onda' | 'aura' | 'rastro' | 'orbita';
+
+/**
+ * `GET /api/games/HORDA/ronda`.
+ *
+ * Es la ronda más gorda de la casa: trae las preguntas Y el juego entero
+ * —cuánto dura, cuántas sombras salen por segundo, cuánta vida tienen, cuánto
+ * corre Milo, cuánto multiplica cada rango—. No es comodidad. En este juego la
+ * curva de la horda y la calibración del inglés son la MISMA cosa: la aparición
+ * está puesta para que el daño que hace falta en el minuto tres sea exactamente
+ * el que da forjar bien. Si el navegador se inventara su propia curva,
+ * recalibrar en el servidor dejaría de cambiar nada aquí.
+ */
+export interface RondaDeHorda {
+  code: string;
+  escenas: EscenaDeHorda[];
+  cofres: CofreDeHorda[];
+  /**
+   * El rectángulo lógico del juego, en unidades.
+   *
+   * Aquí está la respuesta a los 320 píxeles. El juego no vive en píxeles: vive
+   * en 100×130 unidades y el navegador lo escala a lo que haya. A 320 px una
+   * unidad son 2,88 px y a 390 son 3,58: mismas distancias, misma dificultad, lo
+   * único que cambia es el zoom. Si fuera en píxeles, la misma horda sería más
+   * fácil en una pantalla grande y dos puntuaciones no significarían lo mismo.
+   */
+  arena: {
+    ancho: number;
+    alto: number;
+    radioMilo: number;
+    radioSombra: number;
+    radioOrbe: number;
+    /** Unidades por segundo. */
+    velocidadMilo: number;
+  };
+  partida: {
+    segundos: number;
+    vidas: number;
+    msInvulnerable: number;
+    /** El de `prefers-reduced-motion`, que es algo más largo. */
+    msInvulnerablePorTurnos: number;
+    segundosEntreCofres: number;
+  };
+  oleada: OleadaDeHorda;
+  /**
+   * La misma horda atenuada, para `prefers-reduced-motion`.
+   *
+   * Con movimiento reducido la partida va por turnos —se elige un rumbo cada
+   * novecientos milisegundos y se mantiene— y medido eso hace el esquive
+   * muchísimo más difícil: con la curva normal, forjarlo todo bien daba el
+   * mismo resultado que fallarlo todo, morir. Se atenúa el ESQUIVE y no la
+   * parte de inglés, que es idéntica en los dos modos.
+   */
+  oleadaPorTurnos: OleadaDeHorda;
+  arma: {
+    danoBase: number;
+    cadenciaBaseMs: number;
+    danoFamilia: number;
+    cadenciaFamiliaMs: number;
+    /**
+     * Lo que multiplica cada nivel de arma, que es cada acierto de inglés.
+     *
+     * El nivel del arma SON los aciertos: cada compuesto bien forjado y cada
+     * cofre bien abierto suben uno, y no lo sube nada más. Matar no lo sube.
+     */
+    factorPorNivel: number;
+    factorCadencia: number;
+    /** Cómo se reparte la potencia entre las formas que tengas abiertas. */
+    multiplicadores: Record<FamiliaDeArma, number>;
+  };
+  /**
+   * El reloj del cofre, TROCEADO como el de CARRERA y por lo mismo.
+   *
+   * Lo que cuesta leer va dentro de cada cofre y no se aprieta; `escalones[n]`
+   * son los milisegundos de acordarse y pulsar con `n` cofres seguidos bien, y
+   * ese es el único trozo que se acorta.
+   */
+  reloj: {
+    escalones: number[];
+    pasosAtrasAlFallar: number;
   };
 }
 
@@ -973,6 +1264,57 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     porQue:
       'Aquí el suelo no se para a esperarte. O la frase te dice algo mientras corres, o te comes el portal que no era.',
     color: 'bg-violet-700',
+  },
+  /*
+    El único que no espera a que contestes: la arena sigue su vida mientras lees.
+
+    Los otros trece sirven una pregunta y se quedan quietos hasta que hay
+    respuesta, aunque lleven reloj. Aquí salen sombras, se acercan y el arma
+    dispara mientras decides, y eso cambia lo que promete: no es responder
+    deprisa, es que el mundo no se para a esperarte.
+
+    Lo que hay que decir de este juego, y por eso `porQue` dice eso, es que
+    MATAR NO PUNTÚA. Los puntos salen de compuestos forjados y de modismos
+    acertados, y el arma solo crece forjando bien. Quien esquiva de maravilla y
+    junta orbes al tuntún se queda con el arma del principio mientras la horda
+    crece, y muere en el minuto dos. Decirlo en la tarjeta evita la sorpresa de
+    matar cincuenta sombras y ver un cero.
+
+    El azul, y no el azul cielo de ESCUCHA: aquel va de 400 a 600 y este de 600
+    a 900, así que uno sale claro y el otro casi negro.
+  */
+  HORDA: {
+    icono: '👾',
+    titulo: 'Supervivientes',
+    descripcion: 'Esquiva la horda y forja verbos compuestos para que tu arma crezca.',
+    entrena: 'producir el compuesto',
+    porQue:
+      'Matar no da un solo punto. Tu arma solo crece cuando juntas un verbo compuesto que existe de verdad, así que o lo sabes o la horda te come.',
+    color: 'bg-blue-800',
+  },
+  /*
+    El que más cerca tiene a otro, y por eso `entrena` y `porQue` dicen lo que
+    dicen.
+
+    CARRERA y DERRAPE se parecen por fuera: carriles, opciones acercándose, Milo.
+    La tarjeta tiene que decir en una línea qué los separa, porque quien entra a
+    los juegos ve las dos seguidas. Y lo que los separa no es el vehículo: allí
+    las opciones son `sent / send / sending` y dos de las tres son imposibles
+    detrás de «has», así que se tiran sin saber qué significan. Aquí son `deny` y
+    `refuse`: las dos existen, las dos encajan, y lo único que las separa es lo
+    que quieren decir.
+
+    De ahí «la palabra exacta» y no «el vocabulario»: vocabulario es conocer la
+    palabra, y esto es elegir cuál de las dos que ya conoces es la que toca.
+  */
+  DERRAPE: {
+    icono: '🏁',
+    titulo: 'Derrape',
+    descripcion: 'Dos vueltas, doce curvas. Toma la rama de la palabra exacta y baja tu tiempo.',
+    entrena: 'la palabra exacta',
+    porQue:
+      'Las dos ramas dicen algo que existe. Confundir «sensible» con «sensitive» no es no saber inglés: es decir otra cosa y que te entiendan mal.',
+    color: 'bg-red-700',
   },
   MERCADO: {
     icono: '🏮',

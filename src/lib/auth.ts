@@ -1,4 +1,4 @@
-import { api, ApiError } from './api';
+import { api, ApiError, URL_API } from './api';
 import { useSesion, type Usuario } from '@/store/sesion';
 import { queryClient } from '@/lib/queryClient';
 
@@ -22,6 +22,49 @@ export function setToken(token: string | null): void {
 interface RespuestaSesion {
   user: Usuario;
   accessToken: string;
+}
+
+export interface ProveedorDeEntrada {
+  disponible: boolean;
+  /** Por qué no, cuando no. Es para quien administra, no para quien estudia. */
+  motivo?: string;
+}
+
+export interface ProveedoresDeEntrada {
+  google: ProveedorDeEntrada;
+  correo: ProveedorDeEntrada & {
+    /** Fuera de producción el código de recuperación llega en la respuesta. */
+    pruebaLocal?: boolean;
+  };
+}
+
+/**
+ * Con qué se puede entrar hoy.
+ *
+ * Lo decide el servidor mirando qué credenciales tiene puestas, y no una
+ * constante escrita aquí. Es lo que hace que el día que alguien ponga el cliente
+ * de Google en Vercel el botón aparezca solo, sin tocar ni desplegar el front.
+ *
+ * Si la pregunta falla se da todo por no disponible: es preferible no ofrecer un
+ * botón que ofrecer uno que lleva a una pantalla rota.
+ */
+export async function proveedoresDeEntrada(): Promise<ProveedoresDeEntrada> {
+  try {
+    return await api.get<ProveedoresDeEntrada>('/auth/proveedores');
+  } catch {
+    return { google: { disponible: false }, correo: { disponible: false } };
+  }
+}
+
+/**
+ * A dónde lleva el botón de Google.
+ *
+ * Es una navegación de verdad y no un `fetch`: el servidor responde con una
+ * redirección a Google, y al volver pone la cookie de sesión, que solo viaja en
+ * una navegación de primer nivel.
+ */
+export function direccionDeGoogle(): string {
+  return `${URL_API}/api/auth/google/start`;
 }
 
 export async function registrar(datos: {

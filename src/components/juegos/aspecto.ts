@@ -230,6 +230,62 @@ export const ASPECTOS: Record<CodigoJuego, AspectoDeJuego> = {
     texto: 'text-violet-700 dark:text-violet-300',
     lavado: 'from-violet-50 dark:from-violet-950/60',
   },
+  /*
+    Azul de noche, que es el último hueco de verdad del escaparate.
+
+    Choca con el azul cielo de ESCUCHA y hay que decirlo: son el mismo tono. Se
+    separan por claridad, que es lo que de verdad distingue dos tarjetas de un
+    vistazo: ESCUCHA va de 400 a 600 y sale celeste, y esta va de 600 a 900 y
+    sale casi negra. Puestas al lado no se eligen por error.
+
+    Lo que se descartó: el rojo es fallar, el ámbar avisar y el esmeralda
+    acertar, así que los tres significan algo dentro de la aplicación; el gris se
+    lo llevó BRECHA y el cian NEON; y los tres morados —marca, índigo y violeta—
+    ya son PAREJAS, PARTICULAS y CARRERA. Dentro del juego este azul no significa
+    nada: allí el verde es acertar, el rojo fallar y cada familia de arma lleva
+    su propio color.
+  */
+  HORDA: {
+    degradado: 'from-blue-600 to-blue-900',
+    borde: 'border-blue-200 dark:border-blue-900',
+    tinte: 'bg-blue-50 dark:bg-blue-950/50',
+    texto: 'text-blue-700 dark:text-blue-300',
+    lavado: 'from-blue-50 dark:from-blue-950/60',
+  },
+  /*
+    Rojo, y es la elección más discutible del archivo. Conviene decir la pega
+    entera antes que la defensa.
+
+    LA PEGA. En esta aplicación el rojo SIGNIFICA fallar, y además es vecino del
+    rosa de FALSOS_AMIGOS. Son dos objeciones de las que ya han tumbado colores
+    aquí arriba.
+
+    LA DEFENSA. La segunda se arregla como se arreglaron las otras dos parejas
+    incómodas del escaparate —el ámbar de MERCADO contra el naranja de
+    CONTRARRELOJ, el azul de HORDA contra el azul cielo de ESCUCHA—: separando
+    los tramos. FALSOS_AMIGOS va de 400 a 600 y sale rosado y claro; este va de
+    500 a 800 y sale oscuro y sanguíneo. Puestas al lado no se eligen por error.
+
+    La primera no se arregla, se acota. El rojo significa fallar DENTRO de un
+    juego, en una corrección, y el color de la tarjeta no aparece dentro de este:
+    ahí la trazada buena es esmeralda, la grava es ocre y el crono va en el color
+    del texto. Así que el rojo de fuera no le quita el sitio a ningún rojo de
+    dentro.
+
+    Y es el que dice algo. De lo que quedaba libre —amarillo, gris cálido,
+    púrpura— el amarillo es el vecino del ámbar de MERCADO, el gris ya es la
+    identidad entera de BRECHA («la única que no tiene color») y el púrpura sería
+    el cuarto morado detrás de la marca, el índigo y el violeta. El rojo es el
+    color de un coche de carreras, y eso en un escaparate de catorce tarjetas
+    vale más que un tono neutro sin significado.
+  */
+  DERRAPE: {
+    degradado: 'from-red-500 to-red-800',
+    borde: 'border-red-200 dark:border-red-900',
+    tinte: 'bg-red-50 dark:bg-red-950/50',
+    texto: 'text-red-700 dark:text-red-300',
+    lavado: 'from-red-50 dark:from-red-950/60',
+  },
   MERCADO: {
     degradado: 'from-amber-500 to-amber-700',
     borde: 'border-amber-200 dark:border-amber-900',

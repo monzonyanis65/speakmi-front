@@ -18,6 +18,23 @@ import type { Marcador, PuertaDeCarrera, RespuestaCorregida, RondaDeCarrera } fr
  * combo; el malo frena y acerca al cazador.
  *
  *
+ * HAY DOS EJES, Y LOS DOS PREGUNTAN GRAMÁTICA
+ *
+ * Además del carril se salta y se rueda, y eso NO es esquivar. Unas puertas
+ * —las dobles— traen el arco partido en dos filas con seis formas: arriba se
+ * entra saltando, abajo rodando, y encima de la frase pone qué afirma cada
+ * fila. Ahí el gesto es media respuesta: el carril elige la palabra y la fila
+ * elige la forma, y por eso caben contrastes que con tres opciones no cabían.
+ *
+ * Otras —las sencillas con reja— traen una valla o un travesaño delante de los
+ * TRES arcos por igual. Eso sí es puro arcade: no dice nada de cuál es la
+ * buena, es el peaje que mantiene los dos gestos en las manos para cuando
+ * llegue una doble. Está dicho así de claro en `carrera.ts`.
+ *
+ * Y todo eso sigue sin costar ni un `requestAnimationFrame`, que es lo
+ * siguiente.
+ *
+ *
  * NO HAY NI UN `requestAnimationFrame` EN LA PISTA
  *
  * Y esa es la decisión técnica que sostiene el juego. Todo lo que se mueve
@@ -31,7 +48,16 @@ import type { Marcador, PuertaDeCarrera, RespuestaCorregida, RondaDeCarrera } fr
  * repintar el marcador de React; medido en un móvil de gama media eso es la
  * diferencia entre ir a 59 y ir a tirones, y un runner que va a tirones no es
  * un runner. Aquí React solo pinta cuando se resuelve una puerta: catorce veces
- * en setenta y cinco segundos.
+ * en ochenta y cinco segundos.
+ *
+ * EL SALTO TAMPOCO NECESITÓ UN BUCLE, y esa era la parte que parecía que iba a
+ * obligar a meterlo. Un runner comprueba colisiones cada fotograma porque los
+ * obstáculos están repartidos por el mundo; aquí solo hay UN instante en el que
+ * la colisión importa —cuando la puerta llega al plano de Milo— y ese instante
+ * ya lo daba el `animationend` de la propia puerta. Así que la física vive en
+ * los porcentajes de `@keyframes` y la pregunta «¿estaba en el aire?» se
+ * contesta con una resta, una vez por puerta. Sesenta comprobaciones por
+ * segundo habrían contestado sesenta veces lo mismo.
  *
  * El precio está en `PorTurnos`, y se paga a gusto: con `prefers-reduced-motion`
  * el navegador deja todas las animaciones en 0,01 ms, así que la pista entera
@@ -100,7 +126,133 @@ const CARRIL_INICIAL = 1;
 /** Lo que se manda cuando la puerta se cruzó sin portal debajo. */
 const NO_CRUZO = 'nada';
 
-/** El ritmo de las rayas del asfalto y del trote, del más lento al más rápido. */
+/** Y lo que se manda cuando Milo se estrelló contra la reja o el travesaño. */
+const CHOCO = 'choque';
+
+/* ----------------------------------- */
+/* El eje vertical: saltar y rodar.    */
+/* ----------------------------------- */
+
+/**
+ * LOS DOS GESTOS, Y POR QUÉ SON UN RELOJ Y NO UN BOOLEANO
+ *
+ * Saltar no es un estado que se enciende y se apaga: es un arco que dura, y lo
+ * que decide si Milo pasó la valla es DÓNDE estaba en el instante exacto en el
+ * que la puerta llegó a su plano. Así que lo que se guarda no es «está
+ * saltando» sino «empezó a saltar en el milisegundo tal», y la pregunta se
+ * contesta restando.
+ *
+ * Eso es también lo que permite que aquí siga sin haber ni un
+ * `requestAnimationFrame`. No hace falta mirar cada fotograma dónde está Milo:
+ * hace falta mirarlo UNA VEZ, cuando la puerta llega, y ese instante lo da el
+ * `animationend` de la propia puerta igual que antes. La física vive en los
+ * porcentajes de `@keyframes` y la decisión en una resta.
+ *
+ * Las ventanas son las que dibujan esas animaciones, medidas sobre ellas y no
+ * inventadas aquí: si se tocan los porcentajes de `index.css` hay que tocar
+ * estos números, y por eso están juntos y comentados en los dos sitios.
+ */
+const SALTO = { dura: 640, desde: 60, hasta: 580 } as const;
+const RODADA = { dura: 760, desde: 40, hasta: 680 } as const;
+
+/** Lo que dura el tropiezo contra la reja, que es lo único que no se puede cancelar. */
+const TROPIEZO = 520;
+
+/**
+ * Cuánto tiene que irse el dedo para que sea un gesto y no un toque: 24 px.
+ *
+ * Por debajo, cualquier toque con el pulgar torcido saltaría sin querer, y en
+ * una puerta doble saltar sin querer es contestar sin querer. Por encima de 30
+ * px el deslizamiento se siente pesado en una pista que a 320 px tiene poco
+ * más de 300 de alto. Veinticuatro es también, y no por casualidad, la mitad
+ * del objetivo táctil mínimo de 48 px: por debajo de eso el movimiento cabe
+ * dentro de lo que se mueve un dedo sin querer al apoyarlo.
+ */
+const DESLIZAR = 24;
+
+interface Gesto {
+  tipo: 'salto' | 'rodada';
+  /** El `performance.now()` en el que empezó. Todo lo demás se calcula restando. */
+  inicio: number;
+}
+
+/** Si en este instante Milo está por encima de una valla baja. */
+function enElAire(gesto: Gesto | null, ahora: number): boolean {
+  if (gesto?.tipo !== 'salto') return false;
+  const va = ahora - gesto.inicio;
+  return va >= SALTO.desde && va <= SALTO.hasta;
+}
+
+/** Y si en este instante cabe por debajo de un travesaño alto. */
+function pegadoAlSuelo(gesto: Gesto | null, ahora: number): boolean {
+  if (gesto?.tipo !== 'rodada') return false;
+  const va = ahora - gesto.inicio;
+  return va >= RODADA.desde && va <= RODADA.hasta;
+}
+
+/** Si el gesto ya terminó y Milo volvió a correr de pie. */
+function terminado(gesto: Gesto | null, ahora: number): boolean {
+  if (!gesto) return true;
+  return ahora - gesto.inicio >= (gesto.tipo === 'salto' ? SALTO.dura : RODADA.dura);
+}
+
+/**
+ * Por qué fila se cruza una puerta, o si Milo se estrelló.
+ *
+ * Es la función que convierte el eje nuevo en una respuesta, y está aparte y
+ * pura porque es lo único de todo esto que se puede probar sin navegador.
+ *
+ *   - PUERTA DOBLE: no hay forma de cruzarla corriendo. Saltando se entra por
+ *     la fila de arriba y rodando por la de abajo; de pie se choca con el
+ *     travesaño. Aquí el gesto ES media respuesta: `ejes` dice qué afirma cada
+ *     fila, así que saltar es decir «esto va en pasado» y equivocarse de fila
+ *     es equivocarse de gramática, no de dedos.
+ *   - PUERTA CON REJA: la reja es igual en los tres arcos, así que el gesto no
+ *     dice nada sobre cuál es la buena: es un peaje. `valla` se salta y `barra`
+ *     se rueda; hacer el otro gesto, o ninguno, es chocar.
+ *   - PUERTA DESPEJADA: se cruza como se quiera. Saltar por gusto no penaliza,
+ *     que es lo que hace que el gesto se pueda practicar sin miedo.
+ */
+function cruzarPor(
+  puerta: PuertaDeCarrera,
+  carril: number,
+  gesto: Gesto | null,
+  ahora: number,
+): string {
+  const arriba = enElAire(gesto, ahora);
+  const abajo = pegadoAlSuelo(gesto, ahora);
+
+  if (puerta.altas) {
+    if (arriba) return puerta.altas[carril] ?? NO_CRUZO;
+    if (abajo) return puerta.opciones[carril] ?? NO_CRUZO;
+    return CHOCO;
+  }
+
+  if (puerta.estorbo === 'valla' && !arriba) return CHOCO;
+  if (puerta.estorbo === 'barra' && !abajo) return CHOCO;
+
+  return puerta.opciones[carril] ?? NO_CRUZO;
+}
+
+/**
+ * El ritmo de las rayas del asfalto y del trote, del más lento al más rápido.
+ *
+ * LOS 300 MS SON UN TOPE, Y ES LO IMPORTANTE DE ESTOS DOS NÚMEROS.
+ *
+ * La velocidad sube con la racha —es lo que hace que ir bien se SIENTA más
+ * rápido— pero deja de subir en el acierto diez, que es donde el reloj de las
+ * puertas toca su suelo. No hay un modo en el que la pista siga acelerando
+ * sola: se acelera porque se está acertando, y cuando la escalera se queda sin
+ * escalones, la pista también.
+ *
+ * El tope está donde está porque por debajo de 300 ms las rayas dejan de leerse
+ * como rayas: a 60 fotogramas, una raya que cruza la pista en menos de un
+ * tercio de segundo recorre 16 px por fotograma y se ve a trozos. Y la misma
+ * duración lleva el trote de Milo, así que bajar de ahí lo convierte en una
+ * vibración. Es el mismo motivo por el que un runner de verdad topa su
+ * velocidad: no por piedad, porque por encima de cierto punto el jugador ya no
+ * ve lo que tiene que esquivar.
+ */
 const RITMO_LENTO = 620;
 const RITMO_RAPIDO = 300;
 
@@ -338,11 +490,61 @@ function usePartida(
   };
 }
 
-/** La ventana de esta puerta: leerla, mirarla y decidirla. */
+/**
+ * La ventana de esta puerta: leerla, mirarla, decidirla y hacer el gesto.
+ *
+ * Los tres sumandos que vienen en la puerta —lectura, portales y gesto— los
+ * calculó el servidor y aquí no se tocan. Solo el escalón del reflejo depende
+ * de cómo vaya la partida, y es el único que se aprieta.
+ */
 function ventanaDe(puerta: PuertaDeCarrera, ronda: RondaDeCarrera, paso: number): number {
   const escalones = ronda.reloj.escalones;
   const reflejo = escalones[Math.min(Math.max(paso, 0), escalones.length - 1)] ?? escalones[0] ?? 0;
-  return puerta.lecturaMs + puerta.portalesMs + reflejo;
+  return puerta.lecturaMs + puerta.portalesMs + reflejo + (puerta.gestoMs ?? 0);
+}
+
+/* ----------------------------------- */
+/* El arnés de medir, que solo existe en desarrollo. */
+/* ----------------------------------- */
+
+/**
+ * Lo que la pista publica para poder medirse, igual que HORDA y DERRAPE.
+ *
+ * NO ES UNA API: es un mirador de desarrollo, y `import.meta.env.DEV` lo deja
+ * fuera de lo que se sirve. Existe porque este juego solo se puede calibrar
+ * JUGÁNDOLO, y un jugador simulado manejado desde fuera de la página —con
+ * Playwright, mandando un gesto por viaje— le suma medio segundo a cada toque
+ * y mide otra cosa: en un juego donde la ventana del salto son 520 ms, ese
+ * medio segundo ES el juego.
+ *
+ * Lo importante que publica no es el marcador, que ya se ve en pantalla, sino
+ * el MOTIVO de cada fallo. Este juego tiene ahora dos formas de perder una
+ * puerta que no se parecen en nada —no saberse la gramática y no llegar con el
+ * gesto— y lo que hay que vigilar es que el segundo sea marginal. La diana es
+ * el 85 % de acierto de Wilson y compañía, y el 15 % restante tiene que
+ * ponerlo el inglés.
+ */
+interface MedidasDeLaCarrera {
+  /** La puerta en el aire con su respuesta dentro, para el jugador simulado. */
+  puerta: (PuertaDeCarrera & { desde: number; ventanaMs: number }) | null;
+  /** Lo que se fue resolviendo, con por qué se falló cada una. */
+  puertas: Array<{
+    id: string;
+    correcta: string;
+    cruzado: string;
+    acierto: boolean;
+    /** Lo que sobró de la ventana. Negativo no existe: la puerta llega y ya. */
+    holguraMs: number;
+    motivo: 'acierto' | 'gramatica' | 'gesto' | 'tiempo';
+  }>;
+  /** Si la carrera ya se cerró, y con qué. */
+  fin: { ventaja: number; aciertos: number; fallos: number } | null;
+}
+
+declare global {
+  interface Window {
+    __carrera?: MedidasDeLaCarrera;
+  }
 }
 
 /* ----------------------------------- */
@@ -397,6 +599,48 @@ function Pista({
   */
   const carrilVivo = useRef(CARRIL_INICIAL);
   const relojes = useRef<number[]>([]);
+
+  /*
+    El gesto, en referencia por el mismo motivo que el carril y uno más.
+
+    El mismo: quien decide es el gesto EN EL INSTANTE en el que llega la puerta,
+    y el `animationend` que lo pregunta se registró en un render anterior.
+
+    Y el propio: aquí no basta con saber cuál fue el último gesto, hace falta
+    saber CUÁNDO empezó, porque un salto que terminó hace 200 ms no vale y uno
+    que empezó hace 200 ms sí. Por eso lo que se guarda es el sello de tiempo y
+    no un booleano, y por eso no hay ningún latido mirando si Milo sigue en el
+    aire: se mira una vez, al llegar la puerta.
+
+    El estado de React que lo acompaña existe solo para pintar la animación, y
+    cambia dos o tres veces por puerta —no sesenta por segundo—.
+  */
+  const gestoVivo = useRef<Gesto | null>(null);
+  const [gesto, setGesto] = useState<Gesto | null>(null);
+  const [tropiezo, setTropiezo] = useState(0);
+  const [acecho, setAcecho] = useState(0);
+
+  /** Dónde empezó el dedo, para saber si lo que viene es un deslizamiento. */
+  const desdeY = useRef<number | null>(null);
+
+  /** Cuándo salió la puerta que está en el aire. Solo lo usa el arnés de medir. */
+  const salioEn = useRef(0);
+
+  /*
+    El mirador de desarrollo se monta y se desmonta con la pista.
+
+    Se BORRA al salir a propósito: si sobreviviera al desmontaje, la carrera
+    siguiente empezaría con las puertas de la anterior dentro y cualquier
+    medida saldría con el doble de puertas de las que hubo. Es lo mismo que
+    hacen HORDA y DERRAPE con los suyos.
+  */
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    window.__carrera = { puerta: null, puertas: [], fin: null };
+    return () => {
+      delete window.__carrera;
+    };
+  }, []);
 
   /*
     La puerta en el aire y la última resuelta, también en referencias.
@@ -468,6 +712,14 @@ function Pista({
         marca: indice,
       };
       puertaViva.current = viva;
+      salioEn.current = performance.now();
+      if (import.meta.env.DEV && window.__carrera) {
+        window.__carrera.puerta = {
+          ...puerta,
+          desde: salioEn.current,
+          ventanaMs: viva.ventanaMs,
+        };
+      }
       setResuelta(null);
       setEnPista(viva);
     }, espera);
@@ -486,10 +738,45 @@ function Pista({
     if (!viva || resueltaMarca.current === viva.marca) return;
     resueltaMarca.current = viva.marca;
 
-    const cruzado = viva.puerta.opciones[carrilVivo.current] ?? NO_CRUZO;
+    const ahora = performance.now();
+    const cruzado = cruzarPor(viva.puerta, carrilVivo.current, gestoVivo.current, ahora);
     const resultado = anotar(viva.puerta, cruzado);
 
+    if (import.meta.env.DEV && window.__carrera) {
+      window.__carrera.puerta = null;
+      window.__carrera.puertas.push({
+        id: viva.puerta.id,
+        correcta: viva.puerta.correcta,
+        cruzado,
+        acierto: resultado.acierto,
+        holguraMs: Math.round(viva.ventanaMs - (ahora - salioEn.current)),
+        motivo: resultado.acierto
+          ? 'acierto'
+          : // Los tres fallos posibles, separados porque no significan lo mismo:
+            // chocar es saberla y no haber saltado, no cruzar es no haber
+            // llegado, y el resto es gramática. Solo el último es el que este
+            // juego quiere cobrar.
+            cruzado === CHOCO
+            ? 'gesto'
+            : cruzado === NO_CRUZO
+              ? 'tiempo'
+              : 'gramatica',
+      });
+    }
+
     setResuelta({ ...resultado, marca: viva.marca, puerta: viva.puerta, cruzado });
+
+    /*
+      Chocar se pinta como lo que es: un tropiezo, no una respuesta mala.
+
+      El golpe de Milo es distinto —se va de bruces en vez de clavar los
+      frenos— y la sombra pega un zarpazo. Cuesta lo mismo que cualquier otro
+      fallo, que es lo que impide que el juego se acabe jugando sin gesto, pero
+      se LEE distinto, y eso importa porque el segundo y medio siguiente es el
+      único rato en el que este juego enseña algo: a quien chocó sabiendo la
+      gramática, explicársela otra vez no le sirve de nada.
+    */
+    if (cruzado === CHOCO) setTropiezo(viva.marca + 1);
 
     if (resultado.acierto) {
       setAviso(
@@ -501,9 +788,14 @@ function Pista({
         setGolpe({ id: viva.marca, senal: 'combo' });
       }
     } else {
-      setAviso(`Era ${viva.puerta.correcta}. ${viva.puerta.ensena}`);
+      setAviso(
+        cruzado === CHOCO
+          ? `Chocaste. Era ${viva.puerta.correcta}. ${viva.puerta.ensena}`
+          : `Era ${viva.puerta.correcta}. ${viva.puerta.ensena}`,
+      );
       sonar('fallo');
       setGolpe({ id: viva.marca, senal: 'fallo' });
+      setAcecho(viva.marca + 1);
     }
 
     if (resultado.cazado) {
@@ -523,6 +815,36 @@ function Pista({
       if (nuevo < 0 || nuevo > 2 || acabando) return;
       carrilVivo.current = nuevo;
       setCarril(nuevo);
+    },
+    [acabando],
+  );
+
+  /**
+   * Saltar o rodar.
+   *
+   * Dos reglas, y las dos son de juego y no de código:
+   *
+   *   1. UN GESTO NO SE INTERRUMPE A SÍ MISMO. Pulsar saltar dos veces no
+   *      reinicia el arco: el segundo toque se pierde. Sin esta regla, machacar
+   *      el botón mantendría a Milo en el aire para siempre y la valla dejaría
+   *      de existir.
+   *   2. RODAR EN EL AIRE CORTA EL SALTO Y CAE DE GOLPE. Es la caída rápida de
+   *      todos los runners y aquí hace falta de verdad: en una puerta doble, un
+   *      salto que se lanzó antes de terminar de leer se puede arreglar
+   *      rodando, y sin eso ese salto sería una respuesta dada sin querer.
+   */
+  const gesticular = useCallback(
+    (tipo: 'salto' | 'rodada') => {
+      if (acabando) return;
+      const ahora = performance.now();
+      const actual = gestoVivo.current;
+
+      const caidaRapida = tipo === 'rodada' && enElAire(actual, ahora);
+      if (!terminado(actual, ahora) && !caidaRapida) return;
+
+      const nuevo: Gesto = { tipo, inicio: ahora };
+      gestoVivo.current = nuevo;
+      setGesto(nuevo);
     },
     [acabando],
   );
@@ -550,6 +872,27 @@ function Pista({
         return;
       }
 
+      /*
+        Arriba salta y abajo rueda, y además la barra espaciadora salta.
+
+        El espacio va porque es lo que pulsa cualquiera en un juego de saltar
+        sin que nadie se lo diga, y porque `repeat` lo protege: mantenerlo
+        pulsado repite el evento sesenta veces por segundo, y aunque `gesticular`
+        ya ignora el gesto que llega con otro en marcha, dejar entrar la ráfaga
+        significaría que soltar y volver a pulsar en el momento justo valdría lo
+        mismo que tenerlo apretado. La valla tiene que costar un toque.
+      */
+      if (evento.key === 'ArrowUp' || evento.key === ' ' || evento.key === 'Spacebar') {
+        evento.preventDefault();
+        if (!evento.repeat) gesticular('salto');
+        return;
+      }
+      if (evento.key === 'ArrowDown') {
+        evento.preventDefault();
+        if (!evento.repeat) gesticular('rodada');
+        return;
+      }
+
       const numero = Number(evento.key);
       if (numero >= 1 && numero <= 3) {
         evento.preventDefault();
@@ -559,14 +902,65 @@ function Pista({
 
     window.addEventListener('keydown', alPulsar);
     return () => window.removeEventListener('keydown', alPulsar);
-  }, [cambiarCarril]);
+  }, [cambiarCarril, gesticular]);
+
+  /*
+    El tropiezo y el zarpazo se apagan solos.
+
+    Los dos son carteles de un rato, no estados de la partida: lo que la partida
+    guarda es la ventaja, que la lleva el marcador. Si se quedaran encendidos,
+    la sombra se instalaría encima de la pista después del primer fallo y la
+    tercera fase del cazador —la de «aguanta y se aleja»— no existiría.
+  */
+  useEffect(() => {
+    if (!tropiezo) return;
+    const reloj = window.setTimeout(() => setTropiezo(0), TROPIEZO);
+    return () => window.clearTimeout(reloj);
+  }, [tropiezo]);
+
+  useEffect(() => {
+    if (!acecho) return;
+    const reloj = window.setTimeout(() => setAcecho(0), ACECHO);
+    return () => window.clearTimeout(reloj);
+  }, [acecho]);
+
+  /*
+    Y el gesto se apaga cuando termina el arco.
+
+    Parece de adorno y no lo es: mientras hay gesto, el trote de Milo está en
+    pausa —no se puede trotar en el aire— y el botón se queda encendido. Sin
+    esta línea, el primer salto de la partida dejaría a Milo deslizándose sin
+    mover las patas durante las trece puertas siguientes y el botón encendido
+    hasta el final. La referencia `gestoVivo` NO se toca aquí: esa se contesta
+    restando y no necesita que nadie la apague; esto es solo lo que se pinta.
+  */
+  useEffect(() => {
+    if (!gesto) return;
+    const dura = gesto.tipo === 'salto' ? SALTO.dura : RODADA.dura;
+    const reloj = window.setTimeout(
+      () => setGesto((actual) => (actual === gesto ? null : actual)),
+      Math.max(dura - (performance.now() - gesto.inicio), 0),
+    );
+    return () => window.clearTimeout(reloj);
+  }, [gesto]);
 
   /** El final: un momento para ver la última puerta y se cierra. */
   useEffect(() => {
     if (!acabando) return;
     sonar('fin');
+    if (import.meta.env.DEV && window.__carrera) {
+      const suyo = partida.estado;
+      window.__carrera.fin = {
+        ventaja: suyo.ventaja,
+        aciertos: suyo.aciertos,
+        fallos: suyo.fallos,
+      };
+    }
     const reloj = window.setTimeout(terminar, FINAL);
     return () => window.clearTimeout(reloj);
+    // El marcador se lee al cerrar y no debe rearmar esto: cambia con cada
+    // puerta y volvería a sonar el final catorce veces.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [acabando, terminar]);
 
   useEffect(() => {
@@ -576,9 +970,26 @@ function Pista({
 
   const { ventaja, racha, paso } = partida.estado;
   const cazador = ronda.cazador;
-  const cercania = 1 - Math.min(ventaja / cazador.ventajaMaxima, 1);
   const multiplicador = multiplicadorDe(racha, cazador.tramosDeCombo);
   const ritmo = ritmoDe(ronda, paso);
+  const puerta = enPista?.puerta ?? null;
+
+  /*
+    La chuleta de los mandos, que ahora tiene que caber cuatro teclas.
+
+    NO cambia con la puerta, y eso es deliberado aunque parezca lo contrario de
+    lo útil: `Combo` la esconde en cuanto hay racha —su sitio lo ocupa el
+    «impulso ×4»—, así que un aviso que solo viviera aquí desaparecería
+    justamente cuando se va bien, que es cuando llegan las puertas dobles. El
+    aviso del gesto vive en el renglón de la banda, que está siempre.
+
+    Y es CORTA porque tiene que caber en un renglón a 320 px. Con la versión
+    larga —«Flechas o 1-2-3 para el carril»— se partía en dos y la cabecera
+    crecía catorce píxeles; como el pill del combo ocupa su sitio y mide uno
+    solo, la cabecera se encogía al llegar a tres seguidas y toda la pista
+    bailaba debajo de una puerta ya lanzada. Se vio en la captura de 320×568.
+  */
+  const pista = 'Carril 1-2-3 · ↑ salta · ↓ rueda';
 
   return (
     <div
@@ -593,7 +1004,7 @@ function Pista({
           <p className="text-[10px] uppercase tracking-wide text-[var(--texto-suave)]">
             Puerta {Math.min(indice + 1, puertas.length)} de {puertas.length}
           </p>
-          <Combo multiplicador={multiplicador} pista="Flechas o 1-2-3 para cambiar de carril" />
+          <Combo multiplicador={multiplicador} pista={pista} />
         </div>
         <Contador etiqueta="Puntos" valor={partida.puntuacion} vivo />
       </CabeceraJuego>
@@ -608,7 +1019,7 @@ function Pista({
         lo único que se mueve son los portales, y lo que hay que leer está
         clavado, con el hueco marcado y con contraste de sobra.
       */}
-      <Banda puerta={enPista?.puerta ?? null} resuelta={resuelta} />
+      <Banda puerta={puerta} resuelta={resuelta} />
 
       {/* Lo que acaba de pasar, para quien no ve la pantalla. */}
       <p role="status" aria-live="polite" className="sr-only">
@@ -624,7 +1035,7 @@ function Pista({
         className="relative mt-2 min-h-0 flex-1 overflow-hidden rounded-2xl border-2 border-violet-200 bg-linear-to-b from-violet-100 to-violet-50 dark:border-violet-950 dark:from-slate-950 dark:to-violet-950/40"
       >
         <Asfalto />
-        <Cazador cercania={cercania} />
+        <Cazador ventaja={ventaja} maxima={cazador.ventajaMaxima} acecho={acecho} />
 
         {enPista && alto > 0 && (
           <Puerta
@@ -639,7 +1050,9 @@ function Pista({
 
         <Corredor
           carril={carril}
-          gesto={resuelta ? (resuelta.acierto ? 'impulso' : 'frenazo') : null}
+          gesto={gesto}
+          tropieza={tropiezo}
+          golpe={resuelta ? (resuelta.acierto ? 'impulso' : 'frenazo') : null}
           marca={resuelta?.marca ?? -1}
           parado={acabando}
         />
@@ -649,22 +1062,71 @@ function Pista({
           `pointer-events`. Así se toca DONDE se quiere ir en vez de tener que
           acertarle a un portal que se mueve y que además es pequeño cuando
           todavía está lejos, que es justo cuando ya se sabe la respuesta.
+
+          Y con los gestos, esas mismas zonas llevan el DESLIZAMIENTO. El cambio
+          de carril se queda en `pointerdown` —tiene que ser inmediato— y el
+          gesto sale de `pointermove` en cuanto el dedo se va 24 px arriba o
+          abajo, no al soltar: esperar a levantar el dedo le mete a cada salto la
+          latencia entera del gesto, y el reloj de la puerta no la ha pagado.
+          Que un deslizamiento cambie de carril de paso no molesta: el carril se
+          puede volver a cambiar y lo que cuenta es dónde está Milo al llegar.
         */}
         <ul className="absolute inset-0 grid grid-cols-3" aria-label="Carriles">
           {CARRILES.map((numero) => (
             <li key={numero} className="contents">
               <button
                 type="button"
-                onPointerDown={() => cambiarCarril(numero)}
+                onPointerDown={(evento) => {
+                  desdeY.current = evento.clientY;
+                  cambiarCarril(numero);
+                }}
+                onPointerMove={(evento) => {
+                  if (desdeY.current === null) return;
+                  const recorrido = evento.clientY - desdeY.current;
+                  if (Math.abs(recorrido) < DESLIZAR) return;
+                  desdeY.current = null;
+                  gesticular(recorrido < 0 ? 'salto' : 'rodada');
+                }}
+                onPointerUp={() => {
+                  desdeY.current = null;
+                }}
+                onPointerCancel={() => {
+                  desdeY.current = null;
+                }}
                 disabled={acabando}
-                aria-label={`Carril ${numero + 1}${
-                  enPista ? `: ${enPista.puerta.opciones[numero] ?? ''}` : ''
-                }`}
-                className="h-full w-full focus-visible:bg-violet-500/10"
+                aria-label={etiquetaDeCarril(puerta, numero)}
+                className="h-full w-full touch-none focus-visible:bg-violet-500/10"
               />
             </li>
           ))}
         </ul>
+
+        {/*
+          Los dos botones del gesto, en las esquinas de ABAJO y no en una fila
+          propia.
+
+          Una fila debajo de la pista costaría 32 px, y a 320×568 —la pantalla
+          más baja que se usa— esos 32 px salen de la pista, que es donde vive
+          todo. Abajo del todo no estorban: Milo corre al 78 % de la altura, así
+          que el último quinto está vacío siempre. Son botones de verdad, con su
+          nombre, así que también se llega a ellos tabulando.
+        */}
+        <div className="pointer-events-none absolute inset-x-1 bottom-1 flex justify-between">
+          <BotonDeGesto
+            etiqueta="Rodar"
+            signo="▼"
+            activo={gesto?.tipo === 'rodada'}
+            disabled={acabando}
+            onPulsar={() => gesticular('rodada')}
+          />
+          <BotonDeGesto
+            etiqueta="Saltar"
+            signo="▲"
+            activo={gesto?.tipo === 'salto'}
+            disabled={acabando}
+            onPulsar={() => gesticular('salto')}
+          />
+        </div>
 
         {acabando && (
           <div className="absolute inset-0 grid place-items-center bg-[var(--fondo)]/85">
@@ -740,6 +1202,37 @@ function Banda({
 
   return (
     <div className="mt-2 flex min-h-[76px] shrink-0 flex-col justify-center rounded-xl border-2 border-violet-200 bg-[var(--superficie)] px-2 py-1.5 dark:border-violet-900">
+      {/*
+        EL RENGLÓN DEL GESTO, y OCUPA SU SITIO SIEMPRE.
+
+        Lo de que ocupe su sitio siempre no es maña: es la misma lección que ya
+        estaba escrita abajo para la tira de la racha. Este renglón solo tiene
+        algo que decir en las puertas que piden gesto, que son cuatro o cinco de
+        catorce; si apareciera y desapareciera, la banda crecería y encogería
+        catorce veces, la pista —que es lo que queda en medio— se movería con
+        ella y el plano de Milo cambiaría DEBAJO de una puerta que ya está en el
+        aire con la distancia vieja apuntada. Se vería como un salto del suelo.
+        Así que la altura está reservada con `h-4` y lo que cambia es el texto.
+
+        Y lo que dice en una puerta doble no es una ayuda de más: sin la
+        etiqueta se vería «went» arriba y «go» abajo sin saber qué se afirma al
+        saltar, y media respuesta la pondría el azar. Con ella, saltar es decir
+        «esto va en pasado» y equivocarse de fila es equivocarse de gramática.
+
+        Va DENTRO de la banda quieta y no sobre el asfalto, por lo mismo que la
+        frase: es texto que hay que leer para actuar.
+      */}
+      <p className="flex h-4 items-center justify-center text-center text-[11px] font-bold leading-none text-[var(--texto-suave)]">
+        {fallada ? null : mostrada?.ejes ? (
+          <span className="text-amber-600 dark:text-amber-400">
+            ▲ {mostrada.ejes.arriba} · ▼ {mostrada.ejes.abajo}
+          </span>
+        ) : mostrada?.estorbo ? (
+          <span className="text-amber-600 dark:text-amber-400">
+            {mostrada.estorbo === 'valla' ? '▲ salta la valla' : '▼ rueda bajo la barra'}
+          </span>
+        ) : null}
+      </p>
       <p lang="en" className="text-center text-lg font-extrabold leading-tight sm:text-xl">
         {partes[0]}
         <span
@@ -830,19 +1323,26 @@ function Puerta({
         >
           <Portal
             texto={opcion}
+            alta={enPista.puerta.altas?.[numero] ?? null}
+            estorbo={enPista.puerta.estorbo ?? null}
             ventanaMs={enPista.ventanaMs}
             apuntado={carril === numero}
-            estado={
+            estadoDe={(cual) =>
               !resuelta
                 ? 'abierto'
-                : opcion === resuelta.puerta.correcta
+                : cual === resuelta.puerta.correcta
                   ? 'buena'
-                  : opcion === resuelta.cruzado
+                  : cual === resuelta.cruzado
                     ? 'mala'
                     : 'abierto'
             }
             corriendo={corriendo}
             premio={resuelta?.acierto && opcion === resuelta.cruzado ? resuelta.suma : null}
+            premioAlto={
+              resuelta?.acierto && enPista.puerta.altas?.[numero] === resuelta.cruzado
+                ? resuelta.suma
+                : null
+            }
           />
         </div>
       ))}
@@ -850,21 +1350,50 @@ function Puerta({
   );
 }
 
+/**
+ * El alto del arco, en sus dos formas.
+ *
+ * El sencillo se queda en los 96 px de siempre. El doble sube a 116 y ese
+ * número sale de una cuenta, no del ojo: hay que meter dos palabras y un
+ * travesaño, y lo que no se puede bajar es la letra. Con 116 px cada mitad
+ * tiene 52 y el travesaño 8; a 320 px y al 78 % de escala —lo más pequeño que
+ * llega a estar el arco— esos 52 px son 40, que dan de sobra para un renglón
+ * de la talla grande y su aire.
+ *
+ * Los 20 px de más también caen donde tienen que caer. Milo corre al 78 % de
+ * la altura de la pista y la puerta llega al 60 %: con el arco sencillo, su
+ * mitad de abajo le cae encima. Con el doble, la fila de arriba queda por
+ * encima de su cabeza y la de abajo a la altura de sus pies, que es
+ * exactamente lo que hay que creerse para saltar a una y rodar a la otra.
+ */
+const ARCO_SENCILLO = 96;
+const ARCO_DOBLE = 116;
+
 function Portal({
   texto,
+  alta,
+  estorbo,
   ventanaMs,
   apuntado,
-  estado,
+  estadoDe,
   corriendo,
   premio,
+  premioAlto,
 }: {
   texto: string;
+  /** La opción de la fila de arriba, si esta puerta es doble. */
+  alta: string | null;
+  estorbo: 'valla' | 'barra' | null;
   ventanaMs: number;
   apuntado: boolean;
-  estado: 'abierto' | 'buena' | 'mala';
+  estadoDe: (opcion: string) => 'abierto' | 'buena' | 'mala';
   corriendo: boolean;
   premio: number | null;
+  premioAlto: number | null;
 }) {
+  const doble = alta !== null;
+  const estado = doble ? 'abierto' : estadoDe(texto);
+
   return (
     <div
       className="relative"
@@ -881,7 +1410,7 @@ function Portal({
       <div
         className={cn(
           /*
-            96 px de alto y el texto CENTRADO, no pegado abajo.
+            El texto CENTRADO, no pegado abajo.
 
             Al cruzar, Milo se planta encima del portal —es lo que pasa, ha
             corrido hasta él— y con el texto en el borde inferior le tapaba
@@ -890,7 +1419,8 @@ function Portal({
             Subiéndola al centro del arco queda por encima de la cabeza de Milo
             y se puede comparar con la buena, que es lo que hay que hacer ahí.
           */
-          'flex h-[96px] w-full flex-col items-center justify-center rounded-t-[42%] border-[3px] border-b-0 pb-1 shadow-lg',
+          'flex w-full flex-col items-center justify-center overflow-hidden rounded-t-[42%] border-[3px] border-b-0 shadow-lg',
+          !doble && 'pb-1',
           estado === 'buena' && 'border-emerald-500 bg-emerald-100/90 dark:bg-emerald-900/80',
           estado === 'mala' && 'border-red-500 bg-red-100/90 dark:bg-red-950/80',
           estado === 'abierto' &&
@@ -898,27 +1428,102 @@ function Portal({
               ? 'border-violet-500 bg-violet-200/90 ring-4 ring-violet-400/50 dark:border-violet-300 dark:bg-violet-800/80'
               : 'border-violet-400/70 bg-[var(--superficie)]/85 dark:border-violet-600'),
         )}
+        style={{ height: doble ? ARCO_DOBLE : ARCO_SENCILLO }}
       >
-        <span
-          lang="en"
-          className={cn(
-            'block w-full break-words px-0.5 text-center font-extrabold leading-tight',
-            tamanoDe(texto),
-          )}
-        >
-          {texto}
-        </span>
+        {doble ? (
+          <>
+            <Fila texto={alta} estado={estadoDe(alta)} />
+            {/*
+              El travesaño. No es una raya decorativa: es lo que hay que evitar,
+              y por eso se pinta como un obstáculo —rayado y con sombra— y no
+              como un separador.
+            */}
+            <span
+              aria-hidden
+              className="h-2 w-full shrink-0 bg-[repeating-linear-gradient(45deg,#f59e0b_0,#f59e0b_5px,#1f2937_5px,#1f2937_10px)] shadow-md"
+            />
+            <Fila texto={texto} estado={estadoDe(texto)} />
+          </>
+        ) : (
+          <span
+            lang="en"
+            className={cn(
+              'block w-full break-words px-0.5 text-center font-extrabold leading-tight',
+              tamanoDe(texto),
+            )}
+          >
+            {texto}
+          </span>
+        )}
       </div>
 
-      {premio !== null && (
-        <span
-          className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-emerald-600 px-1.5 py-0.5 text-[11px] font-extrabold tabular-nums text-white shadow"
-          style={{ animation: 'carrera-premio 900ms ease-out forwards' }}
-        >
-          +{premio}
-        </span>
-      )}
+      {/*
+        La reja de una puerta sencilla, POR FUERA del arco y pegada a su boca.
+
+        Va fuera y no dentro porque lo que hace no es dividir el hueco, es
+        taparlo: es una valla plantada delante de los tres arcos por igual. Y
+        por eso se dibuja idéntica en los tres, que es lo que impide que sea un
+        cartel diciendo dónde está la respuesta.
+      */}
+      {estorbo && <Reja tipo={estorbo} />}
+
+      {premioAlto !== null && <Premio suma={premioAlto} arriba />}
+      {premio !== null && <Premio suma={premio} arriba={false} />}
     </div>
+  );
+}
+
+/** Una de las dos filas de un portal partido. */
+function Fila({ texto, estado }: { texto: string; estado: 'abierto' | 'buena' | 'mala' }) {
+  return (
+    <span
+      lang="en"
+      className={cn(
+        'flex w-full flex-1 items-center justify-center break-words px-0.5 text-center font-extrabold leading-tight',
+        tamanoDe(texto),
+        estado === 'buena' &&
+          'bg-emerald-200/90 text-[var(--texto-acierto)] dark:bg-emerald-800/80',
+        estado === 'mala' && 'bg-red-200/90 text-[var(--texto-fallo)] dark:bg-red-900/80',
+      )}
+    >
+      {texto}
+    </span>
+  );
+}
+
+/**
+ * La valla baja o el travesaño alto de una puerta sencilla.
+ *
+ * `valla` es una tabla en la boca del arco que llega a la altura de la rodilla
+ * de Milo: se pasa por encima. `barra` es un travesaño colgado arriba con el
+ * hueco debajo: se pasa por abajo. Se dibujan con el mismo rayado de obra que
+ * el travesaño de la puerta doble para que las tres cosas se lean como lo
+ * mismo —algo con lo que se choca— sin tener que aprenderse tres símbolos.
+ */
+function Reja({ tipo }: { tipo: 'valla' | 'barra' }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'pointer-events-none absolute inset-x-0 h-3 bg-[repeating-linear-gradient(45deg,#f59e0b_0,#f59e0b_5px,#1f2937_5px,#1f2937_10px)] shadow-md',
+        tipo === 'valla' ? 'bottom-0 rounded-t-sm' : 'top-3 rounded-sm',
+      )}
+    />
+  );
+}
+
+/** Los puntos que se ganan, flotando sobre la fila por la que se pasó. */
+function Premio({ suma, arriba }: { suma: number; arriba: boolean }) {
+  return (
+    <span
+      className={cn(
+        'pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-emerald-600 px-1.5 py-0.5 text-[11px] font-extrabold tabular-nums text-white shadow',
+        arriba ? '-top-4' : '-top-2',
+      )}
+      style={{ animation: 'carrera-premio 900ms ease-out forwards' }}
+    >
+      +{suma}
+    </span>
   );
 }
 
@@ -939,11 +1544,17 @@ function Portal({
 const Corredor = memo(function Corredor({
   carril,
   gesto,
+  tropieza,
+  golpe,
   marca,
   parado,
 }: {
   carril: number;
-  gesto: 'impulso' | 'frenazo' | null;
+  /** El salto o la rodada en marcha. Se pinta con su propia capa. */
+  gesto: Gesto | null;
+  /** Sube con cada choque: es lo que reinicia la animación de irse de bruces. */
+  tropieza: number;
+  golpe: 'impulso' | 'frenazo' | null;
   marca: number;
   parado: boolean;
 }) {
@@ -953,39 +1564,86 @@ const Corredor = memo(function Corredor({
       style={{
         /*
           Milo va un poco por DEBAJO del plano al que llegan las puertas (60 %
-          contra 72 %), y esos doce puntos son a propósito: el arco mide 96 px,
-          así que su mitad inferior cae justo sobre Milo y el portal se cruza de
+          contra 78 %), y esa distancia es a propósito: el arco mide 96 px, así
+          que su mitad inferior cae justo sobre Milo y el portal se cruza de
           verdad en vez de pararse delante. Si los dos planos fueran el mismo,
           el portal aparecería colgado por encima de la cabeza.
+
+          Estaba en 72 % y a 320×568 —la pantalla más baja que se usa— Milo
+          tapaba la palabra del portal que acababa de cruzar, justo al fallar,
+          que es cuando esa palabra es lo único que enseña. En pantallas altas
+          no pasaba. Bajarlo al 78 % lo resuelve sin tocar el cruce: la mitad
+          inferior del arco le sigue cayendo encima.
         */
-        top: 'calc(var(--carrera-alto, 300px) * 0.72)',
+        top: 'calc(var(--carrera-alto, 300px) * 0.78)',
         transform: `translateX(${(carril - 1) * 100}%)`,
       }}
     >
       <div
         key={marca}
         style={
-          gesto
+          golpe
             ? {
-                animation: `carrera-${gesto} ${gesto === 'impulso' ? 520 : 620}ms ease-out`,
+                animation: `carrera-${golpe} ${golpe === 'impulso' ? 520 : 620}ms ease-out`,
               }
             : undefined
         }
       >
+        {/*
+          EL GESTO VA EN SU PROPIA CAPA, y es la misma razón por la que el
+          desplazamiento y el tamaño de la puerta van en capas distintas: cada
+          capa mueve UNA cosa. El salto sube y baja, el trote de dentro sigue
+          trotando, y el tirón del acierto —que está en la capa de fuera— sigue
+          pudiendo dispararse encima sin que ninguno de los tres se pise.
+
+          Con las tres en el mismo elemento habría que componer los `transform`
+          a mano desde JavaScript en cada fotograma, que es exactamente lo que
+          este juego no hace en ninguna parte.
+
+          `transform-origin: bottom` es lo que convierte el `scaleY(0.5)` de la
+          rodada en agacharse en vez de encoger: sin él, Milo se achataría
+          hacia el centro y se le verían los pies despegados del suelo.
+        */}
         <div
-          className="flex justify-center"
-          style={{
-            animation: `carrera-trote var(--carrera-ritmo, 620ms) ease-in-out infinite`,
-            animationPlayState: parado ? 'paused' : 'running',
-          }}
+          key={gesto ? `${gesto.tipo}${gesto.inicio}` : 'de-pie'}
+          className="origin-bottom"
+          style={
+            gesto
+              ? {
+                  animation: `carrera-${gesto.tipo} ${
+                    gesto.tipo === 'salto' ? SALTO.dura : RODADA.dura
+                  }ms linear forwards`,
+                }
+              : undefined
+          }
         >
-          <Mascota
-            estado={gesto === 'impulso' ? 'celebrando' : gesto === 'frenazo' ? 'sorprendido' : 'feliz'} // prettier-ignore
-            tamano={78}
-          />
+          <div
+            key={`choque${tropieza}`}
+            style={
+              tropieza
+                ? { animation: `carrera-tropiezo ${TROPIEZO}ms ease-out forwards` }
+                : undefined
+            }
+          >
+            <div
+              className="flex justify-center"
+              style={{
+                animation: `carrera-trote var(--carrera-ritmo, 620ms) ease-in-out infinite`,
+                animationPlayState: parado || gesto ? 'paused' : 'running',
+              }}
+            >
+              <Mascota
+                estado={golpe === 'impulso' ? 'celebrando' : golpe === 'frenazo' || tropieza ? 'sorprendido' : 'feliz'} // prettier-ignore
+                tamano={78}
+              />
+            </div>
+          </div>
         </div>
       </div>
-      <span className="sr-only">Milo va por el carril {carril + 1}</span>
+      <span className="sr-only">
+        Milo va por el carril {carril + 1}
+        {gesto?.tipo === 'salto' ? ', saltando' : gesto?.tipo === 'rodada' ? ', rodando' : ''}
+      </span>
     </div>
   );
 });
@@ -1067,36 +1725,109 @@ function Asfalto() {
  * fallar tres seguidas; aquí no, porque entre medias se recupera. Lo que mata
  * es dejar de leer, que es exactamente lo que este juego quiere castigar.
  *
- * Se mueve con una transición y no con una animación porque solo cambia cuando
- * se resuelve una puerta: catorce veces en toda la carrera.
+ *
+ * LAS TRES FASES, Y POR QUÉ NO SON UN SISTEMA DE VIDAS APARTE
+ *
+ * La sombra tiene tres estados y los tres se leen de la MISMA ventaja que ya
+ * llevaba la barra. Es la decisión de diseño de esta pieza y conviene decir qué
+ * se estuvo a punto de hacer en su lugar: un contador de tropiezos propio, con
+ * su regla de «te atrapan al segundo», que corría en paralelo a la ventaja.
+ *
+ * Se descartó por lo que medía. Ese contador es puro arcade —cuenta gestos
+ * fallados— y habría metido una segunda forma de perder la carrera que no sabe
+ * nada de inglés. Este juego apunta a que se falle el 15 % y a que ese 15 % lo
+ * ponga la gramática; una muerte por dedos, por rara que fuese, sale entera de
+ * ese presupuesto. Así que la fase es una LECTURA de la ventaja y no una vida:
+ *
+ *   - FUERA (ventaja ≥ 70): la sombra no está. Quien encadena no la ve, que es
+ *     justo lo que pide un runner: el que va perfecto corre solo.
+ *   - ASOMA (40 a 70): se ve al fondo, pequeña. Es el aviso.
+ *   - ENCIMA (por debajo de 40): grande y pisando. Con 55 de salida y 26 por
+ *     fallo, ahí se llega con un fallo y se sale con dos cruces buenas.
+ *   - ZARPA (ventaja 0): tres fallos sin recuperarse. Se acabó.
+ *
+ * Y encima de todo eso va el ZARPAZO, que es una capa aparte y de tiempo: al
+ * fallar la sombra se abalanza tres segundos y medio y se retira sola. Eso es
+ * lo que hace que «aguanta y se alejan» sea verdad sin tocar la puntuación: el
+ * susto se va solo, y lo que queda debajo es la ventaja, que solo la mueve
+ * cruzar puertas.
  */
-function Cazador({ cercania }: { cercania: number }) {
+const CAZADOR_FUERA = 0.7;
+const CAZADOR_ENCIMA = 0.4;
+
+/** Lo que dura el zarpazo: 3,5 segundos, dentro de los 3-5 que pedía el diseño. */
+const ACECHO = 3500;
+
+function Cazador({ ventaja, maxima, acecho }: { ventaja: number; maxima: number; acecho: number }) {
+  const resto = Math.min(Math.max(ventaja / maxima, 0), 1);
+  const cercania = 1 - resto;
   const escala = 0.34 + cercania * 0.78;
   const avance = 0.02 + cercania * 0.5;
 
+  /*
+    Fuera de la pista no es opacidad cero: es que no está.
+
+    Con `opacity: 0` el elemento sigue ahí, sigue componiéndose y sigue
+    ocupando una capa del compositor en la pantalla que más capas mueve del
+    juego. Y sobre todo, se vería aparecer un fantasma medio transparente en el
+    rato en el que la ventaja cruza el umbral, que es exactamente lo contrario
+    de lo que tiene que contar: o te persiguen o no.
+  */
+  const fuera = resto >= CAZADOR_FUERA && !acecho;
+
   return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute left-1/2 top-0 block w-[26%] -translate-x-1/2 transition-all duration-700 ease-out"
-      style={{
-        transform: `translate3d(-50%, calc(var(--carrera-alto, 300px) * ${avance}), 0) scale(${escala})`,
-        opacity: 0.35 + cercania * 0.65,
-      }}
-    >
-      <svg viewBox="0 0 60 60" className="w-full drop-shadow-lg">
-        {/*
-          Una silueta y no un monstruo dibujado: lo que asusta de algo que
-          persigue es no verle la cara. Y de paso pesa cuatro trazos, que en una
-          pantalla que ya mueve tres portales es lo que hay que gastar aquí.
-        */}
-        <path
-          d="M30 6c-9 0-16 7-16 16 0 5 2 9 5 12-6 4-10 11-10 19v5h42v-5c0-8-4-15-10-19 3-3 5-7 5-12 0-9-7-16-16-16z"
-          className="fill-slate-800 dark:fill-black"
-        />
-        <circle cx="23" cy="21" r="3.2" className="fill-red-500" />
-        <circle cx="37" cy="21" r="3.2" className="fill-red-500" />
-      </svg>
-    </span>
+    <>
+      {!fuera && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-0 block w-[26%] -translate-x-1/2 transition-all duration-700 ease-out"
+          style={{
+            transform: `translate3d(-50%, calc(var(--carrera-alto, 300px) * ${avance}), 0) scale(${escala})`,
+            opacity: resto < CAZADOR_ENCIMA ? 1 : 0.28 + cercania * 0.5,
+          }}
+        >
+          <SiluetaDeSombra />
+        </span>
+      )}
+
+      {/*
+        El zarpazo: una sombra de más, suya y con su propio reloj.
+
+        Va SEPARADA de la de arriba a propósito. Si el susto se pintara moviendo
+        la misma silueta, al acabarse volvería a su sitio con la transición de
+        700 ms de la ventaja y parecería que la ventaja ha cambiado, cuando lo
+        único que ha pasado es que el susto se fue. Dos capas, dos relojes y
+        ninguna miente sobre la otra.
+      */}
+      {acecho > 0 && (
+        <span
+          key={acecho}
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-0 block w-[34%]"
+          style={{ animation: `carrera-zarpazo ${ACECHO}ms ease-out forwards` }}
+        >
+          <SiluetaDeSombra />
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
+ * Una silueta y no un monstruo dibujado: lo que asusta de algo que persigue es
+ * no verle la cara. Y de paso pesa cuatro trazos, que en una pantalla que ya
+ * mueve tres portales es lo que hay que gastar aquí.
+ */
+function SiluetaDeSombra() {
+  return (
+    <svg viewBox="0 0 60 60" className="w-full drop-shadow-lg">
+      <path
+        d="M30 6c-9 0-16 7-16 16 0 5 2 9 5 12-6 4-10 11-10 19v5h42v-5c0-8-4-15-10-19 3-3 5-7 5-12 0-9-7-16-16-16z"
+        className="fill-slate-800 dark:fill-black"
+      />
+      <circle cx="23" cy="21" r="3.2" className="fill-red-500" />
+      <circle cx="37" cy="21" r="3.2" className="fill-red-500" />
+    </svg>
   );
 }
 
@@ -1163,6 +1894,74 @@ function Combo({ multiplicador, pista }: { multiplicador: number; pista: string 
 }
 
 /**
+ * Cómo se llama un carril para quien no ve la pantalla.
+ *
+ * En una puerta sencilla dice su opción, como siempre. En una doble dice las
+ * DOS y con qué gesto se coge cada una, porque ahí el nombre del carril ya no
+ * es una respuesta: es la mitad de una. Sin el gesto dentro del nombre, quien
+ * juega de oído sabría que en el carril 2 hay «went» y «go» y no tendría forma
+ * de saber cuál coge al pasar.
+ */
+function etiquetaDeCarril(puerta: PuertaDeCarrera | null, numero: number): string {
+  if (!puerta) return `Carril ${numero + 1}`;
+
+  const abajo = puerta.opciones[numero] ?? '';
+  const arriba = puerta.altas?.[numero];
+  if (arriba) return `Carril ${numero + 1}: saltando ${arriba}, rodando ${abajo}`;
+
+  const gesto =
+    puerta.estorbo === 'valla' ? ' saltando' : puerta.estorbo === 'barra' ? ' rodando' : '';
+  return `Carril ${numero + 1}:${gesto} ${abajo}`;
+}
+
+/**
+ * Los botones de saltar y rodar.
+ *
+ * Existen por dos motivos que se refuerzan: que el juego se pueda jugar
+ * tocando sin tener que descubrir que hay que deslizar —un gesto que no se ve
+ * no existe— y que los dos ejes sean alcanzables con el tabulador, igual que
+ * ya lo eran los tres carriles.
+ *
+ * Son cuadrados de 44 px, que es el objetivo táctil de las guías de
+ * accesibilidad y lo que en esta pantalla se puede pulsar sin mirar mientras
+ * pasan otras cosas.
+ */
+function BotonDeGesto({
+  etiqueta,
+  signo,
+  activo,
+  disabled,
+  onPulsar,
+}: {
+  etiqueta: string;
+  signo: string;
+  activo: boolean;
+  disabled: boolean;
+  onPulsar: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      // `pointerdown` y no `click`: el gesto tiene que salir en cuanto el dedo
+      // toca, no cuando lo levanta. Esperar al `click` le mete a cada salto los
+      // cien y pico milisegundos del toque entero, y el reloj de la puerta no
+      // los ha pagado.
+      onPointerDown={onPulsar}
+      disabled={disabled}
+      aria-label={etiqueta}
+      className={cn(
+        'pointer-events-auto grid h-11 w-11 touch-none place-items-center rounded-full border-2 text-base font-black shadow-md',
+        activo
+          ? 'border-amber-500 bg-amber-300 text-slate-900'
+          : 'border-violet-400/80 bg-[var(--superficie)]/85 text-[var(--texto-suave)] dark:border-violet-600',
+      )}
+    >
+      <span aria-hidden>{signo}</span>
+    </button>
+  );
+}
+
+/**
  * Qué tamaño aguanta la opción dentro del portal.
  *
  * Las opciones van de «am» a «don't must», y una talla única deja la corta
@@ -1216,6 +2015,33 @@ function tamanoDe(texto: string): string {
  * La carrera se sigue viendo: hay un mapa de catorce casillas con Milo en la
  * suya y la sombra detrás, y esas dos fichas se mueven de casilla cuando se
  * resuelve una puerta. Un salto de posición no es una animación.
+ *
+ *
+ * Y AHORA HAY UN EJE VERTICAL, QUE ES EL CASO MÁS DIFÍCIL DE TODOS
+ *
+ * La puerta doble pregunta dos cosas —qué palabra y qué forma— y en la pista
+ * la segunda se contesta saltando o rodando. Aquí eso no se puede sostener, y
+ * no por pureza: el gesto se acierta metiendo un toque dentro de una ventana de
+ * 520 ms que solo existe porque hay un arco animándose, y quien pidió menos
+ * movimiento no tiene ese arco. Un botón de «saltar» sin salto sería una
+ * ventana de tiempo sin nada que la explique.
+ *
+ * Así que se quita el gesto y NO se quita la pregunta: las seis formas salen
+ * como seis botones en dos grupos, con las mismas etiquetas de `ejes` que se
+ * pintan en la pista. Ese es el reparto correcto, y conviene decirlo porque la
+ * tentación era la contraria: el gesto era la FORMA de contestar, no lo que se
+ * preguntaba. Degradar la puerta doble a tres opciones habría sido quitarle a
+ * esta pantalla la mitad de la gramática que el juego entrena, que es
+ * exactamente lo que «accesible y vacío» quiere decir.
+ *
+ * La reja de las puertas sencillas sí se quita entera, y sin pena: era arcade
+ * puro, un peaje para que los dos gestos se practicaran. Sin gestos no hay nada
+ * que practicar.
+ *
+ * El reloj sigue siendo el del servidor, con su `gestoMs` incluido —medio
+ * segundo que aquí sobra—. Se deja a propósito, por lo mismo que está escrito
+ * arriba: esta pantalla acaba siendo un poco más fácil, y ese es el lado
+ * correcto por el que equivocarse.
  */
 function PorTurnos({
   ronda,
@@ -1237,6 +2063,30 @@ function PorTurnos({
   const puerta = puertas[indice];
   const { ventaja, racha, paso } = partida.estado;
   const seAcabo = ventaja === 0 || !puerta;
+
+  /*
+    Esta pantalla publica el MISMO mirador de desarrollo que la pista.
+
+    No es simetría por simetría: sin él, el jugador simulado no puede jugar aquí
+    —no hay forma de saber qué portal es el bueno— y entonces la pantalla
+    accesible no se puede medir jugando, que es la única forma de medir este
+    juego. Se quedó sin medir en la primera versión y se notó enseguida: al
+    intentar llegar a una puerta doble contestando al azar, la carrera se acaba
+    en la cuarta y las dobles están de la once en adelante.
+  */
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    window.__carrera = { puerta: null, puertas: [], fin: null };
+    return () => {
+      delete window.__carrera;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || !window.__carrera) return;
+    window.__carrera.puerta =
+      puerta && !resuelta ? { ...puerta, desde: performance.now(), ventanaMs: 0 } : null;
+  }, [puerta, resuelta]);
 
   const responder = useCallback(
     (cruzado: string) => {
@@ -1315,10 +2165,38 @@ function PorTurnos({
     if (seAcabo) terminar();
   }, [seAcabo, terminar]);
 
+  /*
+    Las teclas, que aquí faltaban.
+
+    La cabecera de esta pantalla llevaba escrito «Teclas 1, 2 y 3» desde el
+    principio y no había nadie escuchándolas: los portales eran botones, así que
+    se llegaba a ellos tabulando y pulsando intro, pero el dígito no hacía nada.
+    Con las puertas dobles el número de opciones pasa a ser tres o seis, así que
+    el atajo tenía que existir de verdad y tenía que contar hasta donde haga
+    falta. La pista de la cabecera ahora sale del número de opciones y no de una
+    cadena escrita a mano, que es lo que dejó que se desincronizaran.
+  */
+  useEffect(() => {
+    if (!puerta || resuelta || seAcabo) return;
+
+    const alPulsar = (evento: KeyboardEvent) => {
+      if (evento.altKey || evento.ctrlKey || evento.metaKey) return;
+      const numero = Number(evento.key);
+      const elegida = opcionesDeLaPuerta(puerta)[numero - 1];
+      if (!elegida) return;
+      evento.preventDefault();
+      responder(elegida.texto);
+    };
+
+    window.addEventListener('keydown', alPulsar);
+    return () => window.removeEventListener('keydown', alPulsar);
+  }, [puerta, resuelta, seAcabo, responder]);
+
   if (!puerta) return <Cerrando onSalir={onSalir} />;
 
   const partes = puerta.frase.split(/_{3}/);
   const multiplicador = multiplicadorDe(racha, ronda.cazador.tramosDeCombo);
+  const opciones = opcionesDeLaPuerta(puerta);
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 py-3">
@@ -1327,7 +2205,7 @@ function PorTurnos({
           <p className="text-[10px] uppercase tracking-wide text-[var(--texto-suave)]">
             Puerta {indice + 1} de {puertas.length}
           </p>
-          <Combo multiplicador={multiplicador} pista="Teclas 1, 2 y 3" />
+          <Combo multiplicador={multiplicador} pista={`Teclas 1 a ${opciones.length}`} />
         </div>
         {/*
           Los segundos se quedan CONGELADOS en lo que quedaba al contestar, no a
@@ -1375,36 +2253,105 @@ function PorTurnos({
         )}
       </div>
       <p className="mt-3 text-center text-xs text-[var(--texto-suave)]">
-        Elige el portal que completa la frase. Con teclado, del 1 al 3.
+        {puerta.altas
+          ? 'Elige la forma que completa la frase. Con teclado, del 1 al 6.'
+          : 'Elige el portal que completa la frase. Con teclado, del 1 al 3.'}
       </p>
-      <ul className="mt-2 grid gap-2" aria-label="Portales">
-        {puerta.opciones.map((opcion, numero) => (
-          <li key={opcion}>
+      {/*
+        LA PUERTA DOBLE AQUÍ NO SE SALTA: SE ELIGE. Y NO ES UNA VERSIÓN CAPADA.
+
+        Lo que la puerta doble pregunta son dos cosas —qué palabra y qué forma—,
+        y eso es lo que tiene que seguir preguntando. Lo que NO puede seguir
+        siendo es el salto, porque quien pidió menos movimiento no puede tener
+        un gesto que depende de un arco animado y de acertarle a una ventana de
+        520 ms.
+
+        Así que las seis formas salen como seis botones en dos grupos
+        etiquetados con los mismos `ejes` que en la pista. Se pierde el gesto y
+        se conserva la pregunta entera, que es el reparto correcto: el gesto era
+        la FORMA de contestar, no la pregunta.
+
+        El reloj es el mismo que calculó el servidor, `gestoMs` incluido. Ese
+        sumando aquí sobra —no hay gesto que hacer— y se deja a propósito: es
+        medio segundo de regalo en la pantalla accesible, y ya está escrito
+        abajo por qué ese es el lado correcto por el que equivocarse.
+      */}
+      {/*
+        Y LAS SEIS VAN EN DOS COLUMNAS, no en una lista de seis.
+
+        Es la corrección que pidió la captura de 320×568: en una columna, la
+        sexta forma caía por debajo del borde y había que DESPLAZARSE con el
+        reloj corriendo. Leer seis opciones ya es lo caro de esta puerta;
+        buscarlas fuera de la pantalla es cobrar un tiempo que el servidor no
+        dio.
+
+        Y de paso se lee mejor, que es la parte que importa: dos columnas con
+        el nombre de su eje encima son la rejilla que la puerta doble pregunta
+        —tres palabras por dos formas—, y eso en la pista lo dice la altura. El
+        orden de las teclas se conserva porque la rejilla se llena POR
+        COLUMNAS: del 1 al 3 la fila de arriba y del 4 al 6 la de abajo, igual
+        que las lee un lector de pantalla.
+      */}
+      {puerta.ejes && (
+        <p
+          aria-hidden
+          className="mt-2 grid grid-cols-2 gap-2 text-center text-[11px] font-bold text-[var(--texto-suave)]"
+        >
+          <span>{puerta.ejes.arriba}</span>
+          <span>{puerta.ejes.abajo}</span>
+        </p>
+      )}
+      <ul
+        className={cn('mt-2 grid gap-2', puerta.ejes && 'grid-flow-col grid-cols-2 grid-rows-3')}
+        aria-label="Portales"
+      >
+        {opciones.map(({ texto, fila }, numero) => (
+          <li key={texto}>
             <button
               type="button"
               disabled={Boolean(resuelta)}
-              onClick={() => responder(opcion)}
+              onClick={() => responder(texto)}
               lang="en"
+              /*
+                El nombre va en `aria-label` y no armado con trozos de dentro.
+
+                Armado con trozos —un `sr-only` con «Portal 1», el texto y otro
+                `sr-only` con la fila— el navegador los junta con los espacios
+                que le parecen y sale «Portal 1: went , pasado». Con una sola
+                etiqueta se oye lo que se quiso escribir.
+              */
+              aria-label={`Portal ${numero + 1}: ${texto}${fila ? `, ${fila}` : ''}`}
               className={cn(
-                'flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border-2 px-3 text-center text-lg font-extrabold',
-                resuelta && opcion === puerta.correcta
+                'flex w-full items-center justify-center gap-2 rounded-xl border-2 px-2 text-center font-extrabold',
+                // Dos columnas aprietan el ancho, así que la letra baja un
+                // punto y el alto se queda en el objetivo táctil de 48 px. En
+                // una sola columna se queda como estaba.
+                puerta.ejes ? 'min-h-12 text-base' : 'min-h-14 px-3 text-lg',
+                resuelta && texto === puerta.correcta
                   ? 'border-emerald-600 bg-emerald-50 text-[var(--texto-acierto)] dark:bg-emerald-950/50'
-                  : resuelta?.cruzado === opcion
+                  : resuelta?.cruzado === texto
                     ? 'border-red-500 bg-red-50 text-[var(--texto-fallo)] dark:bg-red-950/50'
                     : 'border-violet-400 bg-[var(--superficie)] dark:border-violet-600',
               )}
             >
               {/*
-                El número se ve Y se dice. El dígito pintado es el atajo de
-                teclado, y para quien no ve la pantalla el nombre del botón
-                empieza por «Portal 1», que es lo que hace que la tecla 1
-                signifique algo también ahí.
+                El número se ve y además se dice, dentro del `aria-label`: el
+                dígito pintado es el atajo de teclado, y para quien no ve la
+                pantalla el nombre del botón empieza por «Portal 1», que es lo
+                que hace que la tecla 1 signifique algo también ahí.
+
+                Y LA FILA SE DICE Y NO SE PINTA. Pintarla en cada botón era
+                repetir seis veces lo que ya dice el encabezado de su columna, y
+                con seis opciones en pantalla esa repetición es ruido justo
+                donde hay que leer deprisa. Pero quitarla del todo dejaba a
+                quien no ve la pantalla con «Portal 1: Are» y sin saber qué
+                afirma al elegirla —el encabezado va `aria-hidden` porque ahí
+                arriba son dos palabras sueltas sin sujeto—.
               */}
               <span aria-hidden className="text-xs font-black text-[var(--texto-suave)]">
                 {numero + 1}
               </span>
-              <span className="sr-only">Portal {numero + 1}: </span>
-              {opcion}
+              <span aria-hidden>{texto}</span>
             </button>
           </li>
         ))}
@@ -1414,6 +2361,32 @@ function PorTurnos({
       </div>
     </div>
   );
+}
+
+/**
+ * Las opciones de una puerta como lista, para la pantalla sin movimiento.
+ *
+ * El orden es el que importa: primero la fila de ARRIBA entera y después la de
+ * abajo, y no carril por carril alternando filas. Con seis botones en una
+ * columna, agrupar por fila es lo que deja leerlos como lo que son —tres
+ * pasados y tres presentes— y lo que hace que la etiqueta de `ejes` de encima
+ * signifique algo. Alternando, la lista sería seis palabras sueltas.
+ *
+ * La etiqueta de fila viaja con cada opción porque el botón la enseña entre
+ * paréntesis: en la pista esa información la daba la altura, y aquí no hay
+ * altura que dar.
+ */
+function opcionesDeLaPuerta(
+  puerta: PuertaDeCarrera,
+): Array<{ texto: string; fila: string | null }> {
+  if (!puerta.altas || !puerta.ejes) {
+    return puerta.opciones.map((texto) => ({ texto, fila: null }));
+  }
+
+  return [
+    ...puerta.altas.map((texto) => ({ texto, fila: puerta.ejes!.arriba })),
+    ...puerta.opciones.map((texto) => ({ texto, fila: puerta.ejes!.abajo })),
+  ];
 }
 
 /**

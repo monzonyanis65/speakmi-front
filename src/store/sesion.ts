@@ -6,6 +6,13 @@ export interface Usuario {
   email: string;
   displayName: string;
   role: string;
+  /**
+   * Con qué puede entrar esta persona. Quien llegó por Google no tiene
+   * contraseña, y sin saberlo la pantalla de Seguridad le pediría una
+   * «contraseña actual» que no existe.
+   */
+  tieneContrasena?: boolean;
+  tieneGoogle?: boolean;
 }
 
 interface EstadoSesion {

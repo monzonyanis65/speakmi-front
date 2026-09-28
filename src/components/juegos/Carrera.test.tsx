@@ -9,7 +9,7 @@ import type { RondaDeCarrera } from './tipos';
  *
  * En jsdom no se mueve nada: ni animaciones, ni `getBoundingClientRect` de
  * verdad. Así que aquí NO se comprueba lo que se ve —eso se mira jugando— sino
- * las cinco cosas que se romperían sin que nadie lo notara:
+ * las cosas que se romperían sin que nadie lo notara:
  *
  *   1. que el carril en el que está Milo AL LLEGAR la puerta es el que decide,
  *      y no el que había cuando la puerta salió;
@@ -22,8 +22,20 @@ import type { RondaDeCarrera } from './tipos';
  *   4. que al fallar aparece la regla, que es lo único que convierte una puerta
  *      perdida en algo aprendido;
  *   5. que quien pide menos movimiento tiene un juego entero, con su reloj, y
- *      no un cartel.
+ *      no un cartel;
+ *   6. y, desde que hay eje vertical, que el GESTO decide de verdad: que en una
+ *      puerta doble saltar y rodar mandan formas distintas, que cruzarla
+ *      corriendo es chocar y que el reloj de esas puertas cobra el gesto.
+ *
+ * SOBRE EL TIEMPO EN ESTAS PRUEBAS. El salto no cuenta hasta 60 ms después de
+ * empezar —antes Milo todavía no ha despegado— y eso obliga a esperar de
+ * verdad antes de hacer llegar la puerta. Es esperar poco y es esperar bien: si
+ * la prueba se saltara ese rato estaría comprobando un salto instantáneo, que
+ * es justo lo que el juego no tiene.
  */
+
+/** Un rato de reloj de verdad, para que el arco del gesto haya avanzado. */
+const esperar = (ms: number) => new Promise((seguir) => setTimeout(seguir, ms));
 
 const RONDA: RondaDeCarrera = {
   code: 'CARRERA',
@@ -37,6 +49,7 @@ const RONDA: RondaDeCarrera = {
       foco: 'presente perfecto',
       lecturaMs: 1875,
       portalesMs: 1537,
+      gestoMs: 0,
     },
     {
       id: 'p2',
@@ -47,6 +60,7 @@ const RONDA: RondaDeCarrera = {
       foco: 'verbo be',
       lecturaMs: 1500,
       portalesMs: 1100,
+      gestoMs: 0,
     },
   ],
   reloj: { escalones: [2600, 2444, 2297], pasosAtrasAlFallar: 3 },
@@ -63,6 +77,39 @@ const RONDA: RondaDeCarrera = {
     ],
   },
 };
+
+/**
+ * Una carrera de una sola puerta, para probar el eje vertical.
+ *
+ * Se arma aparte y no se le añade a `RONDA` porque lo que hay que mirar de una
+ * puerta doble es la PRIMERA: si fuera la segunda habría que resolver antes la
+ * de arriba, y entonces la prueba estaría midiendo también la pausa que enseña.
+ */
+function rondaDeUnaPuerta(puerta: Partial<RondaDeCarrera['puertas'][number]>): RondaDeCarrera {
+  return {
+    ...RONDA,
+    puertas: [
+      {
+        id: 'u1',
+        frase: 'She ___ to Lima two years ago.',
+        opciones: ['go', 'come', 'take'],
+        correcta: 'went',
+        ensena: 'Con «two years ago» va el pasado.',
+        foco: 'pasado irregular',
+        lecturaMs: 1875,
+        portalesMs: 2000,
+        gestoMs: 450,
+        ...puerta,
+      },
+    ],
+  };
+}
+
+/** La misma puerta, partida en dos filas: arriba el pasado y abajo el presente. */
+const PUERTA_DOBLE = rondaDeUnaPuerta({
+  altas: ['went', 'came', 'took'],
+  ejes: { arriba: 'pasado', abajo: 'presente' },
+});
 
 /**
  * La llegada de la puerta, a mano.
@@ -226,6 +273,166 @@ describe('la pista, que es la versión que corre', () => {
   });
 });
 
+/**
+ * EL EJE VERTICAL.
+ *
+ * Estas son las pruebas del encargo nuevo y conviene decir qué vigilan, porque
+ * no es «que se pueda saltar»: es que el salto SIGNIFIQUE algo. Un juego en el
+ * que saltar y rodar existen pero la respuesta sigue saliendo solo del carril
+ * es un runner con subtítulos, y eso compilaría igual de bien.
+ */
+describe('la puerta doble: el gesto es media respuesta', () => {
+  beforeEach(() => conMovimiento(false));
+
+  it('saltar manda la forma de arriba y rodar la de abajo', async () => {
+    const usuario = userEvent.setup();
+    const { onResponder } = renderizar(PUERTA_DOBLE);
+
+    await waitFor(
+      () => expect(carril(1)).toHaveAccessibleName('Carril 1: saltando went, rodando go'),
+      { timeout: 4000 },
+    );
+
+    // Mismo carril, mismo instante, dos respuestas distintas: la diferencia la
+    // pone el gesto y nada más. Si esto pasara con el código viejo, es que el
+    // gesto no decide.
+    await usuario.keyboard('1');
+    await usuario.keyboard('{ArrowUp}');
+    await esperar(120);
+    llegarLaPuerta();
+
+    await waitFor(() => expect(onResponder).toHaveBeenCalledWith('u1', 'went'));
+  });
+
+  it('rodando por el mismo carril se coge la otra forma', async () => {
+    const usuario = userEvent.setup();
+    const { onResponder } = renderizar(PUERTA_DOBLE);
+
+    await waitFor(() => expect(carril(1)).toHaveAccessibleName(/rodando go/), { timeout: 4000 });
+
+    await usuario.keyboard('1');
+    await usuario.keyboard('{ArrowDown}');
+    await esperar(120);
+    llegarLaPuerta();
+
+    await waitFor(() => expect(onResponder).toHaveBeenCalledWith('u1', 'go'));
+  });
+
+  it('cruzar una puerta doble corriendo es chocarse con el travesaño', async () => {
+    const { onResponder } = renderizar(PUERTA_DOBLE);
+
+    await waitFor(() => expect(carril(1)).toHaveAccessibleName(/saltando went/), { timeout: 4000 });
+
+    /*
+      Sin gesto no se cruza. Es lo que impide que la puerta doble se resuelva
+      ignorando la mitad de la pregunta: si de pie se cogiera la fila de abajo,
+      la forma de jugar sería no saltar nunca y acertar la mitad de las veces
+      por no hacer nada.
+    */
+    llegarLaPuerta();
+
+    await waitFor(() => expect(onResponder).toHaveBeenCalledWith('u1', 'choque'));
+    expect(screen.getByText(/^Chocaste\./)).toBeInTheDocument();
+  });
+
+  it('el salto que llegó tarde no cuenta, y el que ya acabó tampoco', async () => {
+    const usuario = userEvent.setup();
+    const { onResponder } = renderizar(PUERTA_DOBLE);
+
+    await waitFor(() => expect(carril(1)).toHaveAccessibleName(/saltando went/), { timeout: 4000 });
+
+    // El arco entero dura 640 ms: a los 700 Milo ya volvió al suelo y el
+    // travesaño le pilla de pie. Un gesto que dura para siempre sería un botón
+    // de «modo saltando», y entonces no habría nada que cronometrar.
+    await usuario.keyboard('{ArrowUp}');
+    await esperar(700);
+    llegarLaPuerta();
+
+    await waitFor(() => expect(onResponder).toHaveBeenCalledWith('u1', 'choque'));
+  });
+
+  it('rodar en el aire corta el salto: la caída rápida cambia la respuesta', async () => {
+    const usuario = userEvent.setup();
+    const { onResponder } = renderizar(PUERTA_DOBLE);
+
+    await waitFor(() => expect(carril(1)).toHaveAccessibleName(/rodando go/), { timeout: 4000 });
+
+    /*
+      Se salta y, a media subida, se rueda. Sin la caída rápida el segundo
+      gesto se perdería —hay uno en marcha— y la puerta se cruzaría por arriba:
+      o sea que un salto lanzado antes de terminar de leer sería una respuesta
+      dada sin querer y sin forma de retirarla.
+    */
+    await usuario.keyboard('1');
+    await usuario.keyboard('{ArrowUp}');
+    await esperar(100);
+    await usuario.keyboard('{ArrowDown}');
+    await esperar(120);
+    llegarLaPuerta();
+
+    await waitFor(() => expect(onResponder).toHaveBeenCalledWith('u1', 'go'));
+  });
+
+  it('dice qué afirma cada fila, que es lo que la separa de un volado', async () => {
+    renderizar(PUERTA_DOBLE);
+
+    // Sin esta etiqueta la fila no se puede razonar: se vería «went» arriba y
+    // «go» abajo sin saber qué se está diciendo al saltar, y media respuesta
+    // saldría del azar.
+    expect(await screen.findByText(/▲ pasado/, undefined, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByText(/▼ presente/)).toBeInTheDocument();
+  });
+});
+
+describe('la reja de una puerta sencilla', () => {
+  beforeEach(() => conMovimiento(false));
+
+  it('la valla se salta, y cruzarla corriendo es chocar', async () => {
+    const { onResponder } = renderizar(rondaDeUnaPuerta({ correcta: 'go', estorbo: 'valla' }));
+
+    await waitFor(() => expect(carril(1)).toHaveAccessibleName('Carril 1: saltando go'), {
+      timeout: 4000,
+    });
+
+    llegarLaPuerta();
+    await waitFor(() => expect(onResponder).toHaveBeenCalledWith('u1', 'choque'));
+  });
+
+  it('con la barra hay que rodar: saltarla no vale', async () => {
+    const usuario = userEvent.setup();
+    const { onResponder } = renderizar(rondaDeUnaPuerta({ correcta: 'go', estorbo: 'barra' }));
+
+    await waitFor(() => expect(carril(1)).toHaveAccessibleName('Carril 1: rodando go'), {
+      timeout: 4000,
+    });
+
+    // Saltar por encima de un travesaño alto es chocárselo. Los dos gestos
+    // tienen que ser distinguibles o el eje vertical sería un solo botón.
+    await usuario.keyboard('{ArrowUp}');
+    await esperar(120);
+    llegarLaPuerta();
+    await waitFor(() => expect(onResponder).toHaveBeenCalledWith('u1', 'choque'));
+  });
+
+  it('una puerta despejada no castiga saltar por gusto', async () => {
+    const usuario = userEvent.setup();
+    const { onResponder } = renderizar();
+
+    await waitFor(() => expect(carril(2)).toHaveAccessibleName('Carril 2: sent'), {
+      timeout: 4000,
+    });
+
+    // Es lo que permite practicar el gesto sin miedo en las diez puertas de
+    // cada carrera que no lo piden.
+    await usuario.keyboard('2');
+    await usuario.keyboard('{ArrowUp}');
+    await esperar(120);
+    llegarLaPuerta();
+
+    await waitFor(() => expect(onResponder).toHaveBeenCalledWith('p1', 'sent'));
+  });
+});
+
 describe('la versión sin movimiento', () => {
   beforeEach(() => conMovimiento(true));
 
@@ -250,6 +457,55 @@ describe('la versión sin movimiento', () => {
 
     await usuario.click(await screen.findByRole('button', { name: /^Portal 2: sent$/ }));
     await waitFor(() => expect(onResponder).toHaveBeenCalledWith('p1', 'sent'));
+  });
+
+  it('la puerta doble conserva las SEIS formas, con su etiqueta de fila', async () => {
+    renderizar(PUERTA_DOBLE);
+
+    /*
+      Aquí no se salta —quien pidió menos movimiento no puede tener un gesto que
+      depende de un arco animado—, pero la PREGUNTA no se recorta: las seis
+      formas siguen estando y siguen agrupadas por lo que afirman. El gesto era
+      la forma de contestar, no la pregunta, y es lo único que se quita.
+    */
+    /*
+      El nombre de cada botón lleva la forma Y su fila: «Portal 1: went,
+      pasado». Eso es lo que sustituye aquí a la altura del portal, que es como
+      se dice en la pista, y sin ello quien juega de oído tendría seis palabras
+      sueltas y ninguna forma de saber qué afirma al elegir una.
+    */
+    for (const forma of ['went', 'came', 'took']) {
+      expect(
+        await screen.findByRole('button', { name: new RegExp(`: ${forma}, pasado$`) }),
+      ).toBeInTheDocument();
+    }
+    for (const forma of ['go', 'come', 'take']) {
+      expect(
+        screen.getByRole('button', { name: new RegExp(`: ${forma}, presente$`) }),
+      ).toBeInTheDocument();
+    }
+    // Los nombres de los ejes encabezan sus dos columnas. Van `aria-hidden`
+    // porque para quien no ve la pantalla la fila ya viaja dentro del nombre de
+    // cada botón; ahí arriba serían dos palabras sueltas sin sujeto.
+    expect(screen.getByText('pasado')).toBeInTheDocument();
+    expect(screen.getByText('presente')).toBeInTheDocument();
+  });
+
+  it('las teclas contestan de verdad, y llegan hasta la sexta', async () => {
+    const usuario = userEvent.setup();
+    const { onResponder } = renderizar(PUERTA_DOBLE);
+
+    await screen.findByRole('button', { name: /: went, pasado$/ });
+
+    /*
+      La cabecera prometía «Teclas 1, 2 y 3» desde el principio y no había nadie
+      escuchándolas: se llegaba a los portales tabulando, pero el dígito no
+      hacía nada. Con seis opciones el atajo tiene que existir y tiene que
+      contar hasta seis, porque la cuarta forma no está a una tecla de distancia
+      de ninguna otra manera.
+    */
+    await usuario.keyboard('4');
+    await waitFor(() => expect(onResponder).toHaveBeenCalledWith('u1', 'go'));
   });
 
   it('enseña la regla al fallar, igual que en la pista', async () => {

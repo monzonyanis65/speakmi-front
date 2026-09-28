@@ -45,6 +45,18 @@ const CATALOGO = {
       mejorPuntuacion: null,
       jugadasHoy: 0,
     },
+    /*
+      Un juego que todavía no es del nivel de quien mira. El servidor manda el
+      motivo escrito; la tarjeta lo enseña y no se deja pulsar.
+    */
+    {
+      code: 'MERCADO',
+      titleEs: 'El mercado',
+      descripcionEs: 'Fabrica la frase que pide cada cliente.',
+      mejorPuntuacion: null,
+      jugadasHoy: 0,
+      bloqueadoEs: 'Todavía no hay contenido de tu nivel para este juego. Se abre en el nivel 4.',
+    },
   ],
 };
 
@@ -104,13 +116,42 @@ describe('Juegos', () => {
     expect(screen.getByText('entrena el oído')).toBeInTheDocument();
   });
 
+  /*
+    El juego que todavía no es de tu nivel.
+
+    Antes se abría, se esperaba la pantalla de carga y salía un error. Ahora se
+    ve desde fuera, con el nivel en el que se abre, y no se puede pulsar: un
+    botón que lleva a un error es peor que un botón apagado que explica por qué.
+  */
+  it('un juego que no es de tu nivel se ve apagado y dice desde cuándo se abre', async () => {
+    vi.stubGlobal('fetch', servidor());
+    renderizar();
+
+    expect(
+      await screen.findByText(
+        'Todavía no hay contenido de tu nivel para este juego. Se abre en el nivel 4.',
+      ),
+    ).toBeInTheDocument();
+
+    const tarjeta = screen.getByText('El mercado').closest('button')!;
+    expect(tarjeta).toBeDisabled();
+  });
+
+  it('y los que sí son de tu nivel siguen pulsándose', async () => {
+    vi.stubGlobal('fetch', servidor());
+    renderizar();
+
+    expect(await screen.findByText('Contrarreloj')).toBeInTheDocument();
+    expect(screen.getByText('Contrarreloj').closest('button')).not.toBeDisabled();
+  });
+
   it('enseña la mejor marca, y dice que no la hay cuando no la hay', async () => {
     vi.stubGlobal('fetch', servidor());
     renderizar();
 
     expect(await screen.findByText(/240 puntos/)).toBeInTheDocument();
     expect(screen.getByText('2 partidas hoy')).toBeInTheDocument();
-    expect(screen.getAllByText('Sin marca todavía. Pon la primera.')).toHaveLength(2);
+    expect(screen.getAllByText('Sin marca todavía. Pon la primera.')).toHaveLength(3);
   });
 
   /*

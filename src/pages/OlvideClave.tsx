@@ -1,6 +1,8 @@
 import { useId, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
+import { proveedoresDeEntrada } from '@/lib/auth';
 import { cn } from '@/lib/cn';
 
 interface RespuestaSolicitud {
@@ -17,6 +19,27 @@ interface RespuestaSolicitud {
  */
 export function OlvideClave() {
   const navegar = useNavigate();
+
+  /*
+    Antes esta pantalla enseñaba el formulario pasara lo que pasara, y el
+    servidor contestaba «si ese correo tiene cuenta, te enviamos instrucciones».
+    No era verdad: `forgot-password` genera el código y lo guarda, pero no hay
+    ningún servicio de correo que lo mande, así que quien llegaba aquí esperaba
+    un mensaje que no iba a llegar nunca. Se pregunta al servidor y se dice lo
+    que hay.
+  */
+  const proveedores = useQuery({
+    queryKey: ['proveedores-de-entrada'],
+    queryFn: proveedoresDeEntrada,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  const hayCorreo = proveedores.data?.correo.disponible ?? false;
+  const hayGoogle = proveedores.data?.google.disponible ?? false;
+  // En local el código llega en la respuesta, así que el formulario sigue
+  // sirviendo para recorrer el flujo aunque no haya servicio de correo.
+  const sePuedeProbar = hayCorreo || (proveedores.data?.correo.pruebaLocal ?? false);
 
   const [paso, setPaso] = useState<'pedir' | 'cambiar'>('pedir');
   const [email, setEmail] = useState('');
@@ -78,9 +101,13 @@ export function OlvideClave() {
           {paso === 'pedir' ? 'Recupera tu cuenta' : 'Elige una contraseña nueva'}
         </h1>
         <p className="mt-2 text-sm text-[var(--texto-suave)]">
-          {paso === 'pedir'
-            ? 'Escribe tu correo y te mandamos cómo volver a entrar.'
-            : 'Pega el código que recibiste y escribe tu contraseña nueva.'}
+          {paso === 'cambiar'
+            ? 'Pega el código que recibiste y escribe tu contraseña nueva.'
+            : hayCorreo
+              ? 'Escribe tu correo y te mandamos cómo volver a entrar.'
+              : // Prometer un correo que no se va a enviar es peor que no decir
+                // nada: deja esperando a quien se quedó fuera de su cuenta.
+                'Esto es lo que podemos hacer hoy por ti.'}
         </p>
       </header>
 
@@ -90,9 +117,23 @@ export function OlvideClave() {
         </p>
       )}
 
+      {!proveedores.isLoading && !hayCorreo && paso === 'pedir' && (
+        <div
+          role="status"
+          className="mt-6 rounded-2xl border-2 border-[var(--borde)] bg-[var(--superficie)] p-5 text-sm"
+        >
+          <p className="font-bold">Todavía no podemos mandarte el correo.</p>
+          <p className="mt-2 text-[var(--texto-suave)]">
+            {hayGoogle
+              ? 'Speakmi aún no tiene servicio de correo, así que no hay forma de enviarte el enlace. Si tu cuenta usa la misma dirección que tu cuenta de Google, entra con Google: te dejará dentro y desde Seguridad podrás ponerte una contraseña nueva.'
+              : 'Speakmi aún no tiene servicio de correo, así que no hay forma de enviarte el enlace. De momento no podemos devolverte el acceso desde aquí.'}
+          </p>
+        </div>
+      )}
+
       <form
         onSubmit={(e) => void (paso === 'pedir' ? pedirCodigo(e) : cambiarClave(e))}
-        className="mt-6 grid gap-4"
+        className={cn('mt-6 grid gap-4', !sePuedeProbar && paso === 'pedir' && 'hidden')}
         noValidate
       >
         {paso === 'pedir' ? (
@@ -169,21 +210,26 @@ function Campo({
   autoComplete?: string;
 }) {
   /*
-    El mensaje de error va atado al campo, no suelto debajo.
+    La etiqueta apunta al campo y la ayuda queda fuera de ella.
 
-    Sin `aria-describedby` un lector de pantalla dice «no válido» y se calla: no
-    lee el motivo, que es justo lo que hace falta para arreglarlo. Y sin
-    `role="alert"` el aviso aparece sin que nadie se entere, porque el foco
-    sigue en el botón de enviar.
+    Envolviendo el campo, el nombre accesible salía de TODO el texto de dentro
+    de la etiqueta: se anunciaba «Contraseña nueva Al menos 8 caracteres», con
+    la ayuda pegada al nombre y leída otra vez por el `aria-describedby`.
+
+    El error, además, lleva `role="alert"`: sin él aparece sin que nadie se
+    entere, porque el foco sigue en el botón de enviar.
   */
   const id = useId();
   const idError = `${id}-error`;
   const idAyuda = `${id}-ayuda`;
 
   return (
-    <label className="grid gap-1.5">
-      <span className="text-sm font-medium">{etiqueta}</span>
+    <div className="grid gap-1.5">
+      <label htmlFor={id} className="text-sm font-medium">
+        {etiqueta}
+      </label>
       <input
+        id={id}
         type={tipo}
         value={valor}
         onChange={(e) => onChange(e.target.value)}
@@ -204,6 +250,6 @@ function Campo({
           {ayuda}
         </span>
       ) : null}
-    </label>
+    </div>
   );
 }

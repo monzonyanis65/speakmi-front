@@ -135,10 +135,23 @@ function Tarjeta({
   const titulo = juego?.titleEs ?? ficha.titulo;
   const descripcion = juego?.descripcionEs ?? ficha.descripcion;
 
+  /*
+    Un juego que todavía no es de tu nivel no se puede abrir, y se nota.
+
+    Antes se abría, se esperaba la pantalla de carga y se recibía un error. La
+    tarjeta sigue en su sitio —esconderla sería peor, porque entonces el juego
+    no existiría y no habría nada que desear— pero apagada, sin pulsar y
+    diciendo en qué nivel se abre. El motivo lo escribe el servidor, que es
+    quien sabe desde qué nivel hay contenido.
+  */
+  const bloqueadoEs = juego?.bloqueadoEs ?? null;
+
   return (
     <button
       type="button"
       onClick={onJugar}
+      disabled={bloqueadoEs !== null}
+      aria-describedby={bloqueadoEs ? `bloqueo-${codigo}` : undefined}
       style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
       className={cn(
         'boton-3d flex w-full animate-entrada flex-col rounded-2xl border-2 p-3 text-left',
@@ -148,6 +161,8 @@ function Tarjeta({
         'bg-linear-to-br to-[var(--superficie)] to-55%',
         aspecto.lavado,
         aspecto.borde,
+        // Apagada, pero legible: lo que hay que poder leer es justo el aviso.
+        bloqueadoEs !== null && 'opacity-60 grayscale',
       )}
     >
       <span className="flex items-start gap-3">
@@ -165,7 +180,7 @@ function Tarjeta({
           <span className="flex items-start gap-2">
             <span className="min-w-0 flex-1 text-lg font-extrabold leading-tight">{titulo}</span>
             <span aria-hidden className="mt-0.5 shrink-0 text-[var(--texto-suave)]">
-              ›
+              {bloqueadoEs !== null ? '🔒' : '›'}
             </span>
           </span>
 
@@ -183,6 +198,16 @@ function Tarjeta({
       {sinVoz && (
         <span className="mt-2 block text-xs font-semibold text-[var(--texto-aviso)]">
           Necesita una voz en inglés y tu equipo no tiene ninguna
+        </span>
+      )}
+
+      {/* El motivo entero, no un candado a secas: dice en qué nivel se abre. */}
+      {bloqueadoEs !== null && (
+        <span
+          id={`bloqueo-${codigo}`}
+          className="mt-2 block text-xs font-semibold text-[var(--texto-aviso)]"
+        >
+          {bloqueadoEs}
         </span>
       )}
 

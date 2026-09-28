@@ -829,3 +829,63 @@ body {
       0% -30%;
   }
 }
+
+/*
+  DERRAPE.
+
+  Aquí hay MUCHO menos CSS que en la carrera de sintaxis, y no es por descuido:
+  es la decisión opuesta y conviene dejarla escrita al lado de la otra.
+
+  CARRERA no tiene ni un `requestAnimationFrame`: sus puertas son animaciones de
+  CSS y el reloj de cada puerta ES su propia animación. Puede permitírselo porque
+  allí nada se conduce: Milo se teletransporta de carril en carril y lo único que
+  hace el tiempo es acercar una puerta.
+
+  Aquí se conduce. El coche tiene inercia, se pasa de frenada, vuelve al centro
+  cuando la pista se junta y el ángulo con el que va atravesado sale de su propia
+  velocidad lateral, no de una curva declarada de antemano. Eso no se puede
+  escribir en `@keyframes` porque depende de lo que haga quien juega en cada
+  fotograma. Así que el circuito entero lo mueve un bucle que escribe `transform`
+  directamente sobre los elementos, sin pasar por el estado de React, que es lo
+  mismo que hace `Beat.tsx` con sus notas y por el mismo motivo.
+
+  Lo que queda aquí es solo lo que NO depende de nadie: las chispas del derrape y
+  el aviso del crono. Las dos son adornos cortos que se disparan y se olvidan.
+*/
+
+/* La chispa del derrape: salta hacia atrás y se apaga. */
+@keyframes derrape-chispa {
+  0% {
+    opacity: 0.95;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--derrape-chispa-x, 0), 26px, 0) scale(0.3);
+  }
+}
+
+/*
+  El crono cuando un sector mejora o empeora: un salto y a su sitio.
+
+  Cambia `transform` y `opacity` y nada más. El número en sí lo escribe el bucle
+  directamente en el nodo, así que esto solo es el acuse de recibo.
+*/
+@keyframes derrape-marca {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.85);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1.12);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-16px) scale(1);
+  }
+}
