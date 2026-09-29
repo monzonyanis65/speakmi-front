@@ -6,6 +6,7 @@ import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { Ejercicio } from '@/components/ejercicios/Ejercicio';
 import { LeerEnVozAlta } from '@/components/ejercicios/LeerEnVozAlta';
+import { Shadowing } from '@/components/ejercicios/Shadowing';
 import { HablarLibre } from '@/components/ejercicios/HablarLibre';
 import { useContador } from '@/lib/contador';
 import { Mascota, MascotaConMensaje, type EstadoMascota } from '@/components/Mascota';
@@ -19,6 +20,8 @@ import {
 } from '@/components/ejercicios/tipos';
 import { ListaDeMisiones } from '@/components/misiones/Misiones';
 import type { Misiones } from '@/components/misiones/tipos';
+import { useMenosMovimiento } from '@/lib/movimiento';
+import { fraseDe, repartoDeLeccion, type Momento, type Personaje } from '@/lib/reparto';
 
 interface DatosLeccion {
   lesson: { code: string; titleEs: string; type: string; xpReward: number };
@@ -72,6 +75,17 @@ export function Leccion() {
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [vozHecha, setVozHecha] = useState(false);
   /**
+   * Si en este ejercicio de leer en voz alta se está imitando al modelo en vez
+   * de leerlo por cuenta propia.
+   *
+   * Son dos cosas distintas y por eso se elige, en vez de sustituir una por la
+   * otra: leer mide si sabes decirlo, e imitar mide CÓMO lo dices —el ritmo—,
+   * que es lo que de verdad separa a un hispanohablante y lo único que la app
+   * no medía en ninguna parte. Arranca siempre en leer, así que quien ya usaba
+   * la app no nota ningún cambio hasta que lo pulsa.
+   */
+  const [imitando, setImitando] = useState(false);
+  /**
    * Lo que se falló y hay que volver a preguntar antes de dar la lección por
    * terminada.
    *
@@ -88,6 +102,41 @@ export function Leccion() {
   const [contestados, setContestados] = useState(0);
   /** Cuántas repescas habrá en total. Solo crece, para que la barra no retroceda. */
   const [repescas, setRepescas] = useState(0);
+  /** Aciertos seguidos. Se parte al primer fallo. */
+  const [racha, setRacha] = useState(0);
+  /** Lo que el personaje tiene en el bocadillo ahora mismo, si tiene algo. */
+  const [dicho, setDicho] = useState<string | null>(null);
+
+  /*
+    Quién da esta lección. Sale del código y solo del código: volver a L5-U1-03
+    es volver a encontrarse al mismo, que es lo que separa a un personaje de un
+    adorno que rota.
+  */
+  const { protagonista, secundario } = repartoDeLeccion(code ?? '');
+  const quieto = useMenosMovimiento();
+  const presencia = usePresencia(protagonista.paciencia, quieto);
+
+  // La frase de entrada, una sola vez y al montar. Es la única que no responde
+  // a nada de lo que hagas, y por eso es también la única que se pone sola.
+  useEffect(() => {
+    if (!code) return;
+    setDicho(fraseDe(protagonista, 'entra', code));
+  }, [code, protagonista]);
+
+  /*
+    Todo lo que se dice se calla solo. Un bocadillo que se queda puesto deja de
+    leerse a los diez segundos y a partir de ahí solo ocupa sitio.
+
+    Entre una frase y la siguiente siempre pasa por `null` —una racha tarda tres
+    ejercicios y el reloj son seis segundos—, así que basta con mirar el texto:
+    no hace falta un contador para distinguir dos frases iguales seguidas,
+    porque nunca llegan seguidas.
+  */
+  useEffect(() => {
+    if (!dicho) return;
+    const reloj = setTimeout(() => setDicho(null), 6000);
+    return () => clearTimeout(reloj);
+  }, [dicho]);
 
   const { data, isPending, isError } = useQuery({
     queryKey: ['leccion', code],
@@ -132,6 +181,21 @@ export function Leccion() {
         ...(repitiendo ? { reintento: true } : {}),
       });
       setCorreccion(resultado);
+
+      /*
+        La racha. Se lleva aquí y no en el servidor porque no vale puntos: es
+        solo para que el personaje se entere de que llevas unas cuantas.
+
+        Habla cada tres, no cada vez. Un comentario por acierto deja de ser un
+        comentario y pasa a ser el ruido de fondo de la pantalla, y además la
+        corrección del servidor ya está escrita justo debajo: dos textos a la
+        vez sobre lo mismo se leen a la mitad.
+      */
+      const seguidas = resultado.isCorrect ? racha + 1 : 0;
+      setRacha(seguidas);
+      if (seguidas >= 3 && seguidas % 3 === 0) {
+        setDicho(fraseDe(protagonista, 'racha', `${code ?? ''}:${seguidas}`));
+      }
     } catch {
       // Sin corrección no se puede seguir, y dejar el botón mudo parece que la
       // aplicación se colgó. Se avisa y se deja volver a intentarlo.
@@ -161,6 +225,7 @@ export function Leccion() {
     setCorreccion(null);
     setRespuesta(null);
     setVozHecha(false);
+    setImitando(false);
     setContestados((n) => n + 1);
 
     // Mientras quede lista por delante se sigue en orden. Ojo: esto NO vale
@@ -200,7 +265,12 @@ export function Leccion() {
   if (cerrada) {
     return (
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10">
-        <MascotaConMensaje estado="pensando" mensaje={cerrada} />
+        <MascotaConMensaje
+          especie={protagonista.especie}
+          atuendo={null}
+          estado={protagonista.animo.espera}
+          mensaje={cerrada}
+        />
         <Boton tamano="grande" onClick={() => navegar('/ruta')} className="mt-8">
           VOLVER A MI RUTA
         </Boton>
@@ -208,7 +278,16 @@ export function Leccion() {
     );
   }
 
-  if (resumen) return <PantallaResumen resumen={resumen} onSalir={() => navegar('/ruta')} />;
+  if (resumen)
+    return (
+      <PantallaResumen
+        resumen={resumen}
+        protagonista={protagonista}
+        secundario={secundario}
+        codigo={code ?? ''}
+        onSalir={() => navegar('/ruta')}
+      />
+    );
 
   if (!ejercicio) return <Centrado>Esta lección no tiene ejercicios todavía.</Centrado>;
 
@@ -217,6 +296,18 @@ export function Leccion() {
   // crece, así que la barra nunca retrocede.
   const total = ejercicios.length + repescas;
   const progreso = Math.min(100, (contestados / total) * 100);
+
+  /*
+    Qué le está pasando al personaje.
+
+    Manda lo que acaba de ocurrir; y cuando no ocurre nada, manda el reloj. Ese
+    orden es el que hace que esté PRESENTE en vez de pegado: sin la segunda
+    mitad, entre pregunta y pregunta se quedaría en la misma pose respirando, y
+    eso se lee como una imagen con un efecto encima.
+  */
+  const momento: Momento = correccion
+    ? momentoDe(correccion, ejercicio.difficulty, racha)
+    : presencia;
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-4 py-4 sm:px-6">
@@ -254,8 +345,14 @@ export function Leccion() {
         en vez de ir en automático. Callarlo y repreguntarlo a secas parece un
         error de la aplicación, como si se hubiera perdido el sitio.
       */}
+      <Compania
+        personaje={protagonista}
+        estado={protagonista.animo[momento]}
+        dice={dicho ?? undefined}
+      />
+
       {repitiendo && (
-        <p className="mt-6 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-[var(--texto-aviso)]">
+        <p className="mt-1 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-[var(--texto-aviso)]">
           <span aria-hidden>↻</span>
           Esta la fallaste antes
         </p>
@@ -263,13 +360,37 @@ export function Leccion() {
 
       <main
         key={`${ejercicio.code}-${repitiendo ? 'rep' : 'ini'}`}
-        className="mt-6 flex-1 animate-entrada"
+        className="mt-4 flex-1 animate-entrada"
       >
         {ejercicio.type === 'read_aloud' ? (
-          <LeerEnVozAlta
-            ejercicio={ejercicio as unknown as Parameters<typeof LeerEnVozAlta>[0]['ejercicio']}
-            onTerminado={() => setVozHecha(true)}
-          />
+          <>
+            {imitando ? (
+              <Shadowing
+                ejercicio={{ code: ejercicio.code }}
+                onTerminado={() => setVozHecha(true)}
+              />
+            ) : (
+              <LeerEnVozAlta
+                ejercicio={ejercicio as unknown as Parameters<typeof LeerEnVozAlta>[0]['ejercicio']}
+                onTerminado={() => setVozHecha(true)}
+              />
+            )}
+
+            {/*
+              El cambio va DEBAJO y en pequeño, no arriba como dos pestañas.
+              Arriba obligaría a elegir antes de haber visto la frase, y quien
+              no sepa qué es el shadowing elegiría a ciegas; aquí se ofrece
+              cuando ya se sabe qué se está mirando. No borra lo hecho: `vozHecha`
+              se queda, así que probar lo otro nunca quita el paso ya dado.
+            */}
+            <button
+              type="button"
+              onClick={() => setImitando((antes) => !antes)}
+              className="mt-6 w-full rounded-xl px-4 py-3 text-sm text-[var(--texto-suave)] underline underline-offset-4"
+            >
+              {imitando ? 'Mejor lo leo yo' : 'Imitar el ritmo del modelo'}
+            </button>
+          </>
         ) : ejercicio.type === 'speak_prompt' ? (
           <HablarLibre
             ejercicio={ejercicio as unknown as Parameters<typeof HablarLibre>[0]['ejercicio']}
@@ -289,7 +410,8 @@ export function Leccion() {
         <HojaCorreccion
           correccion={correccion}
           yaSeVeArriba={seMarcaEnElEjercicio(ejercicio)}
-          dificultad={ejercicio.difficulty}
+          personaje={protagonista}
+          momento={momento}
         />
       )}
 
@@ -324,6 +446,114 @@ export function Leccion() {
   );
 }
 
+/**
+ * Cuánto hace que no tocas nada, dicho en momentos.
+ *
+ * Es la mitad de que el personaje esté PRESENTE. La otra mitad son las
+ * reacciones, pero esas solo ocurren un segundo cada minuto; lo que se ve el
+ * resto del tiempo es esto. Un dibujo que respira y ya está se lee como una
+ * ilustración con un efecto encima, y se deja de mirar a los dos minutos.
+ *
+ * Los tres escalones son: se entera de que estás ahí, se cansa de esperar y se
+ * duerme. Cuándo pasa de uno a otro lo decide la `paciencia` de cada personaje,
+ * no una constante de esta pantalla, porque aburrirse antes que los demás es
+ * carácter: Rufo ronca mientras Ulises sigue dándole vueltas.
+ *
+ * Se escucha en `window` y no en el ejercicio a propósito. El ejercicio lo pinta
+ * otro componente con sus propios campos, y engancharse a él obligaría a que
+ * cada tipo de ejercicio se acordara de avisar. En la ventana se enteran todos
+ * gratis, incluido el que solo se toca con el dedo.
+ *
+ * Con `prefers-reduced-motion` se queda quieto en reposo. No se pierde nada:
+ * que se aburra no es información, es compañía, y quien pide menos estímulo
+ * está pidiendo exactamente que eso no ocurra. Las reacciones a acertar y
+ * fallar sí se mantienen, porque esas SÍ dicen algo.
+ */
+function usePresencia(paciencia: number, quieto: boolean): Momento {
+  const [fase, setFase] = useState<Momento>('atento');
+
+  useEffect(() => {
+    if (quieto) {
+      setFase('reposo');
+      return;
+    }
+
+    let relojes: ReturnType<typeof setTimeout>[] = [];
+    const despertar = () => {
+      for (const reloj of relojes) clearTimeout(reloj);
+      // El comparador no es un adorno: sin él, cada tecla pulsada volvería a
+      // pintar la pantalla entera para dejarla exactamente igual.
+      setFase((antes) => (antes === 'atento' ? antes : 'atento'));
+      relojes = [
+        setTimeout(() => setFase('reposo'), 2000),
+        setTimeout(() => setFase('espera'), paciencia * 1000),
+        setTimeout(() => setFase('sopor'), paciencia * 3000),
+      ];
+    };
+
+    despertar();
+    window.addEventListener('keydown', despertar);
+    window.addEventListener('pointerdown', despertar);
+    return () => {
+      for (const reloj of relojes) clearTimeout(reloj);
+      window.removeEventListener('keydown', despertar);
+      window.removeEventListener('pointerdown', despertar);
+    };
+  }, [paciencia, quieto]);
+
+  return fase;
+}
+
+/**
+ * El personaje acompañando, entre la cabecera y el ejercicio.
+ *
+ * VA EN EL FLUJO, NO FLOTANDO, y eso es la decisión entera de este componente.
+ * Un personaje en una esquina fija es lo primero que se le ocurre a cualquiera
+ * y es lo que tapa el último renglón del ejercicio justo en la pantalla más
+ * pequeña, que es donde más falta hace verlo. Aquí no puede tapar nada porque
+ * no se solapa con nada.
+ *
+ * Y la altura es FIJA, diga algo o no. Si la tira creciera al aparecer el
+ * bocadillo, el ejercicio daría un salto hacia abajo cada vez que al personaje
+ * le diera por hablar, que es la peor forma posible de llamar la atención:
+ * pierdes el sitio donde estabas leyendo.
+ *
+ * Por eso el bocadillo se corta a dos líneas en vez de crecer. Dos líneas caben
+ * en la tira a 320 px; la tercera la corta, y prefiero una frase cortada a un
+ * ejercicio que se mueve.
+ */
+function Compania({
+  personaje,
+  estado,
+  dice,
+}: {
+  personaje: Personaje;
+  estado: EstadoMascota;
+  dice?: string;
+}) {
+  return (
+    <div className="mt-2 flex h-14 items-center gap-2">
+      <Mascota
+        especie={personaje.especie}
+        atuendo={null}
+        estado={estado}
+        tamano={48}
+        className="shrink-0"
+      />
+      {dice && (
+        <p className="relative min-w-0 animate-entrada rounded-2xl border-2 border-[var(--borde)] bg-[var(--superficie)] px-3 py-1.5 text-sm leading-snug">
+          {/* Pico del bocadillo, encajado en el hueco del `gap-2`. */}
+          <span
+            aria-hidden
+            className="absolute -left-[7px] top-1/2 size-3 -translate-y-1/2 rotate-45 border-b-2 border-l-2 border-[var(--borde)] bg-[var(--superficie)]"
+          />
+          <span className="line-clamp-2">{dice}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** El panel que sube al responder: lo más importante de toda la pantalla. */
 /**
  * ¿El propio ejercicio ya pinta cuál era la buena?
@@ -345,11 +575,13 @@ function seMarcaEnElEjercicio(ejercicio: {
 function HojaCorreccion({
   correccion,
   yaSeVeArriba,
-  dificultad,
+  personaje,
+  momento,
 }: {
   correccion: Correccion;
   yaSeVeArriba: boolean;
-  dificultad: number;
+  personaje: Personaje;
+  momento: Momento;
 }) {
   const { isCorrect, feedback } = correccion;
   const [verPorque, setVerPorque] = useState(false);
@@ -369,12 +601,21 @@ function HojaCorreccion({
     >
       <div className="flex items-center gap-3">
         {/*
-          Milo reacciona a lo que pasó, no siempre igual. Presume solo cuando
-          el ejercicio era difícil: felicitar lo mismo por lo fácil y por lo
-          difícil hace que la felicitación no signifique nada. Y al fallar se
-          entristece un poco, que es un «uy», no un castigo.
+          El de esta lección, reaccionando a lo que pasó. Quién es y qué cara
+          pone lo decide `reparto.ts`, no esta pantalla: aquí solo se dice QUÉ
+          ha ocurrido y el personaje se lo toma a su manera. Nala no se inmuta,
+          Tuco se acerca a leerlo contigo.
+
+          Va sin atuendo a propósito: la ropa es de la mascota que llevas
+          puesta, que es tuya. Esta no lo es, es la que da la clase.
         */}
-        <Mascota estado={reaccionA(correccion, dificultad)} tamano={52} className="shrink-0" />
+        <Mascota
+          especie={personaje.especie}
+          atuendo={null}
+          estado={personaje.animo[momento]}
+          tamano={52}
+          className="shrink-0"
+        />
         <p
           className={cn(
             'text-lg font-extrabold',
@@ -429,12 +670,24 @@ function HojaCorreccion({
 }
 
 /** La frase correcta, marcando qué palabra falló. */
-/** Cómo se lo toma Milo. */
-function reaccionA(correccion: Correccion, dificultad: number): EstadoMascota {
-  if (correccion.isCorrect) return dificultad >= 3 ? 'orgulloso' : 'celebrando';
-  // Casi acertado, solo erratas: ni celebra ni se hunde.
-  if (correccion.score > 0) return 'pensando';
-  return 'triste';
+/**
+ * Qué acaba de pasar, en el vocabulario del reparto.
+ *
+ * Esto dice el HECHO; la cara la pone cada personaje. Separarlo es lo que
+ * permite que Nala y Tuco vivan el mismo acierto de dos maneras sin que esta
+ * pantalla sepa nada de ninguno de los dos.
+ *
+ * `racha` sale también con un ejercicio difícil acertado a la primera, porque
+ * significan lo mismo: esto no ha salido gratis. Reaccionar igual a lo fácil y
+ * a lo difícil deja la reacción sin valor, que es el problema de fondo de
+ * felicitar por todo.
+ */
+function momentoDe(correccion: Correccion, dificultad: number, racha: number): Momento {
+  if (!correccion.isCorrect) {
+    // Casi: la idea estaba y falló la forma. Ni es un acierto ni es un fallo.
+    return correccion.score > 0 ? 'casi' : 'fallo';
+  }
+  return dificultad >= 3 || racha >= 3 ? 'racha' : 'acierto';
 }
 
 function TextoComparado({ diff }: { diff: Correccion['feedback']['diff'] }) {
@@ -462,27 +715,66 @@ function TextoComparado({ diff }: { diff: Correccion['feedback']['diff'] }) {
   );
 }
 
-function PantallaResumen({ resumen, onSalir }: { resumen: Resumen; onSalir: () => void }) {
+function PantallaResumen({
+  resumen,
+  protagonista,
+  secundario,
+  codigo,
+  onSalir,
+}: {
+  resumen: Resumen;
+  protagonista: Personaje;
+  secundario: Personaje;
+  codigo: string;
+  onSalir: () => void;
+}) {
   const porcentaje = Math.round(resumen.accuracy * 100);
+  // No es lo mismo terminar bien que terminar a rastras, y el personaje lo
+  // sabe. Los tres escalones son los de antes; lo que cambia es que ahora cada
+  // uno se lo toma a su manera en vez de haber una única cara para todos.
+  const comoFue: Momento = porcentaje >= 80 ? 'final' : porcentaje >= 50 ? 'acierto' : 'casi';
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10 text-center">
       {porcentaje >= 80 && <Confeti />}
 
-      {/* Milo entra con la animación larga, la única de la aplicación: es el
-          premio por haber terminado y merece un segundo entero. */}
-      <div className="flex animate-revelar justify-center">
+      {/*
+        Entran con la animación larga, la única de la aplicación: es el premio
+        por haber terminado y merece un segundo entero.
+
+        Aquí sale también el secundario, y es el único sitio donde sale. Es lo
+        que convierte cinco dibujos sueltos en un reparto: hasta que no ves a
+        dos juntos y con caras distintas, no hay nadie, hay una mascota.
+      */}
+      <div className="flex animate-revelar items-end justify-center gap-1">
         <Mascota
-          estado={porcentaje >= 80 ? 'celebrando' : porcentaje >= 50 ? 'feliz' : 'animando'}
-          tamano={150}
+          especie={protagonista.especie}
+          atuendo={null}
+          estado={protagonista.animo[comoFue]}
+          tamano={124}
+        />
+        <Mascota
+          especie={secundario.especie}
+          atuendo={null}
+          estado={secundario.animo.reposo}
+          tamano={84}
         />
       </div>
 
+      {/*
+        Lo que dice el que ha dado la clase, en lugar de un «¡Muy bien!».
+
+        El titular de antes felicitaba por haber llegado al final, que es
+        felicitar por existir: sale igual acertando nueve de diez que una de
+        diez, solo que con otro adjetivo. Y «Sigue practicando» es peor, porque
+        es lo mismo con cara de consuelo. Lo que de verdad dice cómo ha ido son
+        los dos números de abajo, que ya estaban y no mienten.
+      */}
       <h1
-        className="mt-4 animate-crecer text-3xl font-extrabold"
+        className="mt-4 animate-crecer text-balance text-2xl font-extrabold sm:text-3xl"
         style={{ animationDelay: '250ms', animationFillMode: 'backwards' }}
       >
-        {porcentaje >= 80 ? '¡Muy bien!' : porcentaje >= 50 ? 'Vas bien' : 'Sigue practicando'}
+        {fraseDe(protagonista, 'final', codigo)}
       </h1>
 
       <p className="mt-2 text-[var(--texto-suave)]">

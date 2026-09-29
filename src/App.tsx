@@ -28,6 +28,7 @@ import { Novedades } from '@/pages/Novedades';
 import { Juego } from '@/pages/Juego';
 import { Llamada } from '@/pages/Llamada';
 import { MiloVivo } from '@/components/MiloVivo';
+import { PruebaShadowing } from '@/pages/PruebaShadowing';
 import { Repaso } from '@/pages/Repaso';
 import { Conversar } from '@/pages/Conversar';
 import { AvisoActualizacion } from '@/components/AvisoActualizacion';
@@ -246,6 +247,11 @@ export default function App() {
               es para verlo y compararlo, no una pantalla del producto.
             */}
             <Route path="/vivo" element={<MiloVivo />} />
+            {/*
+              Banco de pruebas del shadowing, mientras el ejercicio no esté
+              cosido a la lección. Sin sesión por el mismo motivo que /vivo.
+            */}
+            <Route path="/shadowing" element={<PruebaShadowing />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           {/* Fuera de las rutas: el aviso vale para cualquier pantalla. */}
