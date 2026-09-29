@@ -144,6 +144,70 @@ export const NIVELES: Nivel[] = [
     descripcion: 'Énfasis, frases largas encadenadas, la palabra exacta y cerrar un acuerdo.',
     ejemplo: 'Never have I seen anything like it.',
   },
+  {
+    codigo: 'L17',
+    numero: 17,
+    cefr: 'C1',
+    titulo: 'Argumentar y matizar',
+    descripcion: 'Dejar de aprender estructuras y empezar a elegir entre las que ya sabes.',
+    ejemplo: 'That tends to be the case, arguably.',
+  },
+  {
+    codigo: 'L18',
+    numero: 18,
+    cefr: 'C1',
+    titulo: 'Lo que no se dice',
+    descripcion: 'La negativa educada, el elogio que hunde y todo lo que se da a entender.',
+    ejemplo: "It's certainly an interesting choice.",
+  },
+  {
+    codigo: 'L19',
+    numero: 19,
+    cefr: 'C1',
+    titulo: 'Hablar de lo abstracto',
+    descripcion: 'Causas con letra pequeña, grados de certeza y lo que pudo haber pasado.',
+    ejemplo: 'It might well have gone the other way.',
+  },
+  {
+    codigo: 'L20',
+    numero: 20,
+    cefr: 'C1',
+    titulo: 'Sostener una conversación difícil',
+    descripcion: 'Dar una mala noticia, mantener un no y mediar entre dos posturas.',
+    ejemplo: 'I might be wrong, but I read it differently.',
+  },
+  {
+    codigo: 'L21',
+    numero: 21,
+    cefr: 'C2',
+    titulo: 'La palabra que va con esa',
+    descripcion: 'La gramática ya casi no falla: lo que delata ahora es la combinación.',
+    ejemplo: 'They drew a sharp distinction.',
+  },
+  {
+    codigo: 'L22',
+    numero: 22,
+    cefr: 'C2',
+    titulo: 'Entre líneas y a velocidad',
+    descripcion: 'Los modismos que un nativo suelta sin pensar, y entenderlos a la primera.',
+    ejemplo: "Don't beat around the bush.",
+  },
+  {
+    codigo: 'L23',
+    numero: 23,
+    cefr: 'C2',
+    titulo: 'Textos que se resisten',
+    descripcion: 'Encontrar el sujeto y el verbo de una frase escrita para no leerse deprisa.',
+    ejemplo: 'The claim, though widely repeated, rests on little.',
+  },
+  {
+    codigo: 'L24',
+    numero: 24,
+    cefr: 'C2',
+    titulo: 'Que no se note',
+    descripcion: 'Lo que delata a quien no es nativo aunque no haya ni un solo error.',
+    ejemplo: 'I went to hospital on Tuesday.',
+  },
 ];
 
 /**
@@ -289,7 +353,7 @@ export const TRAMOS: Tramo[] = [
     ],
     horas: '700-800 horas',
     examenes: ['Cambridge C1 Advanced (CAE)', 'IELTS 7-8', 'TOEFL iBT 95-114'],
-    niveles: [],
+    niveles: ['L17', 'L18', 'L19', 'L20'],
   },
   {
     letra: 'C2',
@@ -309,7 +373,7 @@ export const TRAMOS: Tramo[] = [
       'IELTS 8.5-9',
       'TOEFL iBT no distingue C2 del C1 alto',
     ],
-    niveles: [],
+    niveles: ['L21', 'L22', 'L23', 'L24'],
   },
 ];
 
