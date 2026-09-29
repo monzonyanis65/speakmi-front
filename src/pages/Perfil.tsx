@@ -6,6 +6,10 @@ import { cn } from '@/lib/cn';
 import { useContador } from '@/lib/contador';
 import { Boton } from '@/components/Boton';
 import { Mascota } from '@/components/Mascota';
+import { Insignia } from '@/components/logros/Insignia';
+import { ASPECTOS, type CodigoLogro } from '@/components/logros/aspecto';
+import { MedallaDelMes } from '@/components/logros/MedallaDelMes';
+import { RachaConAmigo } from '@/components/logros/RachaConAmigo';
 import { useSesion } from '@/store/sesion';
 
 interface DatosPerfil {
@@ -26,6 +30,44 @@ interface Progreso {
   racha: { currentDays: number; longestDays: number };
 }
 
+interface LogroEnPerfil {
+  code: CodigoLogro;
+  titulo: string;
+  medida: string;
+  cuenta: number;
+  grado: number;
+  gradoMaximo: number;
+  metaDelGrado: number | null;
+  metaSiguiente: number | null;
+  unidad: [string, string];
+  conseguidoEn: string | null;
+}
+
+interface MedallaDeMes {
+  mes: string;
+  dias: number;
+  hacenFalta: number;
+  ganada: boolean;
+  enCurso: boolean;
+}
+
+interface RachaDeAmigo {
+  amistadId: string;
+  displayName: string;
+  dias: number;
+  mejor: number;
+  viva: boolean;
+}
+
+interface VistaDeLogros {
+  logros: LogroEnPerfil[];
+  medallas: MedallaDeMes[];
+  diasPorMedalla: number;
+  rachasConAmigos: RachaDeAmigo[];
+  ventanaDias: number;
+  nuevos: Array<{ code: CodigoLogro; titulo: string; grado: number; meta: number }>;
+}
+
 const META_MINIMA = 5;
 const META_MAXIMA = 120;
 
@@ -34,6 +76,8 @@ const FORMATO_FECHA = new Intl.DateTimeFormat('es', {
   month: 'long',
   year: 'numeric',
 });
+
+const FORMATO_MES = new Intl.DateTimeFormat('es', { month: 'long', year: 'numeric' });
 
 /**
  * Convierte un fallo de la API en algo que se pueda hacer.
@@ -57,14 +101,39 @@ function formatearFecha(iso: string): string {
   return Number.isNaN(fecha.getTime()) ? '—' : FORMATO_FECHA.format(fecha);
 }
 
+/** «1 lección» / «27 lecciones», con el sustantivo que manda el servidor. */
+function plural(cuantos: number, unidad: readonly [string, string]): string {
+  return `${cuantos} ${cuantos === 1 ? unidad[0] : unidad[1]}`;
+}
+
 /**
  * El perfil: quién eres, qué llevas hecho y qué te propones al día.
  *
- * Los bloques se caen por separado a propósito. El perfil y el progreso son dos
- * consultas distintas, así que si una falla la otra sigue pintando: se ve la
- * racha aunque el perfil no cargue, y al revés. Mientras `/me/profile` se
- * termina en el backend, el nombre de la cabecera sale de la sesión guardada,
- * que es lo que la app ya sabe sin preguntarle a nadie.
+ * EL ORDEN, QUE ES LA DECISIÓN DE LA PANTALLA
+ *
+ * Arriba el resumen —racha, nivel y experiencia—, porque es lo que se viene a
+ * mirar. Debajo, en este orden: las rachas con amigos, el calendario de
+ * medallas y los logros. Va de lo que cambia hoy a lo que cambia en meses, que
+ * es también de lo más vivo a lo más de archivo.
+ *
+ * Los ajustes —nombre, cuenta y meta diaria— se quedan al final. Se tocan una
+ * vez al mes y estaban antes en medio de todo.
+ *
+ * LOS BLOQUES SE CAEN POR SEPARADO, A PROPÓSITO
+ *
+ * Son tres consultas distintas. Si `/logros` falla, siguen viéndose la racha y
+ * los ajustes; si falla `/me/profile`, siguen viéndose las insignias. Una
+ * pantalla que se queda en blanco entera porque una de tres cosas no cargó es
+ * una pantalla que no sirve nunca.
+ *
+ * A 320 PX
+ *
+ * La rejilla de logros es lo apretado de aquí: dos columnas de 140 px con la
+ * insignia de 64 px centrada y el texto debajo. Se probó a tres columnas y el
+ * título se partía en cuatro líneas; a una, la pantalla medía dos pantallas y
+ * media. El resumen de arriba va a tres columnas porque son tres cifras cortas,
+ * y el calendario a cuatro porque un escudo de 56 px se reconoce por la forma
+ * sin necesidad de leerlo.
  */
 export function Perfil() {
   const navegar = useNavigate();
@@ -81,27 +150,16 @@ export function Perfil() {
     queryFn: () => api.get<Progreso>('/progress'),
   });
 
+  const consultaLogros = useQuery({
+    queryKey: ['logros'],
+    queryFn: () => api.get<VistaDeLogros>('/logros'),
+    retry: false,
+  });
+
   const perfil = consultaPerfil.data;
   const progreso = consultaProgreso.data;
+  const logros = consultaLogros.data;
   const nombre = perfil?.displayName ?? usuario?.displayName ?? 'Tu perfil';
-
-  const cifras = progreso
-    ? [
-        { icono: '⭐', valor: progreso.xpTotal, etiqueta: 'de experiencia' },
-        {
-          icono: '🔥',
-          valor: progreso.racha.currentDays,
-          etiqueta: progreso.racha.currentDays === 1 ? 'día de racha' : 'días de racha',
-        },
-        { icono: '🏅', valor: progreso.racha.longestDays, etiqueta: 'tu racha más larga' },
-        {
-          icono: '📘',
-          valor: progreso.leccionesCompletadas,
-          etiqueta:
-            progreso.leccionesCompletadas === 1 ? 'lección terminada' : 'lecciones terminadas',
-        },
-      ]
-    : [];
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
@@ -122,14 +180,22 @@ export function Perfil() {
         </button>
       </header>
 
+      <Resumen progreso={progreso} perfil={perfil} error={consultaProgreso.error} />
+
+      {logros && logros.nuevos.length > 0 && <LoNuevo nuevos={logros.nuevos} />}
+
+      <RachasDeAmigos consulta={consultaLogros} />
+      <Calendario consulta={consultaLogros} />
+      <Logros consulta={consultaLogros} />
+
       {consultaPerfil.isPending && (
-        <p className="mt-10 text-center text-[var(--texto-suave)]">Cargando tu perfil…</p>
+        <p className="mt-8 text-center text-[var(--texto-suave)]">Cargando tus datos…</p>
       )}
 
       {consultaPerfil.isError && (
         <div
           role="alert"
-          className="mt-6 animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-5"
+          className="mt-8 animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-5"
           style={{ animationFillMode: 'backwards' }}
         >
           <h2 className="font-bold">No pudimos cargar tus datos</h2>
@@ -151,70 +217,394 @@ export function Perfil() {
 
       {perfil && (
         <>
-          <TarjetaNombre perfil={perfil} retraso={0} />
-          <TarjetaCuenta perfil={perfil} retraso={70} />
+          <TarjetaNombre perfil={perfil} />
+          <TarjetaCuenta perfil={perfil} />
+          <TarjetaMeta perfil={perfil} />
         </>
       )}
-
-      <section className="mt-6">
-        <h2 className="text-xs font-extrabold uppercase tracking-wide text-[var(--texto-suave)]">
-          Tus cifras
-        </h2>
-
-        {consultaProgreso.isError ? (
-          <p className="mt-3 text-sm text-[var(--texto-suave)]">
-            {explicar(consultaProgreso.error, 'Ver tu progreso')}
-          </p>
-        ) : (
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            {cifras.map((cifra, indice) => (
-              <Cifra key={cifra.etiqueta} {...cifra} retraso={140 + indice * 70} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {perfil && <TarjetaMeta perfil={perfil} retraso={420} />}
     </div>
   );
 }
 
 /**
- * Una cifra del perfil, subiendo contando.
+ * Racha, nivel y experiencia: las tres cifras de arriba.
+ *
+ * Tres y no cuatro. Son las que contestan «¿cómo voy?» sin pensar, y a 320 px
+ * tres columnas dejan 90 px por cifra, que es lo justo para un número grande.
+ * La cuarta que había antes —la racha más larga— se fue a la insignia de
+ * constancia, que es donde significa algo: allí es un logro y aquí era un dato.
+ */
+function Resumen({
+  progreso,
+  perfil,
+  error,
+}: {
+  progreso: Progreso | undefined;
+  perfil: DatosPerfil | undefined;
+  error: unknown;
+}) {
+  if (error) {
+    return (
+      <p className="mt-6 text-sm text-[var(--texto-suave)]">{explicar(error, 'Ver tu progreso')}</p>
+    );
+  }
+
+  const dias = progreso?.racha.currentDays ?? 0;
+
+  return (
+    <section className="mt-6" aria-label="Tu resumen">
+      <div className="grid grid-cols-3 gap-2">
+        <Cifra
+          icono="🔥"
+          valor={dias}
+          texto={dias === 1 ? 'día de racha' : 'días de racha'}
+          etiqueta={`${dias} ${dias === 1 ? 'día de racha' : 'días de racha'}`}
+          retraso={0}
+        />
+        <Cifra
+          icono="🎓"
+          crudo={perfil?.level?.cefr ?? '—'}
+          texto={perfil?.level ? 'tu nivel' : 'sin nivel'}
+          etiqueta={
+            perfil?.level
+              ? `Tu nivel es ${perfil.level.titleEs}, ${perfil.level.cefr}`
+              : 'Todavía no elegiste nivel'
+          }
+          retraso={70}
+        />
+        <Cifra
+          icono="⭐"
+          valor={progreso?.xpTotal ?? 0}
+          texto="de experiencia"
+          etiqueta={`${progreso?.xpTotal ?? 0} de experiencia`}
+          retraso={140}
+        />
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Una cifra del resumen, subiendo contando.
  *
  * El número que se ve queda oculto para quien escucha la página: el lector lee
- * la etiqueta del párrafo, que ya trae el valor final, y no cuatro cifras
- * seguidas mientras la cuenta avanza.
+ * la etiqueta, que ya trae el valor final, y no tres cifras seguidas mientras
+ * la cuenta avanza.
+ *
+ * `crudo` es para lo que no es un número —el nivel—, que no se cuenta hacia
+ * arriba porque «A2» no tiene por dónde subir.
  */
 function Cifra({
   icono,
   valor,
+  crudo,
+  texto,
   etiqueta,
   retraso,
 }: {
   icono: string;
-  valor: number;
+  valor?: number;
+  crudo?: string;
+  texto: string;
   etiqueta: string;
   retraso: number;
 }) {
-  const contado = useContador(valor);
+  const contado = useContador(valor ?? 0);
 
   return (
     <div
-      className="animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-4 text-center"
+      className="animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] px-2 py-3 text-center"
       style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
     >
-      <p className="text-lg" aria-hidden>
+      <p className="text-base leading-none" aria-hidden>
         {icono}
       </p>
-      <p
-        className="mt-0.5 text-2xl font-extrabold tabular-nums"
-        aria-label={`${valor} ${etiqueta}`}
-      >
-        <span aria-hidden>{contado}</span>
+      <p className="mt-1 truncate text-xl font-extrabold tabular-nums" aria-label={etiqueta}>
+        <span aria-hidden>{crudo ?? contado}</span>
       </p>
-      <p className="text-xs text-[var(--texto-suave)]">{etiqueta}</p>
+      <p aria-hidden className="text-[0.65rem] leading-tight text-[var(--texto-suave)]">
+        {texto}
+      </p>
     </div>
+  );
+}
+
+/**
+ * Lo que se acaba de ganar.
+ *
+ * Es texto y no confeti. El servidor manda cada grado nuevo una sola vez, así
+ * que esto aparece justo después de cruzarlo y no vuelve; y como es un aviso
+ * escrito, quien pidió menos movimiento se entera exactamente igual que quien
+ * no. Una celebración que solo existe si algo se mueve es una celebración que
+ * alguna gente no recibe.
+ */
+function LoNuevo({ nuevos }: { nuevos: VistaDeLogros['nuevos'] }) {
+  /*
+    Se queda el grado más alto de cada logro. La primera visita de alguien que
+    ya llevaba meses en la aplicación otorga todos los escalones de golpe, y
+    anunciar «Lecciones 1, Lecciones 2, Lecciones 3» sería leerle la escalera
+    en vez de darle la noticia, que es que ya va por el tercero.
+  */
+  const cumbres = new Map<string, VistaDeLogros['nuevos'][number]>();
+  for (const uno of nuevos) {
+    const antes = cumbres.get(uno.code);
+    if (!antes || uno.grado > antes.grado) cumbres.set(uno.code, uno);
+  }
+
+  const lista = [...cumbres.values()];
+
+  return (
+    <p
+      role="status"
+      className="mt-4 rounded-2xl border-2 border-acento-400 bg-acento-300/25 px-4 py-3 text-sm font-bold"
+    >
+      {lista.length === 1
+        ? `¡Nuevo! Has ganado «${lista[0]!.titulo}», grado ${lista[0]!.grado}.`
+        : `¡Nuevo! ${lista.length} insignias: ${lista
+            .map((uno) => `${uno.titulo} (grado ${uno.grado})`)
+            .join(', ')}.`}
+    </p>
+  );
+}
+
+/** Un título de sección, con su cuentita al lado cuando hay algo que contar. */
+function Titulo({ children, nota }: { children: string; nota?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <h2 className="text-xs font-extrabold uppercase tracking-wide text-[var(--texto-suave)]">
+        {children}
+      </h2>
+      {nota && <span className="shrink-0 text-xs text-[var(--texto-suave)]">{nota}</span>}
+    </div>
+  );
+}
+
+/**
+ * Las rachas con los amigos.
+ *
+ * Va antes que las medallas y los logros porque es lo único de esta pantalla
+ * que cambia hoy y porque es lo que trae a alguien de vuelta. Va DESPUÉS del
+ * resumen, y no arriba del todo, por lo mismo que no hay avisos: este perfil es
+ * primero tuyo y luego de con quién lo compartes.
+ */
+function RachasDeAmigos({
+  consulta,
+}: {
+  consulta: ReturnType<typeof useQuery<VistaDeLogros, Error>>;
+}) {
+  const navegar = useNavigate();
+  const { data, isPending, isError, error } = consulta;
+
+  if (isPending) {
+    return (
+      <section className="mt-8">
+        <Titulo>Rachas con amigos</Titulo>
+        <p className="mt-3 text-sm text-[var(--texto-suave)]">Contando los días…</p>
+      </section>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <section className="mt-8">
+        <Titulo>Rachas con amigos</Titulo>
+        <p className="mt-3 text-sm text-[var(--texto-suave)]">
+          {explicar(error, 'Ver tus logros')}
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mt-8">
+      <Titulo>Rachas con amigos</Titulo>
+
+      {data.rachasConAmigos.length === 0 ? (
+        /*
+          El caso del primer día. No se enseña una lista vacía ni un hueco: se
+          dice qué es esto y por dónde se empieza, porque un perfil recién hecho
+          sin amigos es el estado normal de todo el mundo al principio.
+        */
+        <div className="mt-3 rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4">
+          <p className="text-sm text-[var(--texto-suave)]">
+            Cuando alguien de tu lista y tú practiquéis el mismo día, aquí aparecerán los días que
+            lleváis juntos. No pasa nada si un día falta uno: la cuenta aguanta.
+          </p>
+          <Boton
+            tono="suave"
+            ancho={false}
+            className="mt-3 min-h-12"
+            onClick={() => navegar('/liga')}
+          >
+            Añadir a alguien
+          </Boton>
+        </div>
+      ) : (
+        <>
+          <ul className="mt-3 grid gap-2">
+            {data.rachasConAmigos.map((amigo) => (
+              <RachaConAmigo key={amigo.amistadId} {...amigo} />
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-[var(--texto-suave)]">
+            Cuenta los días en que practicasteis los dos. Si un día falta uno, la cuenta aguanta; si
+            faltan dos seguidos, se termina y queda vuestro récord de los últimos {data.ventanaDias}{' '}
+            días.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** El calendario de medallas: un mes por escudo, del más reciente al más viejo. */
+function Calendario({ consulta }: { consulta: ReturnType<typeof useQuery<VistaDeLogros, Error>> }) {
+  const { data } = consulta;
+  if (!data) return null;
+
+  const ganadas = data.medallas.filter((mes) => mes.ganada).length;
+
+  return (
+    <section className="mt-8">
+      <Titulo nota={ganadas === 1 ? '1 ganada' : `${ganadas} ganadas`}>Tus meses</Titulo>
+
+      <ul className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+        {data.medallas.map((mes) => (
+          <MedallaDelMes key={mes.mes} {...mes} />
+        ))}
+      </ul>
+
+      <p className="mt-3 text-xs text-[var(--texto-suave)]">
+        Un mes se gana practicando {data.diasPorMedalla} días, que son unos tres por semana. Los
+        meses flojos también salen: esto es lo que hiciste, no una nota.
+      </p>
+    </section>
+  );
+}
+
+/** La rejilla de insignias. Todas salen siempre, ganadas y sin ganar. */
+function Logros({ consulta }: { consulta: ReturnType<typeof useQuery<VistaDeLogros, Error>> }) {
+  const { data, isPending } = consulta;
+
+  if (isPending) {
+    return (
+      <section className="mt-8">
+        <Titulo>Tus logros</Titulo>
+        <p className="mt-3 text-sm text-[var(--texto-suave)]">Contando lo que llevas…</p>
+      </section>
+    );
+  }
+
+  if (!data) return null;
+
+  const ganados = data.logros.reduce((suma, logro) => suma + logro.grado, 0);
+  const posibles = data.logros.reduce((suma, logro) => suma + logro.gradoMaximo, 0);
+
+  return (
+    <section className="mt-8">
+      <Titulo nota={`${ganados} de ${posibles}`}>Tus logros</Titulo>
+
+      {/*
+        Dos columnas y no tres. A 320 px, tres dejan 88 px por tarjeta y
+        «Conversaciones enteras» se parte en cuatro líneas; con dos hay 140 px y
+        entra en dos. En pantallas anchas se pasa a tres, que es cuando el
+        título deja de partirse.
+      */}
+      <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {data.logros.map((logro, indice) => (
+          <TarjetaDeLogro key={logro.code} logro={logro} retraso={indice * 60} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * Una insignia con todo lo que hay que saber de ella, escrito.
+ *
+ * No se pulsa. Se pensó abrir un detalle al tocarla, como hacen otras
+ * aplicaciones, y se descartó: lo que ese detalle diría —qué mide y cuánto
+ * falta— cabe en la propia tarjeta, y así no hay nada que alcanzar con el
+ * teclado ni nada que se quede escondido para quien no sepa que ahí se pulsa.
+ */
+function TarjetaDeLogro({ logro, retraso }: { logro: LogroEnPerfil; retraso: number }) {
+  const aspecto = ASPECTOS[logro.code];
+  const ganado = logro.grado > 0;
+
+  /*
+    Cuánto del siguiente grado se lleva. Se mide DESDE el grado anterior y no
+    desde cero: con 190 de 200 después de haber pasado los 75, un anillo desde
+    cero estaría casi lleno desde el principio y no se movería en semanas.
+  */
+  const suelo = logro.metaDelGrado ?? 0;
+  const techo = logro.metaSiguiente;
+  const avance =
+    techo === null ? 1 : Math.min(1, Math.max(0, (logro.cuenta - suelo) / (techo - suelo)));
+
+  const falta = techo === null ? null : Math.max(techo - logro.cuenta, 0);
+
+  return (
+    <li
+      className={cn(
+        'flex animate-entrada flex-col items-center gap-2 rounded-2xl border-2 p-3 text-center',
+        ganado ? cn(aspecto.borde, aspecto.tinte) : 'border-[var(--hueco)] bg-[var(--superficie)]',
+      )}
+      style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
+    >
+      <Insignia code={logro.code} grado={logro.grado} avance={avance} />
+
+      <p className="text-xs font-extrabold leading-tight">{logro.titulo}</p>
+
+      {/*
+        La cifra grande. Es lo que se viene a mirar, y lleva su unidad escrita
+        al lado para que «27» no sea un número suelto sin sustantivo.
+      */}
+      <p className="text-base font-extrabold leading-none tabular-nums">
+        {logro.cuenta}
+        <span className="ml-1 text-[0.65rem] font-bold text-[var(--texto-suave)]">
+          {logro.cuenta === 1 ? logro.unidad[0] : logro.unidad[1]}
+        </span>
+      </p>
+
+      {/*
+        La barra del siguiente grado, con su número al lado. La barra no dice
+        nada que no diga el texto de debajo; está para poder comparar seis
+        logros de un vistazo sin leer seis frases.
+      */}
+      <div
+        aria-hidden
+        className={cn('h-1.5 w-full overflow-hidden rounded-full bg-[var(--hueco)]', aspecto.color)}
+      >
+        <div
+          className={cn('h-full rounded-full bg-current', !ganado && 'opacity-70')}
+          style={{ width: `${Math.round(avance * 100)}%` }}
+        />
+      </div>
+
+      <p className="text-[0.65rem] leading-tight text-[var(--texto-suave)]">
+        {techo === null ? (
+          <span className="font-bold">Grado máximo</span>
+        ) : (
+          <>
+            {ganado ? `Grado ${logro.grado} de ${logro.gradoMaximo}. ` : ''}
+            Te {falta === 1 ? 'falta' : 'faltan'} {plural(falta ?? 0, logro.unidad)}
+          </>
+        )}
+      </p>
+
+      {/*
+        Cuándo se ganó. Es lo que convierte una cifra en un recuerdo, que es de
+        lo que va todo esto. Solo el mes: el día exacto no le importa a nadie y
+        en 140 px no cabe.
+      */}
+      {logro.conseguidoEn && (
+        <p className="text-[0.6rem] text-[var(--texto-suave)]">
+          en {FORMATO_MES.format(new Date(logro.conseguidoEn))}
+        </p>
+      )}
+
+      <span className="sr-only">{logro.medida}</span>
+    </li>
   );
 }
 
@@ -225,7 +615,7 @@ function Cifra({
  * lo último que quiere alguien a quien acaba de fallarle el servidor es volver
  * a teclear lo mismo.
  */
-function TarjetaNombre({ perfil, retraso }: { perfil: DatosPerfil; retraso: number }) {
+function TarjetaNombre({ perfil }: { perfil: DatosPerfil }) {
   const clienteConsultas = useQueryClient();
   const [editando, setEditando] = useState(false);
   const [borrador, setBorrador] = useState(perfil.displayName);
@@ -285,10 +675,7 @@ function TarjetaNombre({ perfil, retraso }: { perfil: DatosPerfil; retraso: numb
   const error = errorLocal ?? errorServidor;
 
   return (
-    <section
-      className="mt-6 animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-5"
-      style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
-    >
+    <section className="mt-8 rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-5">
       {editando ? (
         <form onSubmit={enviar} noValidate>
           <label htmlFor="perfil-nombre" className="text-sm font-medium">
@@ -359,12 +746,9 @@ function TarjetaNombre({ perfil, retraso }: { perfil: DatosPerfil; retraso: numb
 }
 
 /** Los datos que no se tocan desde aquí: correo, nivel y antigüedad. */
-function TarjetaCuenta({ perfil, retraso }: { perfil: DatosPerfil; retraso: number }) {
+function TarjetaCuenta({ perfil }: { perfil: DatosPerfil }) {
   return (
-    <section
-      className="mt-3 animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-5"
-      style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
-    >
+    <section className="mt-3 rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-5">
       <h2 className="text-xs font-extrabold uppercase tracking-wide text-[var(--texto-suave)]">
         Tu cuenta
       </h2>
@@ -400,7 +784,7 @@ function Fila({ termino, valor }: { termino: string; valor: string }) {
  * Se guarda con su propio botón y no al soltar el campo: una meta que se
  * guardara sola mientras escribes «30» pasaría antes por 3 minutos.
  */
-function TarjetaMeta({ perfil, retraso }: { perfil: DatosPerfil; retraso: number }) {
+function TarjetaMeta({ perfil }: { perfil: DatosPerfil }) {
   const clienteConsultas = useQueryClient();
   const [minutos, setMinutos] = useState(String(perfil.dailyGoalMinutes));
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
@@ -440,10 +824,7 @@ function TarjetaMeta({ perfil, retraso }: { perfil: DatosPerfil; retraso: number
   const sinCambios = Number(minutos) === perfil.dailyGoalMinutes;
 
   return (
-    <section
-      className="mt-6 animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-5"
-      style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
-    >
+    <section className="mt-3 rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-5">
       <h2 className="text-xs font-extrabold uppercase tracking-wide text-[var(--texto-suave)]">
         Tu meta diaria
       </h2>

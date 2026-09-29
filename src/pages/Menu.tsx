@@ -24,21 +24,33 @@ const ENTRADAS: Entrada[] = [
     a: '/juegos',
   },
   {
+    icono: '⚔️',
+    titulo: 'Desafíos',
+    descripcion: 'Los tres de hoy, el del mes y cuánto te falta para cada uno',
+    a: '/misiones',
+  },
+  {
     icono: '🏆',
     titulo: 'Liga y amigos',
     descripcion: 'Tu semana, la clasificación y la gente que estudia contigo',
     a: '/liga',
   },
   {
+    icono: '📣',
+    titulo: 'Novedades',
+    descripcion: 'Lo que habéis hecho tú y tu gente estos días',
+    a: '/novedades',
+  },
+  {
     icono: '👤',
     titulo: 'Mi perfil',
-    descripcion: 'Tu nombre, tu nivel y cómo llevas el curso',
+    descripcion: 'Tus logros, tus meses, tus rachas con amigos y cómo llevas el curso',
     a: '/perfil',
   },
   {
     icono: '🛍️',
     titulo: 'Tienda',
-    descripcion: 'Gasta tus monedas en mascotas, atuendos y congelados',
+    descripcion: 'Tus cofres de hoy, el festival de temporada y en qué gastar las monedas',
     a: '/tienda',
   },
   {

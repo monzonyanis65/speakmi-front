@@ -17,12 +17,14 @@ import { Leccion } from '@/pages/Leccion';
 import { Guia } from '@/pages/Guia';
 import { Examen } from '@/pages/Examen';
 import { Menu } from '@/pages/Menu';
+import { Misiones } from '@/pages/Misiones';
 import { Ajustes } from '@/pages/Ajustes';
 import { Perfil } from '@/pages/Perfil';
 import { Seguridad } from '@/pages/Seguridad';
 import { Tienda } from '@/pages/Tienda';
 import { Juegos } from '@/pages/Juegos';
 import { Liga } from '@/pages/Liga';
+import { Novedades } from '@/pages/Novedades';
 import { Juego } from '@/pages/Juego';
 import { Llamada } from '@/pages/Llamada';
 import { MiloVivo } from '@/components/MiloVivo';
@@ -134,6 +136,14 @@ export default function App() {
               }
             />
             <Route
+              path="/misiones"
+              element={
+                <SoloConSesion>
+                  <Misiones />
+                </SoloConSesion>
+              }
+            />
+            <Route
               path="/perfil"
               element={
                 <SoloConSesion>
@@ -194,6 +204,16 @@ export default function App() {
               element={
                 <SoloConSesion>
                   <Liga />
+                </SoloConSesion>
+              }
+            />
+            {/* El muro de novedades. Va suelto y no dentro de la liga porque lo
+                que cuenta no es una competición: es lo que ha hecho tu gente. */}
+            <Route
+              path="/novedades"
+              element={
+                <SoloConSesion>
+                  <Novedades />
                 </SoloConSesion>
               }
             />

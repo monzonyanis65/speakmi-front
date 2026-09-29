@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 import type { Respuesta } from '@/components/ejercicios/tipos';
 import { Boton } from '@/components/Boton';
 import { MascotaConMensaje } from '@/components/Mascota';
@@ -91,6 +92,13 @@ export function Juego() {
 
   const guardar = useMutation({
     mutationFn: (fin: Marcador) => api.post<ResultadoFinal>(`/games/${code}/fin`, fin),
+    /*
+      Una partida terminada puede cumplir el desafío de jugar, así que los
+      desafíos que hubiera guardados en caché ya no valen. Se invalidan en vez
+      de recalcularse aquí: quien cuenta las partidas es el servidor, y una
+      cuenta hecha en el navegador podría no coincidir con la que va a pagar.
+    */
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['misiones'] }),
   });
 
   const { mutate: guardarPartida, reset: olvidarPartida } = guardar;
@@ -108,6 +116,22 @@ export function Juego() {
     olvidarPartida();
     setPartida((n) => n + 1);
   }, [olvidarPartida]);
+
+  /*
+    Volver a la partida que había cuando pedir OTRA no sale.
+
+    Pasa de verdad en el de cinco letras: quien va por el nivel 1 tiene nueve
+    palabras de cinco letras, que no llegan para una partida extra, así que el
+    servidor contesta que todavía no hay bastante contenido de su nivel. El
+    aviso está bien dicho, pero dejaba a la persona encerrada: las dos salidas
+    eran reintentar —que vuelve a fallar— o irse de los juegos, perdiendo el
+    tablero del día RECIÉN terminado con sus cuadraditos para compartir.
+
+    Perder tu resultado por pedir otra ronda es un castigo por querer seguir
+    jugando. Retrocediendo el contador se vuelve a pedir la partida del día, que
+    es la que ya estaba.
+  */
+  const volverALaQueHabia = useCallback(() => setPartida((n) => Math.max(n - 1, 0)), []);
 
   const salir = useCallback(() => navegar('/juegos'), [navegar]);
 
@@ -253,6 +277,7 @@ export function Juego() {
         titulo={ficha.titulo}
         onReintentar={() => void ronda.refetch()}
         onSalir={salir}
+        onVolverALaQueHabia={partida > 0 ? volverALaQueHabia : undefined}
       />
     );
   }
@@ -498,11 +523,14 @@ function NoSePudo({
   titulo,
   onReintentar,
   onSalir,
+  onVolverALaQueHabia,
 }: {
   error: unknown;
   titulo: string;
   onReintentar: () => void;
   onSalir: () => void;
+  /** Solo cuando lo que falló fue pedir OTRA partida, no la primera. */
+  onVolverALaQueHabia?: (() => void) | undefined;
 }) {
   const todaviaNo = error instanceof ApiError && error.status === 404;
 
@@ -528,8 +556,22 @@ function NoSePudo({
       </div>
 
       <div className="mt-8 grid gap-3">
+        {/*
+          Lo primero es volver a lo que había. Reintentar cuando el servidor
+          acaba de decir que no hay contenido de tu nivel es volver a fallar, y
+          salir pierde el tablero que estabas mirando.
+        */}
+        {onVolverALaQueHabia && (
+          <Boton tamano="grande" onClick={onVolverALaQueHabia}>
+            VOLVER A MI PARTIDA
+          </Boton>
+        )}
         {!todaviaNo && (
-          <Boton tamano="grande" onClick={onReintentar}>
+          <Boton
+            tamano={onVolverALaQueHabia ? 'normal' : 'grande'}
+            tono={onVolverALaQueHabia ? 'suave' : 'marca'}
+            onClick={onReintentar}
+          >
             REINTENTAR
           </Boton>
         )}

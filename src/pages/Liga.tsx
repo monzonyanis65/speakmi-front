@@ -6,6 +6,8 @@ import { cn } from '@/lib/cn';
 import { Boton } from '@/components/Boton';
 import { MascotaConMensaje } from '@/components/Mascota';
 import { Aviso } from '@/components/juegos/Tablero';
+import { Podio } from '@/components/Podio';
+import { pinturaDe } from '@/lib/divisiones';
 
 /**
  * La liga y los amigos.
@@ -37,6 +39,19 @@ import { Aviso } from '@/components/juegos/Tablero';
  * Su nombre para mostrar y su XP de la semana. En la lista de amigos, además,
  * su racha. Nada más: el correo no sale nunca, y el servidor ni siquiera manda
  * el identificador de nadie.
+ *
+ * LAS DIVISIONES, Y POR QUÉ NO ROMPEN NADA DE LO ANTERIOR
+ *
+ * Cuando se construyó esta pantalla se descartaron a propósito: partir veinte
+ * personas en cinco grupos es fabricar cinco tablas de cuatro filas y llamarlas
+ * ascenso. Ahora existen, y existen con la misma regla que ya impedía el pueblo
+ * fantasma: UNA DIVISIÓN SOLO SE ABRE LA SEMANA EN QUE TIENE CINCO PERSONAS.
+ * Las que no llegan no se abren y su gente compite con la de abajo, así que
+ * nadie asciende a una división vacía porque una división vacía no se abre.
+ *
+ * Esta pantalla no decide nada de eso: el servidor manda en qué división
+ * compites de verdad y cuántas hay abiertas, y aquí se escribe tal cual, sin
+ * disimular que hoy solo hay una.
  */
 
 interface FilaDeLiga {
@@ -46,11 +61,23 @@ interface FilaDeLiga {
   soyYo: boolean;
 }
 
+interface Division {
+  numero: number;
+  codigo: string;
+  nombre: string;
+}
+
 interface VistaDeLaLiga {
   semana: { empiezaEn: string; terminaEn: string };
   estado: 'viva' | 'faltan' | 'fuera';
   participantes: number;
+  participantesTotales: number;
   minimo: number;
+  division: Division;
+  divisionGanada: Division;
+  faltanParaTuDivision: number | null;
+  abiertas: number;
+  escalera: Division[];
   tabla: FilaDeLiga[];
   miPuesto: number | null;
   miXp: number;
@@ -59,8 +86,20 @@ interface VistaDeLaLiga {
     puesto: number | null;
     participantes: number | null;
     monedas: number | null;
+    division: Division | null;
+    divisionNueva: Division | null;
   };
-  premioNuevo: { puesto: number; monedas: number } | null;
+  podioAnterior: {
+    division: Division;
+    participantes: number;
+    puestos: FilaDeLiga[];
+  } | null;
+  premioNuevo: {
+    puesto: number;
+    monedas: number;
+    division: Division;
+    divisionNueva: Division;
+  } | null;
 }
 
 interface Amigo {
@@ -68,13 +107,54 @@ interface Amigo {
   displayName: string;
   xpSemana: number;
   racha: number;
+  toquesSilenciados: boolean;
+  puedoTocar: boolean;
+  motivoDelToque: 'puedes' | 'ya-le-toque' | 'sin-toques-hoy';
+  puedoRegalar: boolean;
+}
+
+interface Seguido {
+  seguimientoId: string;
+  displayName: string;
+  xpSemana: number;
+}
+
+interface Seguidor {
+  seguimientoId: string;
+  displayName: string;
 }
 
 interface VistaDeAmigos {
   codigo: string;
   maximo: number;
+  maximoSeguidos: number;
   yo: { displayName: string; xpSemana: number; racha: number };
   amigos: Amigo[];
+  seguidos: Seguido[];
+  seguidores: Seguidor[];
+  toquesApagados: boolean;
+  toquesQueMeQuedan: number;
+  monedasDelRegalo: number;
+}
+
+interface Desafio {
+  id: string;
+  estado: 'pendiente' | 'vivo' | 'logrado' | 'caducado';
+  yoRete: boolean;
+  otro: string;
+  objetivo: number;
+  llevan: number;
+  loMio: number;
+  loSuyo: number;
+  cofre: number;
+  terminaEn: string | null;
+  cofreNuevo: number | null;
+}
+
+interface VistaDeDesafios {
+  desafio: Desafio | null;
+  cofre: number;
+  dias: number;
 }
 
 const FORMATO_FIN = new Intl.DateTimeFormat('es', {
@@ -182,9 +262,17 @@ function PanelLiga({ consulta }: { consulta: ReturnType<typeof useQuery<VistaDeL
           role="status"
           className="rounded-2xl border-2 border-acento-400 bg-acento-300/25 px-4 py-3 text-sm font-bold"
         >
-          🏆 La semana pasada acabaste {ordinal(data.premioNuevo.puesto)} y ganaste{' '}
-          {data.premioNuevo.monedas} monedas.
+          🏆 La semana pasada acabaste {ordinal(data.premioNuevo.puesto)} en la División{' '}
+          {data.premioNuevo.division.nombre} y ganaste {data.premioNuevo.monedas} monedas.
+          {data.premioNuevo.divisionNueva.numero > data.premioNuevo.division.numero &&
+            ` Subes a la División ${data.premioNuevo.divisionNueva.nombre}.`}
         </p>
+      )}
+
+      <TuDivision datos={data} />
+
+      {data.podioAnterior && (
+        <PodioDeLaSemanaPasada podio={data.podioAnterior} miPuesto={data.tuSemanaPasada.puesto} />
       )}
 
       <TuSemana datos={data} />
@@ -210,6 +298,96 @@ function PanelLiga({ consulta }: { consulta: ReturnType<typeof useQuery<VistaDeL
         </button>
       )}
     </div>
+  );
+}
+
+/**
+ * En qué división compites, y la verdad sobre cuántas hay.
+ *
+ * Dice el nombre y el número de las que están ABIERTAS, no las cinco que
+ * existen en el código. Enseñar «División 1 de 5» cuando solo hay una abierta
+ * sería prometer cuatro ascensos que hoy no se pueden dar, que es la misma
+ * mentira que una tabla llena de nombres inventados, solo que más tarde.
+ *
+ * El nombre va escrito al lado del color, siempre. El color solo repite lo que
+ * ya dice la palabra, para que sirva también a quien no los distingue.
+ */
+function TuDivision({ datos }: { datos: VistaDeLaLiga }) {
+  const pintura = pinturaDe(datos.division.codigo);
+
+  return (
+    <section className={cn('rounded-2xl border-2 p-4', pintura.borde, pintura.fondo)}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 font-bold">
+          <span className={cn('rounded-lg px-2 py-1 text-xs font-extrabold', pintura.pastilla)}>
+            División {datos.division.nombre}
+          </span>
+        </h2>
+        <span className="text-xs text-[var(--texto-suave)]">
+          {datos.abiertas === 1
+            ? 'la única abierta'
+            : `${datos.abiertas} de ${datos.escalera.length} abiertas`}
+        </span>
+      </div>
+
+      <p className="mt-2 text-sm text-[var(--texto-suave)]">
+        {datos.abiertas === 1
+          ? `Todavía competimos todos juntos. Una división nueva se abre cuando ${datos.minimo} personas llegan a ella: prefiero decírtelo a darte un ascenso a una división vacía.`
+          : `Los tres primeros suben de división al acabar la semana. Una división solo se abre cuando tiene ${datos.minimo} personas.`}
+      </p>
+
+      {/*
+        El caso raro y muy real: subiste la semana pasada y esta semana estás
+        compitiendo otra vez abajo porque arriba no hay gente. Callarlo haría
+        que el ascenso pareciera un error; contarlo con el número exacto lo
+        convierte en algo que se entiende y que además se puede arreglar.
+      */}
+      {datos.faltanParaTuDivision !== null && (
+        <p className="mt-2 border-t border-[var(--hueco)] pt-2 text-sm text-[var(--texto-suave)]">
+          Tienes ganada la División {datos.divisionGanada.nombre}, pero todavía no está abierta:
+          {datos.faltanParaTuDivision === 1
+            ? ' falta 1 persona'
+            : ` faltan ${datos.faltanParaTuDivision} personas`}{' '}
+          para que sea una liga. Esta semana compites aquí y no la pierdes.
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * El podio de la semana pasada.
+ *
+ * Va arriba y solo aparece si la semana pasada hubo liga de verdad. Cuando no
+ * la hubo, el servidor no manda nada y aquí no se dibuja un podio vacío con
+ * tres huecos, que es lo que más se parece a una promesa incumplida.
+ */
+function PodioDeLaSemanaPasada({
+  podio,
+  miPuesto,
+}: {
+  podio: NonNullable<VistaDeLaLiga['podioAnterior']>;
+  miPuesto: number | null;
+}) {
+  return (
+    <section className="rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-bold">La semana pasada</h2>
+        <span className="text-xs text-[var(--texto-suave)]">
+          División {podio.division.nombre} · {podio.participantes} compitiendo
+        </span>
+      </div>
+
+      <Podio puestos={podio.puestos} division={podio.division.codigo} />
+
+      {miPuesto !== null && (
+        <p className="mt-4 rounded-xl bg-[var(--fondo)] px-4 py-3 text-center text-sm font-bold">
+          {miPuesto <= 3
+            ? `Quedaste ${ordinal(miPuesto)}. Ahí arriba estás tú.`
+            : `Quedaste en el puesto n.º ${miPuesto} de ${podio.participantes}.`}
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -272,7 +450,10 @@ function TuSemana({ datos }: { datos: VistaDeLaLiga }) {
  * además se puede hacer algo con él: invitar a alguien.
  */
 function FaltaGente({ datos }: { datos: VistaDeLaLiga }) {
-  const faltan = Math.max(datos.minimo - datos.participantes, 0);
+  // Se cuenta la gente de TODA la liga y no la de tu división: cuando no hay
+  // cinco personas en total, hablar de divisiones sería empezar la casa por el
+  // tejado. La división solo importa a partir de que la liga exista.
+  const faltan = Math.max(datos.minimo - datos.participantesTotales, 0);
 
   return (
     <section className="rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4">
@@ -291,11 +472,11 @@ function FaltaGente({ datos }: { datos: VistaDeLaLiga }) {
 
       <p className="mt-2 text-sm text-[var(--texto-suave)]">
         Esta semana{' '}
-        {datos.participantes === 0
+        {datos.participantesTotales === 0
           ? 'todavía no ha sumado XP nadie'
-          : datos.participantes === 1
+          : datos.participantesTotales === 1
             ? 'ha sumado XP una persona'
-            : `han sumado XP ${datos.participantes} personas`}
+            : `han sumado XP ${datos.participantesTotales} personas`}
         . Hacen falta {datos.minimo} para que la tabla signifique algo, así que{' '}
         {faltan === 1 ? 'falta 1' : `faltan ${faltan}`}.
       </p>
@@ -353,8 +534,8 @@ function Clasificacion({ datos }: { datos: VistaDeLaLiga }) {
 
   return (
     <section>
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 className="font-bold">Esta semana</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-bold">División {datos.division.nombre}</h2>
         <span className="text-xs text-[var(--texto-suave)]">{datos.participantes} compitiendo</span>
       </div>
 
@@ -444,7 +625,6 @@ function medalla(puesto: number): string {
 function ordinal(puesto: number): string {
   return `${puesto}.º`;
 }
-
 function PanelAmigos({
   consulta,
 }: {
@@ -454,15 +634,21 @@ function PanelAmigos({
   const { data, isPending, isError, error } = consulta;
   const [codigo, setCodigo] = useState('');
   const [copiado, setCopiado] = useState(false);
+  const [comoAnadir, setComoAnadir] = useState<'amigo' | 'seguir'>('amigo');
 
   const invalidar = async () => {
     await cliente.invalidateQueries({ queryKey: ['amigos'] });
     await cliente.invalidateQueries({ queryKey: ['liga'] });
+    await cliente.invalidateQueries({ queryKey: ['muro'] });
   };
+
+  const guardarAmigos = (vista: VistaDeAmigos) => cliente.setQueryData(['amigos'], vista);
 
   const anadir = useMutation({
     mutationFn: (escrito: string) =>
-      api.post<{ nombre: string }>('/social/amigos', { codigo: escrito }),
+      comoAnadir === 'amigo'
+        ? api.post<{ nombre: string }>('/social/amigos', { codigo: escrito })
+        : api.post<{ nombre: string }>('/social/seguir', { codigo: escrito }),
     onSuccess: async () => {
       setCodigo('');
       await invalidar();
@@ -474,9 +660,44 @@ function PanelAmigos({
     onSuccess: invalidar,
   });
 
+  const dejarDeSeguir = useMutation({
+    mutationFn: (seguimientoId: string) => api.delete<void>(`/social/seguidos/${seguimientoId}`),
+    onSuccess: invalidar,
+  });
+
+  const quitarSeguidor = useMutation({
+    mutationFn: (seguimientoId: string) => api.delete<void>(`/social/seguidores/${seguimientoId}`),
+    onSuccess: invalidar,
+  });
+
   const rotar = useMutation({
     mutationFn: () => api.post<{ codigo: string }>('/social/codigo'),
     onSuccess: invalidar,
+  });
+
+  const regalar = useMutation({
+    mutationFn: (amistadId: string) =>
+      api.post<{ nombre: string }>(`/social/amigos/${amistadId}/regalo`),
+    onSuccess: invalidar,
+  });
+
+  const tocar = useMutation({
+    mutationFn: (amistadId: string) =>
+      api.post<{ nombre: string }>(`/social/amigos/${amistadId}/toque`),
+    onSuccess: invalidar,
+  });
+
+  const silenciar = useMutation({
+    mutationFn: (datos: { amistadId: string; silenciados: boolean }) =>
+      api.put<VistaDeAmigos>(`/social/amigos/${datos.amistadId}/toques`, {
+        silenciados: datos.silenciados,
+      }),
+    onSuccess: guardarAmigos,
+  });
+
+  const recibirToques = useMutation({
+    mutationFn: (recibir: boolean) => api.put<VistaDeAmigos>('/social/toques', { recibir }),
+    onSuccess: guardarAmigos,
   });
 
   function enviar(evento: FormEvent) {
@@ -513,8 +734,8 @@ function PanelAmigos({
     una comparación: es un listado de gente que va mejor o peor que nadie.
   */
   const conmigo = [
-    { amistadId: 'yo', ...data.yo, soyYo: true },
-    ...data.amigos.map((amigo) => ({ ...amigo, soyYo: false })),
+    { amistadId: 'yo', ...data.yo, soyYo: true as const },
+    ...data.amigos.map((amigo) => ({ ...amigo, soyYo: false as const })),
   ].sort((uno, otro) => otro.xpSemana - uno.xpSemana);
 
   return (
@@ -527,8 +748,8 @@ function PanelAmigos({
       <section className="rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4">
         <h2 className="text-sm font-bold">Tu código</h2>
         <p className="mt-1 text-xs text-[var(--texto-suave)]">
-          Pásaselo a quien quieras. Quien lo tenga puede añadirte y ver tu nombre y tu XP de la
-          semana. Nadie ve tu correo.
+          Pásaselo a quien quieras. Quien lo tenga puede añadirte o seguirte, y ver tu nombre y tu
+          XP de la semana. Nadie ve tu correo.
         </p>
 
         <div className="mt-3 flex items-center gap-2">
@@ -558,37 +779,79 @@ function PanelAmigos({
         </p>
       </section>
 
+      {/*
+        Añadir y seguir comparten formulario porque comparten lo único que hace
+        falta: el código. Separarlos en dos cajas con dos campos iguales haría
+        que quien tiene un código tuviera que decidir antes de saber en qué se
+        diferencian, y la diferencia se explica aquí en dos líneas.
+      */}
       <form
         onSubmit={enviar}
         className="rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4"
       >
-        <label htmlFor="codigo-amigo" className="text-sm font-bold">
-          Añadir a alguien
-        </label>
-        <p className="mt-1 text-xs text-[var(--texto-suave)]">
-          Escribe su código. Da igual con guion o sin él.
-        </p>
+        <fieldset>
+          <legend className="text-sm font-bold">Añadir a alguien</legend>
 
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <input
-            id="codigo-amigo"
-            value={codigo}
-            onChange={(evento) => setCodigo(evento.target.value)}
-            placeholder="ABCD-EFGH"
-            autoComplete="off"
-            autoCapitalize="characters"
-            spellCheck={false}
-            className="min-h-12 min-w-0 flex-1 rounded-xl border-2 border-[var(--hueco)] bg-[var(--fondo)] px-3 uppercase tracking-widest placeholder:tracking-normal placeholder:normal-case"
-          />
-          <Boton
-            type="submit"
-            ancho={false}
-            disabled={anadir.isPending}
-            className="sm:w-auto sm:px-6"
-          >
-            {anadir.isPending ? 'Añadiendo…' : 'Añadir'}
-          </Boton>
-        </div>
+          {/*
+            Dos botones que se marcan, y no un `radiogroup` de verdad. Un grupo
+            de radios espera moverse con las flechas y tener una sola parada de
+            tabulador; escribirlo a medias es peor que no escribirlo, porque un
+            lector de pantalla anuncia un comportamiento que luego no ocurre.
+            Con `aria-pressed` se dice exactamente lo que hay: dos botones, cada
+            uno alcanzable con el tabulador, y uno de ellos pulsado.
+          */}
+          <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border-2 border-[var(--hueco)] bg-[var(--fondo)] p-1">
+            {(
+              [
+                ['amigo', 'Ser amigos'],
+                ['seguir', 'Solo seguir'],
+              ] as const
+            ).map(([cual, texto]) => (
+              <button
+                key={cual}
+                type="button"
+                aria-pressed={comoAnadir === cual}
+                onClick={() => setComoAnadir(cual)}
+                className={cn(
+                  'min-h-11 rounded-lg px-2 text-xs font-bold',
+                  comoAnadir === cual
+                    ? 'bg-marca-700 text-white'
+                    : 'text-[var(--texto-suave)] hover:bg-[var(--superficie)]',
+                )}
+              >
+                {texto}
+              </button>
+            ))}
+          </div>
+
+          <p className="mt-2 text-xs text-[var(--texto-suave)]">
+            {comoAnadir === 'amigo'
+              ? 'Ser amigos va en los dos sentidos: os veis, podéis regalaros y desafiaros.'
+              : 'Seguir va en un solo sentido: ves lo que hace y se entera de que le sigues, pero no tiene que añadirte.'}
+          </p>
+
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              id="codigo-amigo"
+              aria-label="Código de esa persona"
+              value={codigo}
+              onChange={(evento) => setCodigo(evento.target.value)}
+              placeholder="ABCD-EFGH"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              className="min-h-12 min-w-0 flex-1 rounded-xl border-2 border-[var(--hueco)] bg-[var(--fondo)] px-3 uppercase tracking-widest placeholder:tracking-normal placeholder:normal-case"
+            />
+            <Boton
+              type="submit"
+              ancho={false}
+              disabled={anadir.isPending}
+              className="sm:w-auto sm:px-6"
+            >
+              {anadir.isPending ? 'Añadiendo…' : comoAnadir === 'amigo' ? 'Añadir' : 'Seguir'}
+            </Boton>
+          </div>
+        </fieldset>
 
         {anadir.isError && (
           <div className="mt-3">
@@ -601,6 +864,8 @@ function PanelAmigos({
           </p>
         )}
       </form>
+
+      <DesafioConUnAmigo amigos={data.amigos} />
 
       <section>
         <h2 className="font-bold">
@@ -620,45 +885,497 @@ function PanelAmigos({
               <li
                 key={quien.amistadId}
                 className={cn(
-                  'flex items-center gap-3 rounded-2xl border-2 p-3',
+                  'rounded-2xl border-2 p-3',
                   quien.soyYo
                     ? 'border-marca-400 bg-marca-50 dark:border-marca-600 dark:bg-marca-900/50'
                     : 'border-[var(--hueco)] bg-[var(--superficie)]',
                 )}
               >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-bold">
-                    {quien.soyYo ? 'Tú' : quien.displayName}
+                <div className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-bold">
+                      {quien.soyYo ? 'Tú' : quien.displayName}
+                    </span>
+                    <span className="block text-xs text-[var(--texto-suave)] tabular-nums">
+                      {quien.xpSemana} XP esta semana
+                      {quien.racha > 0 &&
+                        ` · ${quien.racha} ${quien.racha === 1 ? 'día' : 'días'} de racha`}
+                    </span>
                   </span>
-                  <span className="block text-xs text-[var(--texto-suave)] tabular-nums">
-                    {quien.xpSemana} XP esta semana
-                    {quien.racha > 0 &&
-                      ` · ${quien.racha} ${quien.racha === 1 ? 'día' : 'días'} de racha`}
-                  </span>
-                </span>
+
+                  {!quien.soyYo && (
+                    <button
+                      type="button"
+                      onClick={() => quitar.mutate(quien.amistadId)}
+                      disabled={quitar.isPending}
+                      aria-label={`Quitar a ${quien.displayName}`}
+                      className="min-h-11 shrink-0 rounded-xl px-3 text-xs text-[var(--texto-suave)] underline underline-offset-4 hover:bg-[var(--fondo)] disabled:opacity-60"
+                    >
+                      Quitar
+                    </button>
+                  )}
+                </div>
 
                 {!quien.soyYo && (
-                  <button
-                    type="button"
-                    onClick={() => quitar.mutate(quien.amistadId)}
-                    disabled={quitar.isPending}
-                    aria-label={`Quitar a ${quien.displayName}`}
-                    className="min-h-11 shrink-0 rounded-xl px-3 text-xs text-[var(--texto-suave)] underline underline-offset-4 hover:bg-[var(--fondo)] disabled:opacity-60"
-                  >
-                    Quitar
-                  </button>
+                  <AccionesConUnAmigo
+                    amigo={quien}
+                    monedasDelRegalo={data.monedasDelRegalo}
+                    ocupado={regalar.isPending || tocar.isPending || silenciar.isPending}
+                    onRegalar={() => regalar.mutate(quien.amistadId)}
+                    onTocar={() => tocar.mutate(quien.amistadId)}
+                    onSilenciar={(silenciados) =>
+                      silenciar.mutate({ amistadId: quien.amistadId, silenciados })
+                    }
+                  />
                 )}
               </li>
             ))}
           </ul>
         )}
 
-        {quitar.isError && (
+        {(quitar.isError || regalar.isError || tocar.isError) && (
           <div className="mt-3">
-            <Aviso>{explicar(quitar.error)}</Aviso>
+            <Aviso>{explicar(quitar.error ?? regalar.error ?? tocar.error)}</Aviso>
+          </div>
+        )}
+
+        {regalar.isSuccess && (
+          <p role="status" className="mt-3 text-sm font-bold text-[var(--texto-acierto)]">
+            {regalar.data.nombre} tiene {data.monedasDelRegalo} monedas más.
+          </p>
+        )}
+
+        {tocar.isSuccess && (
+          <p role="status" className="mt-3 text-sm font-bold text-[var(--texto-acierto)]">
+            Listo: a {tocar.data.nombre} le saldrá que te acordaste.
+          </p>
+        )}
+      </section>
+
+      <Toques
+        apagados={data.toquesApagados}
+        quedan={data.toquesQueMeQuedan}
+        guardando={recibirToques.isPending}
+        onCambiar={(recibir) => recibirToques.mutate(recibir)}
+      />
+
+      <Seguimientos
+        seguidos={data.seguidos}
+        seguidores={data.seguidores}
+        maximo={data.maximoSeguidos}
+        ocupado={dejarDeSeguir.isPending || quitarSeguidor.isPending}
+        onDejarDeSeguir={(id) => dejarDeSeguir.mutate(id)}
+        onQuitarSeguidor={(id) => quitarSeguidor.mutate(id)}
+      />
+    </div>
+  );
+}
+
+/**
+ * Lo que se le puede hacer a un amigo: regalarle y darle un toque.
+ *
+ * EL TOQUE ES LO ÚNICO PELIGROSO DE ESTA PANTALLA
+ *
+ * Visto de cerca, «dar un toque» es mandarle a alguien un aviso que dice «me he
+ * dado cuenta de que no estás cumpliendo». Por eso aquí NO se enseña en ningún
+ * sitio quién lleva tiempo sin estudiar: el servidor tampoco lo manda, así que
+ * no se puede elegir a quién tocar por estar flojo. El botón dice «Acordarme de
+ * él» y no «recordarle que estudie», que es la diferencia entre un gesto y un
+ * reproche.
+ *
+ * Y cuando no cabe otro toque, el botón se apaga con el motivo escrito: los
+ * motivos son siempre MÍOS —ya le toqué esta semana, ya no me quedan hoy— y
+ * nunca suyos. Si el botón dijera «te ha silenciado», silenciar costaría una
+ * conversación y casi nadie lo usaría.
+ */
+function AccionesConUnAmigo({
+  amigo,
+  monedasDelRegalo,
+  ocupado,
+  onRegalar,
+  onTocar,
+  onSilenciar,
+}: {
+  amigo: Amigo;
+  monedasDelRegalo: number;
+  ocupado: boolean;
+  onRegalar: () => void;
+  onTocar: () => void;
+  onSilenciar: (silenciados: boolean) => void;
+}) {
+  const motivos: Record<Amigo['motivoDelToque'], string> = {
+    puedes: `Acordarte de ${amigo.displayName}`,
+    'ya-le-toque': `Ya te acordaste de ${amigo.displayName} esta semana`,
+    'sin-toques-hoy': 'Ya no te quedan toques hoy',
+  };
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2 border-t border-[var(--hueco)] pt-3">
+      <button
+        type="button"
+        onClick={onRegalar}
+        disabled={ocupado || !amigo.puedoRegalar}
+        title={amigo.puedoRegalar ? undefined : 'Hoy ya le mandaste uno'}
+        className="min-h-11 rounded-xl border-2 border-[var(--hueco)] px-3 text-xs font-bold hover:bg-[var(--fondo)] disabled:opacity-50"
+      >
+        <span aria-hidden>🎁</span> Regalar {monedasDelRegalo}
+      </button>
+
+      <button
+        type="button"
+        onClick={onTocar}
+        disabled={ocupado || !amigo.puedoTocar}
+        aria-label={motivos[amigo.motivoDelToque]}
+        title={motivos[amigo.motivoDelToque]}
+        className="min-h-11 rounded-xl border-2 border-[var(--hueco)] px-3 text-xs font-bold hover:bg-[var(--fondo)] disabled:opacity-50"
+      >
+        <span aria-hidden>👋</span> Un toque
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onSilenciar(!amigo.toquesSilenciados)}
+        disabled={ocupado}
+        aria-pressed={amigo.toquesSilenciados}
+        className="min-h-11 rounded-xl px-3 text-xs text-[var(--texto-suave)] underline underline-offset-4 hover:bg-[var(--fondo)] disabled:opacity-50"
+      >
+        {amigo.toquesSilenciados ? 'Volver a oír sus toques' : 'Silenciar sus toques'}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * El interruptor general de los toques.
+ *
+ * Hermano del de «no quiero aparecer en la liga», que ya existía, y puesto en el
+ * mismo sitio y con la misma forma a propósito: quien busque cómo apagar algo lo
+ * va a buscar donde apagó lo otro.
+ *
+ * Dice además cuántos toques me quedan HOY. Es un dato mío sobre lo que yo puedo
+ * hacer, no sobre nadie más, y enseñarlo es lo que hace que el límite se
+ * entienda antes de chocar con él.
+ */
+function Toques({
+  apagados,
+  quedan,
+  guardando,
+  onCambiar,
+}: {
+  apagados: boolean;
+  quedan: number;
+  guardando: boolean;
+  onCambiar: (recibir: boolean) => void;
+}) {
+  return (
+    <section className="rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4">
+      <h2 className="text-sm font-bold">Los toques</h2>
+      <p className="mt-1 text-xs text-[var(--texto-suave)]">
+        Un toque es un «me acordé de ti» que aparece en el muro de un amigo. No suena, no avisa y
+        solo lo veis los dos. Puedes dar {quedan === 1 ? 'uno' : quedan} hoy, y solo uno por semana
+        a la misma persona.
+      </p>
+
+      <button
+        type="button"
+        onClick={() => onCambiar(apagados)}
+        disabled={guardando}
+        aria-pressed={apagados}
+        className="mt-3 min-h-12 rounded-xl px-4 text-sm text-[var(--texto-suave)] underline underline-offset-4 hover:bg-[var(--fondo)] disabled:opacity-60"
+      >
+        {apagados ? 'Volver a recibir toques' : 'No quiero recibir toques'}
+      </button>
+
+      {apagados && (
+        <p className="text-xs text-[var(--texto-suave)]">
+          No te llega ninguno. Quien te lo mande no se entera de que lo apagaste.
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** A quién sigues y quién te sigue, con la forma de cortar por los dos lados. */
+function Seguimientos({
+  seguidos,
+  seguidores,
+  maximo,
+  ocupado,
+  onDejarDeSeguir,
+  onQuitarSeguidor,
+}: {
+  seguidos: Seguido[];
+  seguidores: Seguidor[];
+  maximo: number;
+  ocupado: boolean;
+  onDejarDeSeguir: (id: string) => void;
+  onQuitarSeguidor: (id: string) => void;
+}) {
+  if (seguidos.length === 0 && seguidores.length === 0) return null;
+
+  return (
+    <section className="grid gap-4">
+      {seguidos.length > 0 && (
+        <div>
+          <h2 className="font-bold">
+            Sigues a {seguidos.length} {seguidos.length === 1 ? 'persona' : 'personas'}
+          </h2>
+          <p className="mt-1 text-xs text-[var(--texto-suave)]">
+            Ves lo que hacen en tus novedades. Caben {maximo}.
+          </p>
+
+          <ul className="mt-3 grid gap-2">
+            {seguidos.map((quien) => (
+              <li
+                key={quien.seguimientoId}
+                className="flex items-center gap-3 rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] p-3"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-bold">{quien.displayName}</span>
+                  <span className="block text-xs text-[var(--texto-suave)] tabular-nums">
+                    {quien.xpSemana} XP esta semana
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onDejarDeSeguir(quien.seguimientoId)}
+                  disabled={ocupado}
+                  aria-label={`Dejar de seguir a ${quien.displayName}`}
+                  className="min-h-11 shrink-0 rounded-xl px-3 text-xs text-[var(--texto-suave)] underline underline-offset-4 hover:bg-[var(--fondo)] disabled:opacity-60"
+                >
+                  Dejar de seguir
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {seguidores.length > 0 && (
+        <div>
+          <h2 className="font-bold">
+            Te{' '}
+            {seguidores.length === 1 ? 'sigue 1 persona' : `siguen ${seguidores.length} personas`}
+          </h2>
+          {/*
+            Se enseña quién te sigue, y se puede quitar. Seguir va en un solo
+            sentido, así que la única forma de que no sea vigilancia es que quien
+            es seguido lo sepa y pueda cortarlo.
+          */}
+          <p className="mt-1 text-xs text-[var(--texto-suave)]">
+            Ven tu nombre y lo que haces en sus novedades. Puedes quitarles.
+          </p>
+
+          <ul className="mt-3 grid gap-2">
+            {seguidores.map((quien) => (
+              <li
+                key={quien.seguimientoId}
+                className="flex items-center gap-3 rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] p-3"
+              >
+                <span className="min-w-0 flex-1 truncate font-bold">{quien.displayName}</span>
+                <button
+                  type="button"
+                  onClick={() => onQuitarSeguidor(quien.seguimientoId)}
+                  disabled={ocupado}
+                  aria-label={`Quitar a ${quien.displayName} de tus seguidores`}
+                  className="min-h-11 shrink-0 rounded-xl px-3 text-xs text-[var(--texto-suave)] underline underline-offset-4 hover:bg-[var(--fondo)] disabled:opacity-60"
+                >
+                  Quitar
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * El desafío con un amigo.
+ *
+ * DOS PERSONAS SUMANDO, NO COMPITIENDO
+ *
+ * Los dos empujan el mismo número hacia el mismo objetivo y el cofre se abre
+ * para los dos o para ninguno. Si fuera un duelo, quien va perdiendo el jueves
+ * ya no tendría motivo para estudiar el viernes, que es lo contrario de lo que
+ * esta app quiere que pase. Por eso la barra es una sola y debajo se ve lo que
+ * ha puesto cada uno: el que va más flojo es el que más falta hace.
+ *
+ * El objetivo lo pone el servidor a partir de lo que los dos hicieron la semana
+ * pasada, y el cofre se abre solo al llegar. No hay botón de «reclamar»: un
+ * premio ya ganado no se puede perder por no volver a tiempo.
+ */
+function DesafioConUnAmigo({ amigos }: { amigos: Amigo[] }) {
+  const cliente = useQueryClient();
+  const [aQuien, setAQuien] = useState('');
+
+  const consulta = useQuery({
+    queryKey: ['desafio'],
+    queryFn: () => api.get<VistaDeDesafios>('/social/desafio'),
+    retry: false,
+  });
+
+  const guardar = (vista: VistaDeDesafios) => {
+    cliente.setQueryData(['desafio'], vista);
+    void cliente.invalidateQueries({ queryKey: ['amigos'] });
+  };
+
+  const proponer = useMutation({
+    mutationFn: (amistadId: string) => api.post<VistaDeDesafios>('/social/desafio', { amistadId }),
+    onSuccess: guardar,
+  });
+
+  const contestar = useMutation({
+    mutationFn: (datos: { id: string; acepto: boolean }) =>
+      api.put<VistaDeDesafios>(`/social/desafio/${datos.id}`, { acepto: datos.acepto }),
+    onSuccess: guardar,
+  });
+
+  if (consulta.isPending || consulta.isError || !consulta.data) return null;
+
+  const { desafio, cofre, dias } = consulta.data;
+
+  if (!desafio) {
+    if (amigos.length === 0) return null;
+
+    return (
+      <section className="rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4">
+        <h2 className="text-sm font-bold">Un desafío con alguien</h2>
+        <p className="mt-1 text-xs text-[var(--texto-suave)]">
+          Un objetivo de XP común para los dos durante {dias} días. Si llegáis, un cofre de {cofre}{' '}
+          monedas para cada uno. El objetivo lo pongo yo según lo que hicisteis la semana pasada.
+        </p>
+
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <label htmlFor="desafio-amigo" className="sr-only">
+            A quién desafías
+          </label>
+          <select
+            id="desafio-amigo"
+            value={aQuien}
+            onChange={(evento) => setAQuien(evento.target.value)}
+            className="min-h-12 min-w-0 flex-1 rounded-xl border-2 border-[var(--hueco)] bg-[var(--fondo)] px-3"
+          >
+            <option value="">Elige a quién</option>
+            {amigos.map((amigo) => (
+              <option key={amigo.amistadId} value={amigo.amistadId}>
+                {amigo.displayName}
+              </option>
+            ))}
+          </select>
+
+          <Boton
+            ancho={false}
+            disabled={!aQuien || proponer.isPending}
+            onClick={() => proponer.mutate(aQuien)}
+            className="sm:w-auto sm:px-6"
+          >
+            {proponer.isPending ? 'Mandando…' : 'Desafiar'}
+          </Boton>
+        </div>
+
+        {proponer.isError && (
+          <div className="mt-3">
+            <Aviso>{explicar(proponer.error)}</Aviso>
           </div>
         )}
       </section>
-    </div>
+    );
+  }
+
+  if (desafio.estado === 'pendiente') {
+    return (
+      <section className="rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4">
+        <h2 className="text-sm font-bold">
+          {desafio.yoRete ? `Esperando a ${desafio.otro}` : `${desafio.otro} te propone un desafío`}
+        </h2>
+        <p className="mt-1 text-sm text-[var(--texto-suave)]">
+          {desafio.objetivo} XP entre los dos en {dias} días. Si llegáis, {desafio.cofre} monedas
+          para cada uno.
+        </p>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {!desafio.yoRete && (
+            <Boton
+              ancho={false}
+              disabled={contestar.isPending}
+              onClick={() => contestar.mutate({ id: desafio.id, acepto: true })}
+              className="sm:w-auto sm:px-6"
+            >
+              Acepto
+            </Boton>
+          )}
+          <button
+            type="button"
+            disabled={contestar.isPending}
+            onClick={() => contestar.mutate({ id: desafio.id, acepto: false })}
+            className="min-h-12 rounded-xl px-4 text-sm text-[var(--texto-suave)] underline underline-offset-4 hover:bg-[var(--fondo)] disabled:opacity-60"
+          >
+            {desafio.yoRete ? 'Retirarlo' : 'Ahora no'}
+          </button>
+        </div>
+
+        {contestar.isError && (
+          <div className="mt-3">
+            <Aviso>{explicar(contestar.error)}</Aviso>
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  const logrado = desafio.estado === 'logrado';
+  const avance = Math.min(Math.round((desafio.llevan / desafio.objetivo) * 100), 100);
+
+  return (
+    <section
+      className={cn(
+        'rounded-2xl border-2 p-4',
+        logrado
+          ? 'border-acento-400 bg-acento-300/25'
+          : 'border-[var(--hueco)] bg-[var(--superficie)]',
+      )}
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-bold">
+          <span aria-hidden>{logrado ? '🧰' : '🤝'}</span> Tú y {desafio.otro}
+        </h2>
+        <span className="text-xs text-[var(--texto-suave)] tabular-nums">
+          {desafio.llevan} / {desafio.objetivo} XP
+        </span>
+      </div>
+
+      {/*
+        La barra es decorativa: el mismo número va escrito al lado en cifras,
+        que es lo que lee un lector de pantalla y lo que sirve cuando la barra se
+        queda en un pelo de ancho a 320 px.
+      */}
+      <div
+        aria-hidden
+        className="mt-2 h-3 overflow-hidden rounded-full bg-[var(--fondo)] ring-1 ring-[var(--hueco)]"
+      >
+        <div
+          className={cn('h-full rounded-full', logrado ? 'bg-acento-500' : 'bg-marca-600')}
+          style={{ width: `${avance}%` }}
+        />
+      </div>
+
+      <p className="mt-2 text-xs text-[var(--texto-suave)] tabular-nums">
+        Tú has puesto {desafio.loMio} XP · {desafio.otro}, {desafio.loSuyo} XP
+      </p>
+
+      {desafio.cofreNuevo !== null && (
+        <p role="status" className="mt-3 text-sm font-bold">
+          🧰 Llegasteis. {desafio.cofreNuevo} monedas para cada uno.
+        </p>
+      )}
+
+      {!logrado && desafio.terminaEn && (
+        <p className="mt-2 text-xs text-[var(--texto-suave)]">
+          Acaba el {FORMATO_FIN.format(new Date(desafio.terminaEn))}.
+        </p>
+      )}
+    </section>
   );
 }

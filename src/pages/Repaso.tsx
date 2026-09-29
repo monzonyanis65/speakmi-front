@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 import { cn } from '@/lib/cn';
 import { NOMBRE_CATEGORIA } from '@/components/ejercicios/tipos';
 
@@ -41,6 +42,9 @@ export function Repaso() {
     setEnviando(true);
     try {
       await api.post(`/review/${tarjeta.id}/review`, { rating });
+      // Puede haber un desafío de repasar en marcha. Se tira la caché y ya la
+      // vuelve a pedir quien la necesite: el recuento es del servidor.
+      void queryClient.invalidateQueries({ queryKey: ['misiones'] });
       setHechas(hechas + 1);
       setDescubierta(false);
       setIndice(indice + 1);

@@ -68,13 +68,29 @@ describe('elección de nivel', () => {
     expect(new Set(dentro).size).toBe(dentro.length);
   });
 
-  it('dice claramente que C1 y C2 todavía no tienen curso', () => {
-    // Cortar la lista en B2 daría a entender que ahí se acaba el inglés.
+  it('ningún tramo se anuncia sin curso, porque ya no queda ninguno', () => {
+    /*
+      Esta prueba decía «C1 y C2 todavía no tienen curso», y era verdad: los
+      dos tramos de arriba salían con su letra, su descripción y debajo un
+      hueco. Dejó de serlo el día que se escribieron L17 a L24.
+
+      La conservo dada la vuelta porque lo que vigila sigue haciendo falta: que
+      la pantalla no corte la escala antes de C2 —cortarla en B2 daría a
+      entender que ahí se acaba el inglés— y que no anuncie como vacío un tramo
+      que sí tiene curso detrás, que es exactamente lo que estuvo haciendo.
+    */
     renderizar();
 
     const vacios = TRAMOS.filter((t) => t.niveles.length === 0);
-    expect(vacios.map((t) => t.letra)).toEqual(['C1', 'C2']);
-    expect(screen.getAllByText(/Todavía no hay curso/)).toHaveLength(vacios.length);
+    expect(
+      vacios.map((t) => t.letra),
+      'tramos sin un solo nivel detrás',
+    ).toEqual([]);
+
+    expect(screen.queryByText(/Todavía no hay curso/)).toBeNull();
+
+    // Y la escala llega hasta arriba.
+    expect(TRAMOS.map((t) => t.letra)).toEqual(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
   });
 
   it('la etiqueta de cada nivel empieza por la letra de su tramo', () => {

@@ -35,4 +35,7 @@ export const NOMBRE_ATUENDO: Record<Atuendo, string> = {
   OUTFIT_BUFANDA: 'bufanda',
   OUTFIT_GAFAS: 'gafas de sol',
   OUTFIT_CORONA: 'corona',
+  OUTFIT_HOJAS: 'corona de hojas',
+  OUTFIT_ANTIFAZ: 'antifaz del festival',
+  OUTFIT_CAPA: 'capa de otoño',
 };

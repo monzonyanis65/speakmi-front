@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useSesion } from '@/store/sesion';
 import { PanelInicio } from '@/components/PanelInicio';
+import { PanelDeMisiones } from '@/components/misiones/Misiones';
 import { NivelVacio } from '@/components/NivelVacio';
 import { MascotaConMensaje } from '@/components/Mascota';
 import { NodoLeccion, type EstadoNodo } from '@/components/NodoLeccion';
@@ -210,6 +211,13 @@ export function Ruta() {
           <MascotaConMensaje estado="feliz" mensaje={saludo(data?.units[0]?.titleEs)} />
           <div className="mt-5">
             <PanelInicio />
+          </div>
+          {/*
+            Los desafíos del día, justo debajo del panel. Aquí y no en un menú:
+            una misión que hay que ir a buscar no es una razón para volver.
+          */}
+          <div className="mt-5">
+            <PanelDeMisiones />
           </div>
         </div>
 

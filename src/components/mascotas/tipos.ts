@@ -13,8 +13,24 @@ import { type ReactNode } from 'react';
 /** Las cinco mascotas. El identificador viaja tal cual al servidor. */
 export type Especie = 'PET_MILO' | 'PET_GATO' | 'PET_PERRO' | 'PET_BUHO' | 'PET_ZORRO';
 
-/** Lo que se puede llevar puesto. Ninguno es válido: la mayoría va sin nada. */
-export type Atuendo = 'OUTFIT_GORRO' | 'OUTFIT_BUFANDA' | 'OUTFIT_GAFAS' | 'OUTFIT_CORONA';
+/**
+ * Lo que se puede llevar puesto. Ninguno es válido: la mayoría va sin nada.
+ *
+ * Los tres últimos NO están a la venta: se ganan juntando las piezas del
+ * festival de temporada. Viven en la misma lista que los cuatro de la tienda a
+ * propósito, porque para el dibujo son lo mismo —una prenda colgada de los
+ * anclajes— y separarlos habría significado dos sistemas de vestir. Lo que los
+ * distingue vive en el servidor, en `shop_items.origen`, que es donde tiene que
+ * estar: aquí no hay ninguna decisión que tomar sobre cómo se consiguieron.
+ */
+export type Atuendo =
+  | 'OUTFIT_GORRO'
+  | 'OUTFIT_BUFANDA'
+  | 'OUTFIT_GAFAS'
+  | 'OUTFIT_CORONA'
+  | 'OUTFIT_HOJAS'
+  | 'OUTFIT_ANTIFAZ'
+  | 'OUTFIT_CAPA';
 
 /**
  * Los cuatro puntos del lienzo de 120x120 donde se cuelga la ropa.

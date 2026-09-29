@@ -829,6 +829,151 @@ function atuendo(ctx: CanvasRenderingContext2D, cual: Atuendo, p: typeof REPUEST
     return;
   }
 
+  /*
+    Las tres del festival de otoño, con las mismas medidas de Milo.
+
+    Son las de `atuendos.tsx` traducidas al lienzo, y hay que mantener las dos
+    copias a la vez porque Milo se pinta con canvas y las otras cuatro especies
+    con SVG. Es la misma deuda que ya tenían las cuatro prendas de la tienda; lo
+    que no se podía hacer era dejarlas solo en el SVG, porque entonces el único
+    animal que NO llevaría el disfraz del festival sería justo la mascota que
+    tiene todo el mundo desde el primer día.
+  */
+  if (cual === 'OUTFIT_HOJAS') {
+    const base = CORONILLA + 10;
+    const w = ANCHO - 6;
+    ctx.strokeStyle = p.acento600;
+    ctx.lineWidth = 3.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(60 - w, base);
+    ctx.quadraticCurveTo(60, base - 7, 60 + w, base);
+    ctx.stroke();
+
+    const hoja = (x: number, y: number, giro: number, escala: number) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate((giro * Math.PI) / 180);
+      ctx.scale(escala, escala);
+      ctx.fillStyle = p.acento500;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(6, -7, 0, -13);
+      ctx.quadraticCurveTo(-6, -7, 0, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = p.acento600;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(0, -1);
+      ctx.lineTo(0, -11);
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    hoja(60 - w + 2, base - 1, -38, 0.95);
+    hoja(60 - w / 2, base - 4, -18, 1.05);
+    hoja(60, base - 6, 0, 1.15);
+    hoja(60 + w / 2, base - 4, 18, 1.05);
+    hoja(60 + w - 2, base - 1, 38, 0.95);
+
+    ctx.fillStyle = '#f43f5e';
+    circulo(ctx, 60 - w / 4, base - 1, 2.2);
+    circulo(ctx, 60 + w / 4, base - 1, 2.2);
+    return;
+  }
+
+  if (cual === 'OUTFIT_ANTIFAZ') {
+    // En rosa oscuro y no en la paleta de marca: Milo ES de la paleta de marca,
+    // así que un antifaz azul sobre él no se veía. El porqué largo está en
+    // `atuendos.tsx`, que es donde vive el mismo dibujo para las otras cuatro.
+    const alto = 18;
+    const arriba = OJOS - 9;
+    ctx.fillStyle = '#be123c';
+    ctx.beginPath();
+    ctx.moveTo(60 - ANCHO - 2, OJOS - 3);
+    ctx.quadraticCurveTo(60, arriba - 4, 60 + ANCHO + 2, OJOS - 3);
+    ctx.quadraticCurveTo(60 + ANCHO, arriba + alto, 60, arriba + alto - 2);
+    ctx.quadraticCurveTo(60 - ANCHO, arriba + alto, 60 - ANCHO - 2, OJOS - 3);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = p.acento400;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(60 - ANCHO - 2, OJOS - 3);
+    ctx.quadraticCurveTo(60, arriba - 4, 60 + ANCHO + 2, OJOS - 3);
+    ctx.stroke();
+
+    // Los dos huecos por los que se ven los ojos. Se recortan del antifaz y no
+    // se vuelve a dibujar el ojo: el ojo ya está pintado debajo.
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    elipse(ctx, 50, OJOS, 7.5, 5.5);
+    elipse(ctx, 70, OJOS, 7.5, 5.5);
+    ctx.restore();
+
+    ctx.strokeStyle = p.acento400;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(60 + ANCHO - 2, arriba - 1);
+    ctx.quadraticCurveTo(60 + ANCHO + 10, arriba - 16, 60 + ANCHO + 2, arriba - 22);
+    ctx.stroke();
+    ctx.fillStyle = p.acento300;
+    circulo(ctx, 60 - ANCHO + 4, OJOS - 5, 2);
+    return;
+  }
+
+  if (cual === 'OUTFIT_CAPA') {
+    // Dos caídas por fuera del cuerpo, no una pieza por delante: una capa que
+    // tapa la barriga se come lo único que da vida al dibujo. El razonamiento
+    // entero está en `atuendos.tsx`.
+    const hombro = CUELLO - 2;
+    const largo = CUELLO + 38;
+
+    const caida = (lado: number) => {
+      const dentro = 60 + lado * (ANCHO - 4);
+      const fuera = 60 + lado * (ANCHO + 16);
+      const pie = 60 + lado * (ANCHO + 4);
+      ctx.beginPath();
+      ctx.moveTo(dentro, hombro);
+      ctx.quadraticCurveTo(fuera - lado * 2, hombro + 20, fuera, largo - 4);
+      ctx.lineTo(pie, largo + 2);
+      ctx.quadraticCurveTo(dentro + lado * 4, hombro + 18, dentro - lado * 8, hombro);
+      ctx.closePath();
+      ctx.fill();
+    };
+
+    ctx.fillStyle = '#be123c';
+    caida(-1);
+    caida(1);
+
+    ctx.strokeStyle = p.acento300;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(60 - ANCHO - 16, largo - 4);
+    ctx.lineTo(60 - ANCHO - 4, largo + 2);
+    ctx.moveTo(60 + ANCHO + 16, largo - 4);
+    ctx.lineTo(60 + ANCHO + 4, largo + 2);
+    ctx.stroke();
+
+    ctx.fillStyle = '#e11d48';
+    ctx.beginPath();
+    ctx.moveTo(60 - ANCHO - 2, hombro + 2);
+    ctx.quadraticCurveTo(60, hombro + 10, 60 + ANCHO + 2, hombro + 2);
+    ctx.quadraticCurveTo(60, hombro - 5, 60 - ANCHO - 2, hombro + 2);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = p.acento400;
+    circulo(ctx, 60, hombro + 3, 3.4);
+    ctx.fillStyle = p.acento300;
+    circulo(ctx, 60, hombro + 3, 1.4);
+    return;
+  }
+
   // Bufanda. Va en el cuello, que es justo el punto sobre el que gira la cabeza:
   // la vuelta se queda quieta y solo la caída acompaña al ladeo.
   ctx.fillStyle = '#e11d48';

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { Ejercicio } from '@/components/ejercicios/Ejercicio';
@@ -16,6 +17,8 @@ import {
   type EjercicioPublico,
   type Respuesta,
 } from '@/components/ejercicios/tipos';
+import { ListaDeMisiones } from '@/components/misiones/Misiones';
+import type { Misiones } from '@/components/misiones/tipos';
 
 interface DatosLeccion {
   lesson: { code: string; titleEs: string; type: string; xpReward: number };
@@ -28,6 +31,19 @@ interface Resumen {
   total: number;
   accuracy: number;
   xpEarned: number;
+  /**
+   * Cómo quedan los desafíos del día DESPUÉS de esta lección.
+   *
+   * Viene dentro de la misma respuesta y no en otra petición a propósito: si
+   * la pantalla tuviera que preguntarlo aparte, habría un momento en que el
+   * resumen ya está puesto y la misión todavía dice lo de antes, que es
+   * exactamente la sensación de que el marcador no cuadra con el final.
+   *
+   * Opcional porque un servidor que todavía no se ha actualizado no lo manda,
+   * y quedarse sin pantalla de resumen por eso sería mucho peor que no ver las
+   * misiones.
+   */
+  misiones?: Misiones;
 }
 
 // Los que no se corrigen contra una solución escrita: llevan su propio flujo,
@@ -169,6 +185,11 @@ export function Leccion() {
     setPorRepetir([]);
     if (sessionId) {
       const final = await api.post<Resumen>(`/sessions/${sessionId}/finish`);
+
+      // El servidor ya ha contado esta lección, así que su versión de las
+      // misiones es la buena: se mete en la caché en vez de pedirla otra vez.
+      // La ruta y el menú la encuentran ya al día al volver.
+      if (final.misiones) queryClient.setQueryData(['misiones'], final.misiones);
       setResumen(final);
     }
   }
@@ -472,6 +493,19 @@ function PantallaResumen({ resumen, onSalir }: { resumen: Resumen; onSalir: () =
         <Dato valor={porcentaje} sufijo="%" etiqueta="Aciertos" retraso={200} />
         <Dato valor={resumen.xpEarned} prefijo="+" etiqueta="XP" retraso={450} />
       </div>
+
+      {/*
+        Los desafíos, aquí mismo y ya movidos. Este es EL momento en que una
+        misión se convierte en algo: se acaba de hacer el trabajo y la barra
+        está un paso más allá de donde estaba al empezar. Verlo mañana al
+        entrar no es lo mismo, porque para entonces ya no se recuerda dónde
+        estaba.
+      */}
+      {resumen.misiones && (
+        <div className="mt-8 rounded-2xl border-2 border-[var(--borde)] bg-[var(--superficie)] p-4 text-left">
+          <ListaDeMisiones datos={resumen.misiones} compacto />
+        </div>
+      )}
 
       <Boton tamano="grande" onClick={onSalir} className="mt-8">
         VOLVER A MI RUTA
