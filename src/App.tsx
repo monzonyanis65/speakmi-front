@@ -29,8 +29,11 @@ import { Juego } from '@/pages/Juego';
 import { Llamada } from '@/pages/Llamada';
 import { MiloVivo } from '@/components/MiloVivo';
 import { PruebaShadowing } from '@/pages/PruebaShadowing';
+import { PruebaEscritura } from '@/pages/PruebaEscritura';
 import { Repaso } from '@/pages/Repaso';
 import { Conversar } from '@/pages/Conversar';
+import { Lecturas } from '@/pages/Lecturas';
+import { Lectura } from '@/pages/Lectura';
 import { AvisoActualizacion } from '@/components/AvisoActualizacion';
 
 // El cliente de API necesita saber de dónde sacar el token y cómo renovarlo.
@@ -243,6 +246,26 @@ export default function App() {
               }
             />
             {/*
+              Los textos que trae cada uno. Van en plural y singular, como la
+              ruta y las lecciones: la lista y el que estés leyendo.
+            */}
+            <Route
+              path="/lecturas"
+              element={
+                <SoloConSesion>
+                  <Lecturas />
+                </SoloConSesion>
+              }
+            />
+            <Route
+              path="/lecturas/:id"
+              element={
+                <SoloConSesion>
+                  <Lectura />
+                </SoloConSesion>
+              }
+            />
+            {/*
               Banco de pruebas del Milo con física. No lleva sesión a propósito:
               es para verlo y compararlo, no una pantalla del producto.
             */}
@@ -252,6 +275,12 @@ export default function App() {
               cosido a la lección. Sin sesión por el mismo motivo que /vivo.
             */}
             <Route path="/shadowing" element={<PruebaShadowing />} />
+            {/*
+              Banco de pruebas de escribir libre. Sin sesión por lo mismo que
+              los dos de arriba: la pantalla de verdad vive dentro de una
+              lección y llegar a ella pide cuenta, servidor y clave del modelo.
+            */}
+            <Route path="/escritura" element={<PruebaEscritura />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           {/* Fuera de las rutas: el aviso vale para cualquier pantalla. */}

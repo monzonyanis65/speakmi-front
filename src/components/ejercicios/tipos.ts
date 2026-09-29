@@ -30,6 +30,14 @@ export interface Correccion {
     diff?: Diferencia[];
     errores: ErrorDetectado[];
     explicacion_es?: string;
+    /**
+     * Uno por cada cosa que había que contar, solo al escribir libre.
+     *
+     * Se pinta AL LADO del punto que se pedía, no en una frase debajo: decir
+     * «te falta el punto 3» obliga a subir la vista y contar renglones, y eso
+     * nadie lo hace justo después de escribir un párrafo.
+     */
+    puntos?: Array<{ cubierto: boolean; porQue_es?: string }>;
   };
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { callar, decir, hayVoz, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
 import { EscenaDialogo } from './EscenaDialogo';
+import { EscrituraLibre } from './EscrituraLibre';
 import type { Correccion, PropsEjercicio } from './tipos';
 
 /**
@@ -29,6 +30,8 @@ export function Ejercicio(props: PropsEjercicio) {
       return <ParMinimo {...props} />;
     case 'dialogue_scene':
       return <EscenaDialogo {...props} />;
+    case 'free_write':
+      return <EscrituraLibre {...props} />;
     case 'read_aloud':
     case 'speak_prompt':
       return <Pendiente tipo={props.ejercicio.type} />;

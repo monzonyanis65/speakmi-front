@@ -24,6 +24,12 @@ const ENTRADAS: Entrada[] = [
     a: '/juegos',
   },
   {
+    icono: '📖',
+    titulo: 'Tus textos',
+    descripcion: 'Trae un artículo tuyo y léelo tocando lo que no conozcas',
+    a: '/lecturas',
+  },
+  {
     icono: '⚔️',
     titulo: 'Desafíos',
     descripcion: 'Los tres de hoy, el del mes y cuánto te falta para cada uno',

@@ -1,0 +1,274 @@
+/**
+ * Grabar el micrófono en WAV PCM de 16 kHz mono, que es lo único que le vale al
+ * evaluador de fonemas.
+ *
+ * Por qué no se usa `lib/grabacion.ts`, que ya existe: `MediaRecorder` entrega
+ * Opus en webm en Chrome y AAC en mp4 en Safari, y la API REST de Azure no acepta
+ * ninguno de los dos. Convertir en el servidor pediría ffmpeg —decenas de megas
+ * y un arranque en frío que en serverless no cabe—, así que el navegador tiene
+ * que entregar el audio ya bueno. Se captura PCM crudo con un AudioWorklet y se
+ * le pone la cabecera WAV delante, que son cuatro líneas.
+ *
+ * Y AQUÍ ESTÁ LA RAZÓN DE FONDO, que es de honestidad y no de formato: Azure
+ * acepta también un WAV a 48 kHz. No lo rechaza, lo procesa y devuelve notas
+ * malas. Quien estudia leería que pronuncia fatal cuando lo que estaba mal era
+ * el audio que le mandamos. Un marcador falso es peor que no tener marcador, así
+ * que el muestreo se comprueba aquí y se vuelve a comprobar en el servidor.
+ *
+ * Si algo no se puede —navegador sin AudioWorklet, permiso denegado— devuelve
+ * null y quien llama sigue como antes, sin fonética. Esa es toda la degradación
+ * que hace falta: la corrección por palabras no depende de esto.
+ */
+
+/** Lo que pide el evaluador, y no es negociable. */
+export const MUESTREO = 16000;
+
+/** El tope de Azure. Por encima rechaza, así que se corta aquí y no allí. */
+export const MAX_SEGUNDOS = 30;
+
+/**
+ * El worklet, escrito como texto y cargado desde un blob.
+ *
+ * Va inline a propósito: un archivo suelto en `public/` tendría que sobrevivir al
+ * empaquetado, al hash de nombres y al service worker de la PWA, y si algún día
+ * se cae por el camino el fallo aparecería en producción como «no hay fonética»
+ * sin más pista. Así el worklet no puede perderse: viaja dentro del módulo.
+ */
+const FUENTE_WORKLET = `
+class CapturaPcm extends AudioWorkletProcessor {
+  process(entradas) {
+    const canal = entradas[0] && entradas[0][0];
+    if (canal) {
+      // Una copia, porque el búfer que llega se reutiliza en el siguiente ciclo.
+      const copia = new Float32Array(canal);
+      this.port.postMessage(copia, [copia.buffer]);
+    }
+    return true;
+  }
+}
+registerProcessor('captura-pcm', CapturaPcm);
+`;
+
+export interface GrabacionWav {
+  /** Para y entrega el WAV. Null si no llegó a grabarse nada aprovechable. */
+  terminar: () => Promise<Blob | null>;
+  /** Para y lo tira. */
+  cancelar: () => void;
+}
+
+export function puedeGrabarWav(): boolean {
+  return (
+    typeof AudioWorkletNode !== 'undefined' &&
+    typeof navigator !== 'undefined' &&
+    Boolean(navigator.mediaDevices?.getUserMedia)
+  );
+}
+
+export async function grabarWav(): Promise<GrabacionWav | null> {
+  if (!puedeGrabarWav()) return null;
+
+  let micro: MediaStream;
+  try {
+    micro = await navigator.mediaDevices.getUserMedia({
+      // Sin control automático de ganancia: sube el volumen de los silencios y
+      // convierte el ruido de fondo en algo que el evaluador intenta puntuar.
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
+    });
+  } catch {
+    return null;
+  }
+
+  const soltar = () => micro.getTracks().forEach((pista) => pista.stop());
+
+  let contexto: AudioContext;
+  try {
+    /*
+      Se le PIDE al contexto que trabaje ya a 16 kHz, y así el remuestreo lo hace
+      el navegador, que lo hace bien. Los que no acepten la petición se quedan a
+      su frecuencia y se remuestrea a mano más abajo: peor, pero honesto, y desde
+      luego mejor que mandar 48 kHz disfrazados de 16.
+    */
+    contexto = new AudioContext({ sampleRate: MUESTREO });
+  } catch {
+    soltar();
+    return null;
+  }
+
+  let url: string | null = null;
+  let nodo: AudioWorkletNode;
+  try {
+    url = URL.createObjectURL(new Blob([FUENTE_WORKLET], { type: 'text/javascript' }));
+    await contexto.audioWorklet.addModule(url);
+    nodo = new AudioWorkletNode(contexto, 'captura-pcm');
+  } catch {
+    if (url) URL.revokeObjectURL(url);
+    void contexto.close();
+    soltar();
+    return null;
+  }
+  URL.revokeObjectURL(url);
+
+  const entrada = contexto.createMediaStreamSource(micro);
+  const trozos: Float32Array[] = [];
+  let muestras = 0;
+  const tope = MAX_SEGUNDOS * contexto.sampleRate;
+
+  nodo.port.onmessage = (evento: MessageEvent<Float32Array>) => {
+    // Pasado el tope se dejan de guardar, pero NO se corta la grabación: quien
+    // habla no tiene por qué enterarse a mitad de frase. Lo que sobra se tira.
+    if (muestras >= tope) return;
+    trozos.push(evento.data);
+    muestras += evento.data.length;
+  };
+
+  entrada.connect(nodo);
+  /*
+    El worklet no se conecta a los altavoces. No hace falta para que corra —el
+    nodo procesa igual— y conectarlo devolvería tu propia voz por el auricular
+    con retardo, que es la forma más rápida de que alguien deje de hablar.
+  */
+
+  const cerrar = () => {
+    nodo.port.onmessage = null;
+    entrada.disconnect();
+    nodo.disconnect();
+    void contexto.close();
+    soltar();
+  };
+
+  return {
+    terminar: async () => {
+      const muestreo = contexto.sampleRate;
+      cerrar();
+      if (muestras === 0) return null;
+      return construirWav(juntar(trozos, Math.min(muestras, tope)), muestreo);
+    },
+    cancelar: () => {
+      trozos.length = 0;
+      cerrar();
+    },
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Las partes puras, que son las que se pueden probar                  */
+/* ------------------------------------------------------------------ */
+
+/** Pega los trozos del worklet en un solo bloque, recortando al tope. */
+export function juntar(trozos: readonly Float32Array[], total: number): Float32Array {
+  const todo = new Float32Array(total);
+  let donde = 0;
+  for (const trozo of trozos) {
+    if (donde >= total) break;
+    const cabe = Math.min(trozo.length, total - donde);
+    todo.set(cabe === trozo.length ? trozo : trozo.subarray(0, cabe), donde);
+    donde += cabe;
+  }
+  return todo;
+}
+
+/**
+ * Remuestreo lineal.
+ *
+ * Es el plan B para los navegadores que no dejan fijar la frecuencia del
+ * contexto. Interpolar en línea recta no es lo que haría un resampler serio
+ * —deja un poco de aliasing en los agudos— pero para voz a 16 kHz no se nota y
+ * el evaluador lo puntúa igual. La alternativa era mandar el audio a la
+ * frecuencia que fuera, y eso sí cambia las notas.
+ */
+export function remuestrear(datos: Float32Array, desde: number, hasta: number): Float32Array {
+  if (desde === hasta || datos.length === 0) return datos;
+
+  const salida = new Float32Array(Math.max(1, Math.round((datos.length * hasta) / desde)));
+  const paso = desde / hasta;
+  for (let i = 0; i < salida.length; i += 1) {
+    const sitio = i * paso;
+    const antes = Math.floor(sitio);
+    const despues = Math.min(antes + 1, datos.length - 1);
+    const parte = sitio - antes;
+    salida[i] = (datos[antes] ?? 0) * (1 - parte) + (datos[despues] ?? 0) * parte;
+  }
+  return salida;
+}
+
+/**
+ * La cabecera WAV de 44 bytes y las muestras a 16 bits con signo.
+ *
+ * El servidor lee estos bytes y rechaza lo que no sea PCM, mono y 16 kHz, así
+ * que aquí no hay margen para improvisar: formato 1 (PCM sin comprimir), un
+ * canal, `MUESTREO` exacto, 16 bits por muestra.
+ */
+export function bytesWav(datos: Float32Array, muestreoOrigen: number): ArrayBuffer {
+  const muestras = remuestrear(datos, muestreoOrigen, MUESTREO);
+  const cuerpo = muestras.length * 2;
+  const bytes = new ArrayBuffer(44 + cuerpo);
+  const vista = new DataView(bytes);
+
+  const texto = (donde: number, cadena: string) => {
+    for (let i = 0; i < cadena.length; i += 1) vista.setUint8(donde + i, cadena.charCodeAt(i));
+  };
+
+  texto(0, 'RIFF');
+  vista.setUint32(4, 36 + cuerpo, true);
+  texto(8, 'WAVE');
+  texto(12, 'fmt ');
+  vista.setUint32(16, 16, true); // longitud del bloque fmt
+  vista.setUint16(20, 1, true); // 1 = PCM sin comprimir
+  vista.setUint16(22, 1, true); // mono
+  vista.setUint32(24, MUESTREO, true);
+  vista.setUint32(28, MUESTREO * 2, true); // bytes por segundo
+  vista.setUint16(32, 2, true); // bytes por muestra y canal
+  vista.setUint16(34, 16, true); // bits por muestra
+  texto(36, 'data');
+  vista.setUint32(40, cuerpo, true);
+
+  for (let i = 0; i < muestras.length; i += 1) {
+    // Se recorta a [-1, 1] antes de escalar: una muestra por encima de 1 daría
+    // la vuelta al entero y saldría un chasquido justo donde el micro saturó.
+    const valor = Math.max(-1, Math.min(1, muestras[i] ?? 0));
+    vista.setInt16(44 + i * 2, valor < 0 ? valor * 0x8000 : valor * 0x7fff, true);
+  }
+
+  return bytes;
+}
+
+/** Lo mismo, envuelto para mandar. Separado de `bytesWav` porque el `Blob` de
+ *  jsdom no deja volver a leer sus bytes, y la cabecera hay que poder probarla. */
+export function construirWav(datos: Float32Array, muestreoOrigen: number): Blob {
+  return new Blob([bytesWav(datos, muestreoOrigen)], { type: 'audio/wav' });
+}
+
+/** Lo que el servidor va a mirar de la cabecera. Existe para poder comprobarlo. */
+export interface CabeceraWav {
+  formato: number;
+  canales: number;
+  muestreo: number;
+  bits: number;
+  segundos: number;
+}
+
+export function leerCabeceraWav(bytes: ArrayBuffer): CabeceraWav | null {
+  if (bytes.byteLength < 44) return null;
+  const vista = new DataView(bytes);
+  const marca = (donde: number) =>
+    String.fromCharCode(
+      vista.getUint8(donde),
+      vista.getUint8(donde + 1),
+      vista.getUint8(donde + 2),
+      vista.getUint8(donde + 3),
+    );
+  if (marca(0) !== 'RIFF' || marca(8) !== 'WAVE') return null;
+
+  const muestreo = vista.getUint32(24, true);
+  const bits = vista.getUint16(34, true);
+  const canales = vista.getUint16(22, true);
+  const datos = vista.getUint32(40, true);
+
+  return {
+    formato: vista.getUint16(20, true),
+    canales,
+    muestreo,
+    bits,
+    segundos: datos / (muestreo * canales * (bits / 8)),
+  };
+}

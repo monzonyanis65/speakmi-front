@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { enviarLectura } from '@/lib/lectura';
+import { grabarWav, type GrabacionWav } from '@/lib/wav';
 import { escuchar, estaDisponible, type Escuchado, type SesionEscucha } from '@/lib/reconocimiento';
+import { ComoSonaste } from './ComoSonaste';
+import type { EvaluacionFonetica } from '@/lib/fonetica';
 
 interface PalabraLeida {
   wordIndex: number;
@@ -11,7 +14,15 @@ interface PalabraLeida {
   verdict: 'correct' | 'mispronounced' | 'omitted' | 'inserted';
 }
 
-interface Informe {
+/**
+ * `EvaluacionFonetica` trae los tres campos nuevos —qué sonido falló, dónde se
+ * cortó el enlace y la música de la frase— y los trae OPCIONALES a propósito.
+ * Este servidor todavía puede contestar sin ellos, y entonces la pantalla no
+ * enseña ese bloque en vez de enseñarlo vacío. Los tres estados están explicados
+ * en `lib/fonetica.ts`: sin el campo, con el campo a null y con el campo a lista
+ * vacía significan cosas distintas y se ven distintas.
+ */
+interface Informe extends EvaluacionFonetica {
   words: PalabraLeida[];
   accuracy: number;
   completeness: number;
@@ -46,6 +57,18 @@ interface Props {
  * El navegador escucha, el servidor alinea lo dicho con el texto y devuelve qué
  * palabra falló. Esta es la pantalla que justifica la app: ninguna otra cosa que
  * hagas escribiendo te dice si te entenderían al hablar.
+ *
+ * Y desde ahora dice además QUÉ SONIDO falló, que es el salto que de verdad
+ * enseña. Para eso hace falta el audio en crudo, no el texto: el reconocedor del
+ * navegador entrega palabras y para cuando contesta el sonido ya no existe. Así
+ * que se graba en paralelo, en WAV PCM de 16 kHz mono —lo único que acepta el
+ * evaluador—, y se manda en multipart junto al JSON de siempre.
+ *
+ * Los dos caminos siguen valiendo. Sin grabación, la petición va en JSON como
+ * hasta ahora y la corrección llega sin fonemas: la pantalla no enseña entonces
+ * ningún bloque de sonidos, porque no hay nada que contar. Eso NO es lo mismo
+ * que llegar con los campos a null, que significa que se intentó y no se pudo, y
+ * se dice con todas las letras sin inventarse un cero.
  */
 export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
   const [estado, setEstado] = useState<'listo' | 'escuchando' | 'evaluando' | 'hecho'>('listo');
@@ -53,6 +76,20 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
   const [informe, setInforme] = useState<Informe | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sesion = useRef<SesionEscucha | null>(null);
+  /*
+    El micrófono se graba APARTE del reconocedor, y a la vez.
+
+    El reconocedor del navegador entrega texto y nada más: nunca va a poder decir
+    qué sonido se torció dentro de una palabra, porque para cuando devuelve algo
+    el audio ya no existe. Para eso hace falta la grabación en crudo, que viaja
+    al servidor junto al texto. Si no se puede grabar, esto se queda a null y la
+    corrección sigue siendo la de siempre, sin fonemas.
+  */
+  const audio = useRef<GrabacionWav | null>(null);
+  // Abrir el micrófono tarda, y en ese hueco el botón sigue pulsable. Sin esto,
+  // un doble toque abre dos grabaciones y la primera se queda huérfana con el
+  // piloto rojo encendido.
+  const arrancando = useRef(false);
   const inicio = useRef<number>(0);
   // El reconocedor puede avisar de que terminó más de una vez. Sin esto, una
   // lectura se evaluaría dos veces y el aviso de "no te escuchamos" se quedaría
@@ -62,14 +99,36 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
   const soportado = estaDisponible();
   const { referenceText, trickyWords } = ejercicio.prompt;
 
-  // Si se sale a mitad, se corta el micrófono. Dejarlo abierto sería feo.
-  useEffect(() => () => sesion.current?.cancelar(), []);
+  // Si se sale a mitad, se cortan los dos micrófonos. Dejarlos abiertos sería
+  // feo y además deja el piloto rojo encendido en la pestaña.
+  useEffect(
+    () => () => {
+      sesion.current?.cancelar();
+      audio.current?.cancelar();
+    },
+    [],
+  );
 
-  function empezar() {
+  async function empezar() {
+    if (arrancando.current) return;
+    arrancando.current = true;
     setError(null);
     setParcial('');
     setInforme(null);
     yaEvaluado.current = false;
+
+    /*
+      La grabación se abre ANTES que el reconocedor, y se espera a que esté.
+      Al revés, el medio segundo que tarda el permiso se comería el principio de
+      la frase, y el principio de la frase es justo donde viven los fallos que
+      esto pretende enseñar: la «e» delante de «school», el soplo de la p.
+    */
+    // Si quedó una grabación abierta de un intento que se quedó a medias —el
+    // reconocedor no entendió nada y se volvió a empezar— se cierra antes de
+    // abrir otra: dos streams del micrófono a la vez dejan el piloto encendido.
+    audio.current?.cancelar();
+    audio.current = await grabarWav();
+    arrancando.current = false;
     inicio.current = Date.now();
 
     const abierta = escuchar({
@@ -85,6 +144,8 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     });
 
     if (!abierta) {
+      audio.current?.cancelar();
+      audio.current = null;
       setError('Tu navegador no puede escuchar. Prueba con Chrome o Edge.');
       return;
     }
@@ -96,6 +157,13 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
   function parar() {
     sesion.current?.detener();
     setEstado('evaluando');
+  }
+
+  /** Cierra la grabación y entrega el WAV, o null si no hubo ninguna. */
+  async function recogerAudio(): Promise<Blob | null> {
+    const abierta = audio.current;
+    audio.current = null;
+    return abierta ? abierta.terminar() : null;
   }
 
   async function evaluar(oido: Escuchado) {
@@ -112,20 +180,24 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     yaEvaluado.current = true;
     setError(null);
     setEstado('evaluando');
+    const grabado = await recogerAudio();
     try {
-      const resultado = await api.post<Informe>('/speech/read-aloud', {
-        referenceText,
-        transcript: oido.texto,
-        // El reconocedor entrega varias versiones de lo mismo. Aquí no se sabe
-        // cuál es la buena; el servidor sí, porque tiene el texto que había que
-        // leer, así que se le mandan todas y él se queda con la que encaja.
-        alternatives: oido.alternativas,
-        exerciseCode: ejercicio.code,
-        durationMs: Date.now() - inicio.current,
-        ...(trickyWords
-          ? { trickyWords: trickyWords.map(({ word, hint }) => ({ word, hint })) }
-          : {}),
-      });
+      const resultado = await enviarLectura<Informe>(
+        {
+          referenceText,
+          transcript: oido.texto,
+          // El reconocedor entrega varias versiones de lo mismo. Aquí no se sabe
+          // cuál es la buena; el servidor sí, porque tiene el texto que había que
+          // leer, así que se le mandan todas y él se queda con la que encaja.
+          alternatives: oido.alternativas,
+          exerciseCode: ejercicio.code,
+          durationMs: Date.now() - inicio.current,
+          ...(trickyWords
+            ? { trickyWords: trickyWords.map(({ word, hint }) => ({ word, hint })) }
+            : {}),
+        },
+        grabado,
+      );
       setInforme(resultado);
       setEstado('hecho');
       onTerminado(resultado.aprobado, {
@@ -195,7 +267,7 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
           <>
             <button
               type="button"
-              onClick={empezar}
+              onClick={() => void empezar()}
               aria-label="Empezar a leer"
               className="flex size-20 items-center justify-center rounded-full bg-marca-600 text-3xl text-white transition hover:bg-marca-700"
             >
@@ -226,7 +298,7 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
         {estado === 'hecho' && (
           <button
             type="button"
-            onClick={empezar}
+            onClick={() => void empezar()}
             className="rounded-2xl border border-[var(--borde)] px-6 py-3 text-sm font-medium transition hover:border-marca-400"
           >
             Intentarlo otra vez
@@ -279,6 +351,20 @@ function Resultado({ informe }: { informe: Informe }) {
         <span className="ml-2 inline-block size-2 rounded-full bg-red-400" /> no se oyó
       </p>
 
+      {/*
+        El desglose por sonidos va ANTES de la lista de palabras, y es un cambio
+        de fondo: «te falló "think"» no se puede practicar, porque no dice qué
+        hacer distinto la próxima vez. «Se te fue la lengua detrás de los dientes,
+        sácala hasta que se vea» sí. La lista de palabras se queda debajo como
+        recordatorio de dónde pasó.
+      */}
+      <ComoSonaste
+        fonemas={informe.fonemas}
+        cortes={informe.cortes}
+        prosodia={informe.prosodia}
+        palabras={palabrasPorIndice(informe.words)}
+      />
+
       {informe.palabrasParaTrabajar.length > 0 && (
         <div className="mt-4 rounded-2xl border border-[var(--borde)] p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-[var(--texto-suave)]">
@@ -298,6 +384,23 @@ function Resultado({ informe }: { informe: Informe }) {
       )}
     </div>
   );
+}
+
+/**
+ * El texto de referencia por índice de palabra.
+ *
+ * Los cortes vienen con `indicePalabra`, que apunta al texto que había que leer,
+ * no a lo que se dijo. Las palabras inventadas (`inserted`) no están en ese texto
+ * y por eso no ocupan sitio: colocarlas correría todos los índices siguientes y
+ * los cortes acabarían señalando palabras que no son.
+ */
+function palabrasPorIndice(palabras: readonly PalabraLeida[]): string[] {
+  const lista: string[] = [];
+  for (const palabra of palabras) {
+    if (palabra.verdict === 'inserted') continue;
+    lista[palabra.wordIndex] = palabra.word;
+  }
+  return lista;
 }
 
 function Medida({ valor, etiqueta }: { valor: string; etiqueta: string }) {

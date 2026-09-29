@@ -15,6 +15,9 @@ import {
   type Shadow as DatosShadow,
   type Trozo,
 } from '@/lib/shadowing';
+import { ComoSonaste } from './ComoSonaste';
+import { foneticaDeMentira } from '@/lib/fonetica-mentira';
+import type { EvaluacionFonetica } from '@/lib/fonetica';
 import {
   avisosDeRitmo,
   compararRitmo,
@@ -78,7 +81,15 @@ export function Shadowing({ ejercicio, opciones, onTerminado }: Props) {
   const [grabando, setGrabando] = useState(false);
   const [miAudio, setMiAudio] = useState<string | null>(null);
   const [evaluando, setEvaluando] = useState(false);
-  const [intento, setIntento] = useState<Intento | null>(null);
+  /*
+    El intento, más los tres campos nuevos de fonética.
+
+    Se ensancha aquí y no en `lib/shadowing.ts` porque el contrato de esa capa lo
+    escribe el servidor de shadowing y el de fonética viene de otro sitio: son
+    dos acuerdos distintos que se juntan en pantalla. Como los tres campos son
+    opcionales, una respuesta que no los traiga encaja sin tocar nada.
+  */
+  const [intento, setIntento] = useState<(Intento & EvaluacionFonetica) | null>(null);
   const [intentos, setIntentos] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -222,7 +233,20 @@ export function Shadowing({ ejercicio, opciones, onTerminado }: Props) {
     setEvaluando(true);
     try {
       const respuesta = await enviarIntento(ejercicio.code, blob, indiceTrozo, opciones ?? {});
-      setIntento(respuesta.intento);
+      /*
+        Con el doble puesto no hay fonética de ningún sitio, así que se inventa
+        aquí para poder mirar la pantalla. Solo cuando el intento ES de mentira:
+        colgarle sonidos inventados a una corrección de verdad sería exactamente
+        lo que el aviso de arriba promete que no pasa.
+      */
+      setIntento(
+        respuesta.simulado
+          ? {
+              ...respuesta.intento,
+              ...foneticaDeMentira(respuesta.intento.palabras.map((palabra) => palabra.word)),
+            }
+          : respuesta.intento,
+      );
       setSimulado((antes) => antes || respuesta.simulado);
       setIntentos((cuantos) => cuantos + 1);
       onTerminado?.(respuesta.intento.accuracy >= UMBRAL);
@@ -687,7 +711,7 @@ function Resultado({
   modelo,
   onOtraVez,
 }: {
-  intento: Intento;
+  intento: Intento & EvaluacionFonetica;
   modelo: readonly TiempoDePalabra[] | null;
   onOtraVez: () => void;
 }) {
@@ -737,6 +761,18 @@ function Resultado({
       )}
 
       <PalabrasDichas palabras={intento.palabras} />
+
+      {/*
+        Qué sonido se falló, debajo de las palabras y encima del mapa de ritmo.
+        Ahí porque encadena: arriba se ve QUÉ palabra salió regular, aquí POR QUÉ
+        y qué hacer con la lengua, y debajo dónde se descuadró la frase entera.
+      */}
+      <ComoSonaste
+        fonemas={intento.fonemas}
+        cortes={intento.cortes}
+        prosodia={intento.prosodia}
+        palabras={intento.palabras.map((palabra) => palabra.word)}
+      />
 
       {deslices ? (
         <MapaDeRitmo
