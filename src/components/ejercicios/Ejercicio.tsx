@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { callar, decir, hayVoz, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
+import { EscenaDialogo } from './EscenaDialogo';
 import type { Correccion, PropsEjercicio } from './tipos';
 
 /**
- * Los cinco tipos escritos.
+ * Los tipos que se pintan aquí.
  *
  * Todos comparten la misma interfaz: reciben el enunciado y avisan al padre cada
  * vez que la respuesta cambia. Ninguno sabe si está bien o mal, porque eso lo
@@ -26,6 +27,8 @@ export function Ejercicio(props: PropsEjercicio) {
       return <Dictado {...props} />;
     case 'minimal_pair':
       return <ParMinimo {...props} />;
+    case 'dialogue_scene':
+      return <EscenaDialogo {...props} />;
     case 'read_aloud':
     case 'speak_prompt':
       return <Pendiente tipo={props.ejercicio.type} />;

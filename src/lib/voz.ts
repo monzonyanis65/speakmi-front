@@ -243,6 +243,21 @@ export interface OpcionesDecir {
   velocidad?: number;
   /** Fuerza una voz concreta, para poder probarlas en el selector. */
   vozId?: string;
+  /**
+   * El `<audio>` que va a sonar, para quien quiera medirlo mientras suena.
+   *
+   * Es lo que permite que la boca de una mascota se abra lo que suena la voz de
+   * verdad: se le engancha un `AnalyserNode` y se le lee la amplitud. Ver
+   * `amplitud.ts`.
+   *
+   * SOLO SE LLAMA CUANDO HABLA EL SERVIDOR, y no es una carencia que haya que
+   * tapar: `SpeechSynthesisUtterance` no expone ningún nodo ni ningún flujo al
+   * que engancharse, así que por ahí no hay nada que medir. Deducir una
+   * envolvente a partir del texto sería inventarse un audio, y en esta
+   * aplicación eso es peor que no tenerlo: quien reciba esto tiene que aguantar
+   * que no le llamen nunca y seguir funcionando igual.
+   */
+  alSonar?: (audio: HTMLAudioElement) => void;
 }
 
 /** Corta lo que esté sonando, venga del aparato o del servidor. */
@@ -275,10 +290,20 @@ export async function decir(texto: string, opciones: OpcionesDecir = {}): Promis
     haber comprobado antes `hayVozInglesa()` para explicarlo.
   */
   if (!voz || !voz.lang.toLowerCase().startsWith('en')) {
-    await decirEnServidor(limpio, velocidad);
+    await decirEnServidor(limpio, velocidad, opciones.alSonar);
     return;
   }
 
+  /*
+    Aquí abajo NO se llama a `alSonar`, y es a propósito.
+
+    El sintetizador del navegador no entrega ningún elemento ni ningún flujo:
+    `speak()` suena por su cuenta, fuera del grafo de audio de la página, y no
+    hay forma de medir lo que sale. Llamar al gancho con algo inventado —un
+    elemento vacío, o una envolvente calculada a partir de la longitud del
+    texto— sería fingir un audio. Quien quiera la amplitud se queda sin ella
+    aquí, y sabe por qué.
+  */
   const frase = new SpeechSynthesisUtterance(texto);
   frase.lang = voz.lang;
   /*

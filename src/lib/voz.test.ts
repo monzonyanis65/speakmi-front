@@ -198,3 +198,78 @@ describe('sin voz inglesa y sin servidor', () => {
     expect(sonadas).toEqual([]);
   });
 });
+
+/**
+ * El gancho con el que la boca de las mascotas se sincroniza de verdad.
+ *
+ * Lo que se comprueba es el CONTRATO, que tiene dos mitades y las dos importan:
+ *
+ *   - cuando habla el servidor, quien pidió la frase recibe el `<audio>` que va
+ *     a sonar, y lo recibe ANTES de que suene: enganchar el analizador después
+ *     de arrancar se pierde el ataque de la primera sílaba, que es justo donde
+ *     más se nota si la boca va tarde;
+ *   - cuando habla el navegador, NO se le llama. No es una carencia que haya que
+ *     tapar: `SpeechSynthesisUtterance` no expone ningún nodo, así que por ahí
+ *     no hay nada que medir, y llamar al gancho con algo inventado sería fingir
+ *     un audio. Quien lo use tiene que aguantar no recibir nada nunca.
+ */
+describe('el gancho para medir lo que suena', () => {
+  it('cuando habla el servidor, entrega el audio antes de arrancarlo', async () => {
+    montarSintetizador([{ lang: 'es-ES', name: 'Española' }]);
+    montarServidor({ puedeHablar: true });
+
+    const recibidos: Array<{ sonandoYa: boolean }> = [];
+    await decir('beach', {
+      alSonar: (audio) => {
+        // Si esto llegara después del play, el analizador se perdería el
+        // principio de la frase.
+        recibidos.push({ sonandoYa: sonadas.includes((audio as { src: string }).src) });
+      },
+    });
+
+    expect(recibidos).toHaveLength(1);
+    expect(recibidos[0]!.sonandoYa).toBe(false);
+    expect(sonadas).toHaveLength(1);
+  });
+
+  it('cuando habla el navegador, no se le llama nunca', async () => {
+    montarSintetizador([{ lang: 'en-US', name: 'Inglesa' }]);
+    montarServidor({ puedeHablar: true });
+
+    let llamadas = 0;
+    await decir('apple', { alSonar: () => (llamadas += 1) });
+
+    expect(dichas).toEqual(['apple']);
+    expect(llamadas).toBe(0);
+  });
+
+  it('sin gancho, el servidor habla exactamente igual que antes', async () => {
+    /*
+      Hay quince juegos y varias pantallas llamando a `decir()` sin saber que
+      esto existe. El parámetro es opcional y no puede cambiarles nada.
+    */
+    montarSintetizador([{ lang: 'es-ES', name: 'Española' }]);
+    montarServidor({ puedeHablar: true });
+
+    await decir('beach');
+
+    expect(pedidas).toEqual(['beach']);
+    expect(sonadas).toHaveLength(1);
+    expect(dichas).toEqual([]);
+  });
+
+  it('si el gancho revienta, la frase suena igual', async () => {
+    // Enganchar Web Audio puede fallar de varias formas, y ninguna de ellas es
+    // motivo para dejar a nadie sin oír la frase.
+    montarSintetizador([{ lang: 'es-ES', name: 'Española' }]);
+    montarServidor({ puedeHablar: true });
+
+    await decir('beach', {
+      alSonar: () => {
+        throw new Error('no hay Web Audio aquí');
+      },
+    });
+
+    expect(sonadas).toHaveLength(1);
+  });
+});

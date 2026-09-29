@@ -168,8 +168,22 @@ export function pararAudioDelServidor(): void {
  * dictado se puede oír a 0,9 y a 0,55 sin que sean dos audios distintos que
  * sintetizar, guardar y descargar. `preservesPitch` es lo que evita que al
  * bajarlo suene grave, que era el motivo clásico para no hacerlo así.
+ *
+ * `alSonar` entrega el elemento que va a sonar, ANTES de arrancarlo. Existe por
+ * una razón concreta: la única forma de medir lo fuerte que suena una voz es
+ * engancharle un `AnalyserNode` de la Web Audio API, y para eso hace falta el
+ * `<audio>`, que hasta ahora no salía nunca de este archivo. Con eso, la boca de
+ * la mascota se abre lo que suena la voz de verdad en lugar de hacer su ciclo.
+ *
+ * Se entrega antes de `play()` a propósito: enganchar el analizador después de
+ * arrancar se pierde el principio de la frase, que es justo donde está el
+ * ataque de la primera sílaba.
  */
-export async function decirEnServidor(texto: string, velocidad: number): Promise<boolean> {
+export async function decirEnServidor(
+  texto: string,
+  velocidad: number,
+  alSonar?: (audio: HTMLAudioElement) => void,
+): Promise<boolean> {
   const url = await descargar(texto);
   if (!url) return false;
 
@@ -179,6 +193,22 @@ export async function decirEnServidor(texto: string, velocidad: number): Promise
   audio.playbackRate = velocidad;
   audio.preservesPitch = true;
   sonando = audio;
+
+  /*
+    Lo que haga quien recibe el audio no puede dejar mudo a nadie.
+
+    Enganchar un nodo de Web Audio puede fallar de varias formas —no haber
+    contexto, estar suspendido, que el navegador no deje— y ninguna de ellas es
+    motivo para no reproducir la frase. Si el analizador se rompe, lo que se
+    pierde es que la boca vaya sincronizada; el audio suena igual.
+  */
+  if (alSonar) {
+    try {
+      alSonar(audio);
+    } catch {
+      // Ver arriba: sin analizador se sigue oyendo, que es lo que importa.
+    }
+  }
 
   try {
     await audio.play();
