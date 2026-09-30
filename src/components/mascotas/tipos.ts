@@ -10,8 +10,33 @@ import { type ReactNode } from 'react';
  * movimiento de los cinco anteriores, que es justo lo que se quiere evitar.
  */
 
-/** Las cinco mascotas. El identificador viaja tal cual al servidor. */
-export type Especie = 'PET_MILO' | 'PET_GATO' | 'PET_PERRO' | 'PET_BUHO' | 'PET_ZORRO';
+/**
+ * Las cinco MASCOTAS: las que se compran y se tienen.
+ *
+ * El identificador viaja tal cual al servidor, porque es la fila de
+ * `shop_items` con la que se compró. No se renombran a la ligera.
+ */
+export type Mascota = 'PET_MILO' | 'PET_GATO' | 'PET_PERRO' | 'PET_BUHO' | 'PET_ZORRO';
+
+/**
+ * Los cuatro del REPARTO: los que dan clase pero no se tienen.
+ *
+ * Dos personas, un oso y un robot. La diferencia con los de arriba no es de
+ * dibujo —se montan sobre el mismo esqueleto y llevan la misma ropa— sino de
+ * qué son: a Nala la compras, y a Zoe te la encuentras dando una lección.
+ *
+ * Por eso el prefijo es otro y por eso **estos identificadores NO viajan al
+ * servidor**: no hay nada que comprar, así que no hay fila en `shop_items` ni
+ * nombre en `content/tienda.json`. Quien los busque allí no los va a encontrar,
+ * y no es un olvido.
+ */
+export type DelReparto = 'CHAR_ZOE' | 'CHAR_LIAM' | 'CHAR_BARNABY' | 'CHAR_BEEPER';
+
+/**
+ * Cualquiera de los nueve. Es lo que pide el esqueleto, que no distingue: para
+ * dibujar a alguien da igual si se compró o si vino dando clase.
+ */
+export type Especie = Mascota | DelReparto;
 
 /**
  * Lo que se puede llevar puesto. Ninguno es válido: la mayoría va sin nada.

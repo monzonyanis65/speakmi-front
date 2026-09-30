@@ -1,5 +1,5 @@
 /**
- * El reparto: quién es cada uno de los cinco y cómo se lo toma.
+ * El reparto: quién es cada uno de los nueve y cómo se lo toma.
  *
  * Esto es el guion, no la escena. Se lee entero, se discute y se comprueba sin
  * montar nada ni mirar ninguna pantalla, igual que `mascotas/coreografia.ts` es
@@ -7,27 +7,42 @@
  * es Nala, tiene que poder hacerlo aquí sin abrir la aplicación.
  *
  *
- * POR QUÉ LOS NOMBRES NO SE ELIGEN AQUÍ
+ * POR QUÉ LOS NOMBRES NO SE ELIGEN AQUÍ (Y POR QUÉ CUATRO SÍ)
  *
- * Los cinco ya se llamaban así antes de tener carácter: los nombres viven en
- * `content/tienda.json` del servidor, porque son el nombre con el que se compra
- * la mascota, y de ahí los copia `NOMBRE_ESPECIE`. Rebautizarlos habría dejado
- * a alguien que pagó por «Nala» con una gata llamada otra cosa.
+ * Los cinco primeros ya se llamaban así antes de tener carácter: sus nombres
+ * viven en `content/tienda.json` del servidor, porque son el nombre con el que
+ * se compra la mascota, y de ahí los copia `NOMBRE_ESPECIE`. Rebautizarlos
+ * habría dejado a alguien que pagó por «Nala» con una gata llamada otra cosa.
  *
- * Aquí se escriben otra vez a mano, en vez de importarlos, para que este archivo
- * se pueda leer de arriba abajo y se entienda de quién se habla. Que no se
- * separen de los de la tienda lo vigila una prueba, que es donde tiene que
- * vigilarse: un comentario que diga «acuérdate de cambiar los dos» no se lee el
- * día que hace falta.
+ * Los cuatro de después NO están en ese catálogo y no van a estarlo: solo dan
+ * clase. Por eso su nombre se decide aquí y en ningún otro sitio, que es lo
+ * coherente —nadie ha pagado por ellos, así que nadie tiene derecho adquirido
+ * sobre cómo se llaman—. La diferencia está escrita en el campo `enLaTienda`,
+ * y una prueba comprueba las dos mitades: que los de la tienda se sigan
+ * llamando como en el catálogo, y que los otros cuatro NO aparezcan en él.
+ *
+ * Los cinco nombres del catálogo se escriben aquí otra vez a mano, en vez de
+ * importarlos, para que este archivo se pueda leer de arriba abajo y se
+ * entienda de quién se habla. Que no se separen de los de la tienda lo vigila
+ * una prueba, que es donde tiene que vigilarse: un comentario que diga
+ * «acuérdate de cambiar los dos» no se lee el día que hace falta.
  *
  *
  * QUÉ ES UN CARÁCTER Y QUÉ NO
  *
- * Cinco personajes simpáticos no son un reparto, son el mismo personaje cinco
+ * Nueve personajes simpáticos no son un reparto, son el mismo personaje nueve
  * veces con distinto pelo. Lo que los separa no son los adjetivos del comentario
  * sino la TABLA de abajo: qué cara pone cada uno cuando aciertas, y sobre todo
  * cuando fallas. Si dos filas de `animo` son iguales, esos dos personajes son
  * el mismo aunque el comentario diga cosas distintas.
+ *
+ * Con cinco bastaba con mirar la fila entera. Con nueve no: hay nueve casillas
+ * por fila y cuatro de ellas —reposo, atento, espera, sopor— son postura, no
+ * opinión, así que dos personajes pueden salir «distintos» por dónde miran
+ * mientras se toman exactamente igual lo único que importa. Lo que de verdad
+ * distingue a alguien son las TRES casillas en las que responde a lo que has
+ * escrito: `acierto`, `casi` y `fallo`. Esas tres son las que no pueden
+ * repetirse entre dos, y así lo pide la prueba.
  *
  * De ahí sale la regla que más se nota: NINGUNO se pone `triste` cuando fallas.
  * Compadecerse es una forma de decir «pobre», y eso convierte un ejercicio
@@ -37,6 +52,26 @@
  * Por lo mismo no hay frases de acierto. La corrección del servidor ya escribe
  * ahí al lado lo que hay que leer; un personaje añadiendo «¡muy bien!» encima
  * es ruido y además es justo lo que el tutor tiene prohibido hacer.
+ *
+ *
+ * POR QUÉ UNA PERSONA NO PUEDE PONER LA CARA DE UN BICHO
+ *
+ * Los cinco primeros son animales y eso es lo que les permite ser tan bordes.
+ * Que un pájaro se pique contigo, que un zorro se despierte de golpe porque por
+ * fin ha pasado algo, que un perro se acerque a leer la corrección: todo eso se
+ * lee como instinto, y el instinto no juzga a nadie.
+ *
+ * La misma casilla en una PERSONA significa otra cosa, y significa algo sobre
+ * ti. Alguien que se sorprende de que hayas acertado te está diciendo que no lo
+ * esperaba. Alguien que se pone `orgulloso` te está dando una palmadita, que es
+ * la versión con cara de «buen trabajo». Y alguien que te jalea —`animando`—
+ * es literalmente lo que el tutor tiene prohibido escribir, pero dibujado.
+ *
+ * Por eso los dos humanos del reparto tienen vetadas esas dos caras, y lo
+ * comprueba una prueba. No es una regla de estilo: es que Zoe y Liam reaccionan
+ * a la FRASE —a lo que suena bien, a dónde te lleva esa palabra— y nunca a la
+ * persona que la escribió. Beeper no la necesita porque es una máquina y una
+ * máquina encendiéndose entera no felicita a nadie, solo se enciende.
  */
 
 import { type EstadoMascota } from '@/components/mascotas/coreografia';
@@ -76,10 +111,29 @@ export type Momento =
 /** Los momentos en los que además dice algo. Tres, y son pocos a propósito. */
 export type MomentoConVoz = 'entra' | 'racha' | 'final';
 
+/**
+ * De qué está hecho el personaje.
+ *
+ * No es una etiqueta decorativa: decide qué caras puede poner. Ver en la
+ * cabecera por qué una persona no puede reaccionar como un bicho.
+ */
+export type Figura = 'animal' | 'persona' | 'maquina';
+
 export interface Personaje {
   especie: Especie;
-  /** El de la tienda. No se inventa aquí; ver la cabecera. */
+  /** El de la tienda si se vende; si no, se decide aquí. Ver la cabecera. */
   nombre: string;
+  figura: Figura;
+  /**
+   * Si además se compra.
+   *
+   * Los cinco primeros sí y los cuatro últimos no, y esa diferencia no es un
+   * detalle administrativo: es lo que separa «tu mascota» de «quien da la
+   * clase». Aquí está escrito para poder comprobarlo, porque quien vaya a
+   * añadir un personaje décimo va a dar por hecho que toda especie se lleva
+   * puesta —es lo que llevaba siendo verdad desde el primer día—.
+   */
+  enLaTienda: boolean;
   /** Quién es, en una línea. Para quien lee el archivo, no para la pantalla. */
   caracter: string;
   /**
@@ -108,6 +162,8 @@ export const REPARTO: Record<Especie, Personaje> = {
   */
   PET_MILO: {
     especie: 'PET_MILO',
+    figura: 'animal',
+    enLaTienda: true,
     nombre: 'Milo',
     caracter: 'El que se pica. Va contando y quiere la revancha.',
     paciencia: 12,
@@ -141,6 +197,8 @@ export const REPARTO: Record<Especie, Personaje> = {
   */
   PET_GATO: {
     especie: 'PET_GATO',
+    figura: 'animal',
+    enLaTienda: true,
     nombre: 'Nala',
     caracter: 'La que va sobrada. No se impresiona por nada y habla poco.',
     paciencia: 18,
@@ -173,6 +231,8 @@ export const REPARTO: Record<Especie, Personaje> = {
   */
   PET_PERRO: {
     especie: 'PET_PERRO',
+    figura: 'animal',
+    enLaTienda: true,
     nombre: 'Tuco',
     caracter: 'El que se equivoca más que tú. Va contigo, no por delante.',
     paciencia: 14,
@@ -185,7 +245,13 @@ export const REPARTO: Record<Especie, Personaje> = {
       casi: 'sorprendido',
       /** Se acerca a mirar qué era. No te mira a ti. */
       fallo: 'escuchando',
-      racha: 'celebrando',
+      /*
+        Aquí ponía «celebrando», el mismo que un acierto suelto, y entonces
+        encadenar tres no se notaba: Tuco daba la misma fiesta por una que por
+        tres. Ahora la racha es suya y no tuya —está orgulloso de TI—, que es lo
+        que separa «bien» de «llevas tres».
+      */
+      racha: 'orgulloso',
       final: 'celebrando',
     },
     dice: {
@@ -205,6 +271,8 @@ export const REPARTO: Record<Especie, Personaje> = {
   */
   PET_BUHO: {
     especie: 'PET_BUHO',
+    figura: 'animal',
+    enLaTienda: true,
     nombre: 'Ulises',
     caracter: 'El que sabe de más. Añade el matiz que nadie pidió.',
     paciencia: 25,
@@ -212,7 +280,8 @@ export const REPARTO: Record<Especie, Personaje> = {
       reposo: 'neutral',
       atento: 'escuchando',
       espera: 'pensando',
-      /** El único que no se duerme. Sigue ahí, dándole vueltas. */
+      /** No se duerme: sigue ahí, dándole vueltas. Beeper tampoco, pero por
+          no tener sueño, que no es lo mismo que no querer dormirse. */
       sopor: 'pensando',
       acierto: 'orgulloso',
       casi: 'pensando',
@@ -241,6 +310,8 @@ export const REPARTO: Record<Especie, Personaje> = {
   */
   PET_ZORRO: {
     especie: 'PET_ZORRO',
+    figura: 'animal',
+    enLaTienda: true,
     nombre: 'Rufo',
     caracter: 'El que tiene prisa. Se aburre el primero y se duerme el primero.',
     paciencia: 6,
@@ -262,17 +333,224 @@ export const REPARTO: Record<Especie, Personaje> = {
       final: ['Listo. ¿La siguiente?', 'Eso ha sido rápido.'],
     },
   },
+  /*
+    Zoe es la que está de paso. Viene de otra aplicación, donde era «la viajera
+    cosmopolita» que te decía «¡increíble, suenas como un local!» cada vez que
+    acertabas; eso es exactamente lo que aquí no se hace, así que de su ficha
+    original queda el equipaje y se va el aplauso. También se le quitó el drama
+    de «¡oh no, perdimos el tren!» al fallar, que es compadecerse disfrazado de
+    aventura: te está diciendo que has perdido algo.
+
+    Lo que sí aguanta el traslado es que ella tiene otro sitio donde estar. Es
+    la única del reparto que NO te está mirando: cuando aciertas se queda
+    `neutral` porque ya va por la siguiente parada, y cuando fallas se pone a
+    `pensando`, que es ella recalculando la ruta y no juzgando la tuya. Se
+    acerca —`escuchando`— justo en el `casi`, que es cuando hay que oír qué
+    palabra fue.
+  */
+  CHAR_ZOE: {
+    especie: 'CHAR_ZOE',
+    figura: 'persona',
+    enLaTienda: false,
+    nombre: 'Zoe',
+    caracter: 'La que está de paso. Tiene otro sitio donde estar y te lleva con ella.',
+    paciencia: 16,
+    animo: {
+      reposo: 'neutral',
+      atento: 'escuchando',
+      espera: 'pensando',
+      /*
+        Se duerme, sí, aunque sea una persona: duerme en aviones y en salas de
+        embarque. En ella no es desatenderte, es lo que hace de todos modos.
+      */
+      sopor: 'durmiendo',
+      /** Ya está en la siguiente ciudad. No es desdén, es que no iba contigo. */
+      acierto: 'neutral',
+      casi: 'escuchando',
+      fallo: 'pensando',
+      racha: 'sorprendido',
+      final: 'feliz',
+    },
+    dice: {
+      entra: [
+        'Acabo de aterrizar, voy con el horario cambiado.',
+        'Esto lo aprendí en una cola de facturación.',
+      ],
+      racha: ['Yo tardé un viaje entero en pillar esto.', 'Sigue, que aún nos queda una conexión.'],
+      final: ['Siguiente parada.', 'Me la apunto para el próximo vuelo.'],
+    },
+  },
+
+  /*
+    Liam venía definido como «el sarcástico cool» que soltaba «okay, respect,
+    ese modismo ha sido muy fino» y «¡vaya, un pequeño desliz!». Lo primero es
+    felicitar y lo segundo es el almohadillado de «no pasa nada, chiquitín»:
+    fuera los dos. De su ficha se queda una sola cosa, que es la buena: los
+    párpados a medio cerrar que solo se abren cuando algo le interesa de verdad.
+
+    Aquí lo que le interesa NO es que aciertes, es cómo suena la frase. Por eso
+    es el único del reparto al que le gusta más el `casi` que el acierto: la
+    respuesta a medias —la idea puesta con la forma torcida— es la que se parece
+    a cómo habla la gente, y la correcta se le queda a libro. Ese `feliz` no te
+    lo dedica a ti, se lo dedica a la frase.
+
+    Y es lo que lo separa de Nala, que es el riesgo evidente de tener a dos que
+    pasan de todo: Nala no se impresiona porque se cree mejor que tú, y Liam no
+    se impresiona porque el ejercicio le parece inglés muerto. Nala te mira por
+    encima; Liam ni siquiera está discutiendo contigo.
+  */
+  CHAR_LIAM: {
+    especie: 'CHAR_LIAM',
+    figura: 'persona',
+    enLaTienda: false,
+    nombre: 'Liam',
+    caracter:
+      'El que se aburre del inglés de libro. Solo levanta la cabeza con lo que suena de verdad.',
+    paciencia: 20,
+    animo: {
+      reposo: 'neutral',
+      /** Sigue escuchando escribas o no: lo suyo es el oído, no la pantalla. */
+      atento: 'escuchando',
+      espera: 'escuchando',
+      sopor: 'durmiendo',
+      acierto: 'neutral',
+      /** Lo mejor que le puede pasar: así habla la gente, no el libro. */
+      casi: 'feliz',
+      fallo: 'neutral',
+      racha: 'sorprendido',
+      final: 'feliz',
+    },
+    dice: {
+      entra: ['Nadie habla así, pero bueno.', 'Esto en una serie te lo sueltan en dos segundos.'],
+      racha: ['Vale, esa sí se usa.', 'Esa suena a persona y no a libro.'],
+      final: [
+        'Ya está. Me vuelvo a mi música.',
+        'Escucha esa palabra en una serie y se queda sola.',
+      ],
+    },
+  },
+
+  /*
+    Barnaby es un oso, no una persona, y eso importa más de lo que parece:
+    puede dormirse sin que se lea como que te está ignorando. Venía como «el oso
+    fonético de Oxford, paciente y caballeroso», con un «¡espléndido, tu
+    pronunciación ha sido impecable!» al acertar y un «uf, qué duro, ese falso
+    amigo atrapa a todos la primera vez» al fallar. El primero es un premio y el
+    segundo es el consuelo más gastado que hay —«le pasa a todo el mundo» es
+    decirle a alguien que ya se contaba con que fallara—. Se queda la paciencia,
+    que sí es suya de verdad, y se queda el oído.
+
+    Su fila es la más rara del reparto a propósito: reacciona IGUAL a acertar, a
+    quedarte cerca y a fallar, y lo que hace en los tres casos es `escuchando`.
+    No es la indiferencia de Nala, es lo contrario: a él nunca le ha interesado
+    si está bien, le interesa cómo ha sonado, y eso no cambia según el
+    resultado. Es el profesor sin nota.
+
+    Lo demás lo dice el número: treinta segundos de paciencia, más que nadie y
+    cinco veces Rufo. Se queda ahí toda la tarde si hace falta.
+  */
+  CHAR_BARNABY: {
+    especie: 'CHAR_BARNABY',
+    figura: 'animal',
+    enLaTienda: false,
+    nombre: 'Barnaby',
+    caracter: 'El que tiene toda la tarde. No mira si aciertas, escucha cómo suena.',
+    paciencia: 30,
+    animo: {
+      reposo: 'pensando',
+      atento: 'escuchando',
+      /** Sigue esperando a oírtelo decir. No mete prisa nunca. */
+      espera: 'escuchando',
+      sopor: 'durmiendo',
+      acierto: 'escuchando',
+      casi: 'escuchando',
+      fallo: 'escuchando',
+      /** Lo único que le saca del oído, y es orgullo del idioma, no de ti. */
+      racha: 'orgulloso',
+      final: 'feliz',
+    },
+    dice: {
+      entra: ['Vamos despacio. Primero el sonido.', 'Dilo en alto aunque no haya nadie delante.'],
+      racha: ['Esa «th» tiene su truco.', 'Ahí hay un sonido que en español no existe.'],
+      final: ['Lo dejamos por hoy.', 'Otro día miramos dónde cae el acento.'],
+    },
+  },
+
+  /*
+    Beeper es una máquina, y eso le resuelve solo el problema que tienen los
+    otros ocho: no puede felicitarte porque no opina. Su ficha original sí lo
+    hacía —«¡100 % DE PRECISIÓN! ¡Base de datos mejorada!»— y eso es peor que un
+    halago, es un halago con nota numérica. Traía además un «suspiro de batería
+    baja…» al fallar, que es un robot fingiendo pena: consuelo con disfraz. De
+    todo aquello se queda la antena, que parpadea cuando procesa.
+
+    Aquí no reacciona, registra. Acertar y fallar le dan lo mismo —`pensando`
+    las dos— porque las dos son un dato que guardar, y el matiz está en el
+    `casi`, donde se `sorprende`: una respuesta a medias es la única que no sabe
+    dónde archivar.
+
+    Y como no tiene ánimo sino encendido y apagado, cuando por fin reacciona
+    reacciona entero: `celebrando` y `animando` en los dos momentos grandes. En
+    una persona eso serían pompones; en una máquina es que se le han encendido
+    todas las luces a la vez.
+  */
+  CHAR_BEEPER: {
+    especie: 'CHAR_BEEPER',
+    figura: 'maquina',
+    enLaTienda: false,
+    nombre: 'Beeper',
+    caracter: 'El que no reacciona, registra. O está apagado o está del todo encendido.',
+    /** Nueve segundos, y no es que se aburra: es ahorro de batería. */
+    paciencia: 9,
+    animo: {
+      reposo: 'neutral',
+      /** La antena se enciende en cuanto tocas una tecla. */
+      atento: 'sorprendido',
+      espera: 'pensando',
+      /** No duerme. Se apaga a medias y deja el micrófono abierto. */
+      sopor: 'escuchando',
+      acierto: 'pensando',
+      casi: 'sorprendido',
+      fallo: 'pensando',
+      racha: 'celebrando',
+      final: 'animando',
+    },
+    dice: {
+      entra: ['Listo. Doce palabras nuevas en cola.', 'Memoria limpia. Empezamos.'],
+      racha: ['Tres seguidas. Registrado.', 'Guardando estas tres en la primera ranura.'],
+      final: ['Sesión cerrada.', 'Guardado. Hasta la próxima carga.'],
+    },
+  },
 };
 
 /**
- * El orden del reparto, que es el orden de la tienda.
+ * El orden del reparto: primero los cinco de la tienda, en el orden del
+ * catálogo, y detrás los cuatro que solo dan clase.
  *
  * Existe porque `Object.keys` de un `Record` no promete orden en el papel
  * —aunque en la práctica lo respete—, y aquí el orden decide QUIÉN sale en cada
  * lección. Una lista escrita a mano es la única forma de que el reparto de la
  * lección L5-U1-03 siga siendo el mismo dentro de un año.
+ *
+ * Los cuatro nuevos van AL FINAL y no intercalados, aunque intercalarlos habría
+ * quedado más bonito de leer. Meter a Zoe entre Milo y Nala habría corrido de
+ * sitio a los cinco que ya estaban y les habría cambiado el reparto a las 384
+ * lecciones del curso de golpe: quien llevara medio Level 6 con Ulises se lo
+ * habría encontrado sustituido sin que nadie tocara a Ulises. Poniéndolos
+ * detrás cambia igual —el resto de nueve no es el resto de cinco— pero por una
+ * razón que se puede contar, y no además por haber barajado la lista.
  */
-export const ORDEN: Especie[] = ['PET_MILO', 'PET_GATO', 'PET_PERRO', 'PET_BUHO', 'PET_ZORRO'];
+export const ORDEN: Especie[] = [
+  'PET_MILO',
+  'PET_GATO',
+  'PET_PERRO',
+  'PET_BUHO',
+  'PET_ZORRO',
+  'CHAR_ZOE',
+  'CHAR_LIAM',
+  'CHAR_BARNABY',
+  'CHAR_BEEPER',
+];
 
 /**
  * FNV-1a: el mismo revoltijo que usa `barajar.ts` del servidor y la horda.
@@ -300,10 +578,11 @@ function huella(texto: string): number {
  * entras no es un personaje, es un adorno que rota; y volver a una lección y
  * encontrarte al mismo es lo que hace que empiece a significar algo que sea él.
  *
- * El secundario nunca es el protagonista. Se calcula con un salto de 1 a 4
- * sobre el círculo de cinco en vez de sorteando otra vez y repitiendo hasta que
+ * El secundario nunca es el protagonista. Se calcula con un salto de 1 a 8
+ * sobre el círculo de nueve en vez de sorteando otra vez y repitiendo hasta que
  * salga distinto: así no hay bucle que pueda no terminar y el resultado se
- * puede comprobar a mano.
+ * puede comprobar a mano. Los límites salen de `ORDEN.length`, que es lo que ha
+ * hecho que pasar de cinco a nueve no fuera tocar esta función.
  */
 export function repartoDeLeccion(codigo: string): {
   protagonista: Personaje;

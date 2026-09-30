@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { NOMBRE_ESPECIE } from './mascota-contexto';
 import { fraseDe, ORDEN, REPARTO, repartoDeLeccion } from './reparto';
@@ -14,16 +16,27 @@ import { type Especie } from '@/components/mascotas';
  *
  *   1. Que quién sale en una lección NO dependa del azar ni del reloj. Un
  *      personaje que cambia cada vez que entras no es un personaje.
- *   2. Que los cinco salgan de verdad y repartidos. Un sorteo mal hecho deja a
+ *   2. Que los nueve salgan de verdad y repartidos. Un sorteo mal hecho deja a
  *      dos sin aparecer nunca y nadie lo nota mirando una lección.
- *   3. Que los cinco sean DISTINTOS. Es lo más fácil de perder: se retoca una
- *      fila, luego otra, y acaban siendo el mismo personaje con cinco dibujos.
+ *   3. Que los nueve sean DISTINTOS. Es lo más fácil de perder: se retoca una
+ *      fila, luego otra, y acaban siendo el mismo personaje con nueve dibujos.
  *
- * Y una cuarta que no es de reparto sino de no romper la tienda: que los
- * nombres sigan siendo los del catálogo por los que se pagó.
+ * Y dos más que no son de reparto sino de no romper la tienda: que los nombres
+ * de los que se venden sigan siendo los del catálogo por los que se pagó, y que
+ * los cuatro que NO se venden no se hayan colado en él.
  */
 
 const TODAS = ORDEN;
+
+/*
+  Desde que el reparto tiene nueve, «una especie» ya no es «algo que se compra».
+  Casi todas las pruebas de abajo van sobre los nueve porque van sobre el
+  reparto; las dos que van sobre la tienda tienen que mirar solo a los cinco
+  que están en ella, y una tercera existe justamente para vigilar que esa lista
+  no crezca sola.
+*/
+const DE_LA_TIENDA = TODAS.filter((e) => REPARTO[e].enLaTienda);
+const SOLO_DAN_CLASE = TODAS.filter((e) => !REPARTO[e].enLaTienda);
 
 /** Las lecciones de un curso entero, para mirar el reparto de lejos. */
 function todoElCurso(): string[] {
@@ -49,10 +62,42 @@ describe('los nombres siguen siendo los de la tienda', () => {
       llamaba «Kira» en todas las pantallas. Manda el catálogo, porque es el
       nombre con el que se pagó.
     */
-    for (const especie of TODAS) {
+    for (const especie of DE_LA_TIENDA) {
       expect(REPARTO[especie].nombre, `${especie} se llama distinto en cada sitio`).toBe(
         NOMBRE_ESPECIE[especie],
       );
+    }
+  });
+
+  it('los que solo dan clase no están a la venta', () => {
+    /*
+      La otra mitad, y la que de verdad hacía falta escribir al pasar de cinco a
+      nueve. Durante cinco personajes «especie» y «mascota que puedes tener»
+      fueron la misma cosa, así que medio código lo da por hecho sin decirlo:
+      la tienda, el escaparate, el probador, la mascota equipada. Zoe, Liam,
+      Barnaby y Beeper rompen esa equivalencia y nadie se entera hasta que
+      alguien compra un robot.
+
+      Se contrasta contra el catálogo de verdad, que está en el otro
+      repositorio, porque es el único sitio donde se decide qué se vende: el
+      front solo pinta lo que `/shop/catalog` le manda. Se salta sola si el back
+      no está al lado, igual que hace `niveles.test.ts`.
+    */
+    const catalogo = path.resolve(__dirname, '../../../back/content/tienda.json');
+    if (!existsSync(catalogo)) return;
+
+    const bruto = JSON.parse(readFileSync(catalogo, 'utf8')) as {
+      items: Array<{ code: string }>;
+    };
+    const alaVenta = bruto.items.map((item) => item.code);
+
+    for (const especie of SOLO_DAN_CLASE) {
+      expect(alaVenta, `${especie} se ha colado en la tienda`).not.toContain(especie);
+    }
+    // Y al revés: si mañana el catálogo trae una mascota nueva, que no se quede
+    // fuera del reparto sin que nadie lo vea.
+    for (const especie of DE_LA_TIENDA) {
+      expect(alaVenta, `${especie} ya no se vende, pero aquí sigue puesto`).toContain(especie);
     }
   });
 
@@ -106,15 +151,24 @@ describe('quién da cada lección', () => {
     }
   });
 
-  it('los cinco dan clase, y ninguno se queda sin salir', () => {
+  it('los nueve dan clase, y ninguno se queda sin salir', () => {
     /*
-      Con 384 lecciones, lo justo serían 77 para cada uno. Se exige el 10 % —38—
-      porque un revoltijo no reparte perfecto y apretar más sería probar el
-      generador y no la decisión.
-
       Lo que esto pilla de verdad son los repartos que PARECEN repartir: coger
       la longitud del código, o el último dígito, deja a tres personajes sin
       aparecer en todo el curso y a simple vista no se nota.
+
+      El listón se pone en RELACIÓN a lo que le tocaría a cada uno, y no en un
+      porcentaje del curso como estaba. Con cinco, «más del 10 % de 384» eran 38
+      sobre los 77 que tocaban, o sea medio reparto justo. Con nueve, lo que
+      toca son 42 y ese mismo 10 % seguirían siendo 38: casi el reparto exacto,
+      un listón que nadie puede pasar y que además se apretaría solo cada vez
+      que entrara un personaje más. La prueba se habría puesto roja sin que
+      nada estuviera mal, que es la peor forma de perder una prueba.
+
+      Escrito contra la parte justa, el listón dice lo que se quiere decir: que
+      nadie se quede por debajo del 60 % de lo suyo. Sobre 384 lecciones son 25
+      clases en todo el curso, y por debajo de eso un personaje no existe: se le
+      ve dos veces al año y no llega a significar nada que sea él.
     */
     const veces = new Map<Especie, number>(TODAS.map((e) => [e, 0]));
     const codigos = todoElCurso();
@@ -123,7 +177,8 @@ describe('quién da cada lección', () => {
       veces.set(quien, veces.get(quien)! + 1);
     }
 
-    const minimo = Math.floor(codigos.length * 0.1);
+    const leToca = codigos.length / TODAS.length;
+    const minimo = Math.floor(leToca * 0.6);
     for (const especie of TODAS) {
       expect(veces.get(especie), `${especie} casi no da clase`).toBeGreaterThan(minimo);
     }
@@ -132,7 +187,9 @@ describe('quién da cada lección', () => {
   it('una unidad no sale entera con el mismo', () => {
     // Seis lecciones seguidas con el mismo profesor es lo que se siente como
     // «siempre me sale este». Se pide que en cada unidad se vean al menos tres
-    // caras distintas de las cinco.
+    // caras distintas. El listón se queda en tres aunque ahora haya nueve donde
+    // elegir: lo que se mide no es cuánta gente hay, es cuántas veces se repite
+    // el de la última lección, y seis lecciones no dan para más de seis caras.
     for (let nivel = 1; nivel <= 16; nivel += 1) {
       for (let unidad = 1; unidad <= 4; unidad += 1) {
         const caras = new Set<Especie>();
@@ -157,7 +214,7 @@ describe('quién da cada lección', () => {
   });
 });
 
-describe('que sean cinco y no uno repetido', () => {
+describe('que sean nueve y no uno repetido', () => {
   it('no hay dos que reaccionen igual a todo', () => {
     /*
       Esta es la prueba que defiende la idea entera. El carácter de un personaje
@@ -174,6 +231,69 @@ describe('que sean cinco y no uno repetido', () => {
       const yaEstaba = filas.get(fila);
       expect(yaEstaba, `${especie} y ${yaEstaba} son el mismo personaje`).toBeUndefined();
       filas.set(fila, especie);
+    }
+  });
+
+  it('no hay dos que se tomen igual lo que escribes', () => {
+    /*
+      La de arriba mira la fila entera y con cinco bastaba. Con nueve deja de
+      bastar, y esta es la que hay que leer.
+
+      De las nueve casillas de `animo`, cuatro —reposo, atento, espera y sopor—
+      son POSTURA: dicen dónde mira y cuánto aguanta, y dependen del reloj, no
+      de ti. Dos personajes pueden tener las cuatro distintas y reaccionar
+      exactamente igual a lo único que decide si hay alguien ahí: qué cara ponen
+      cuando aciertas, cuando te quedas cerca y cuando fallas. La fila entera
+      diría que son dos; en la pantalla serían uno.
+
+      Pasó al escribir a Liam. La primera versión era «el que pasa de todo»:
+      `neutral` al acertar, `pensando` en el casi y `neutral` al fallar, o sea
+      las tres casillas de Nala clavadas, con otro dibujo, otro nombre y otras
+      frases. La prueba de la fila entera lo daba por bueno porque llevaba los
+      auriculares en otra postura. Esta no, y de ahí salió que a Liam le guste
+      el `casi` más que el acierto, que es lo que lo hace alguien.
+    */
+    const reacciones = new Map<string, Especie>();
+    for (const especie of TODAS) {
+      const { acierto, casi, fallo } = REPARTO[especie].animo;
+      const reaccion = `${acierto}/${casi}/${fallo}`;
+      const yaEstaba = reacciones.get(reaccion);
+      expect(
+        yaEstaba,
+        `${especie} y ${yaEstaba} se toman igual acertar, quedarse cerca y fallar: ${reaccion}`,
+      ).toBeUndefined();
+      reacciones.set(reaccion, especie);
+    }
+  });
+
+  it('las personas no te dan palmaditas ni te jalean', () => {
+    /*
+      La regla que trajeron los humanos, y la que no hacía falta escribir
+      mientras el reparto eran cinco bichos.
+
+      Que un pájaro se ponga `orgulloso` cuando fallas es un chiste sobre el
+      pájaro. Que se ponga una persona es una persona diciéndote algo sobre ti.
+      `orgulloso` desde una cara humana es la palmadita en la espalda —«buen
+      trabajo» sin escribirlo— y `animando` son directamente los pompones: es
+      la frase que el tutor tiene prohibida, pero dibujada, y por eso se cuela
+      sin que salte ninguna de las pruebas del texto.
+
+      Zoe y Liam reaccionan a la frase: a dónde te lleva esa palabra, a si eso
+      lo diría alguien. Nunca a quien la escribió. Beeper queda fuera a
+      propósito: una máquina encendiéndose entera no felicita a nadie.
+
+      Se mira en las nueve casillas y no solo en las tres de reacción, porque
+      una persona plantada en `orgulloso` mientras esperas dice exactamente lo
+      mismo.
+    */
+    for (const especie of TODAS) {
+      if (REPARTO[especie].figura !== 'persona') continue;
+      for (const [momento, cara] of Object.entries(REPARTO[especie].animo)) {
+        expect(
+          ['orgulloso', 'animando'],
+          `${especie} es una persona y te felicita en «${momento}»`,
+        ).not.toContain(cara);
+      }
     }
   });
 
@@ -202,10 +322,14 @@ describe('que sean cinco y no uno repetido', () => {
 
   it('no tienen todos la misma paciencia', () => {
     // Aburrirse antes que los demás es carácter, y es lo que se ve sin que
-    // nadie diga nada. Si las cinco paciencias fueran iguales, los cinco se
-    // dormirían a la vez y volverían a ser el mismo.
+    // nadie diga nada. Si las paciencias fueran iguales, todos se dormirían a
+    // la vez y volverían a ser el mismo.
+    //
+    // El listón va en proporción por lo mismo que el del reparto de lecciones:
+    // escrito como número fijo, «más de tres distintas» era exigente con cinco
+    // y es limosna con nueve.
     const paciencias = new Set(TODAS.map((e) => REPARTO[e].paciencia));
-    expect(paciencias.size).toBeGreaterThan(3);
+    expect(paciencias.size).toBeGreaterThan(Math.floor(TODAS.length * 0.7));
   });
 
   it('todos tienen algo que decir en los tres momentos en que hablan', () => {

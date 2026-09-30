@@ -488,7 +488,7 @@ describe('el dibujo tiene sus capas', () => {
   it('el cuerpo pivota en el suelo, para que las patas no se despeguen', () => {
     const { container } = render(<Mascota />);
     const cuerpo = container.querySelector<SVGGElement>('[data-capa="cuerpo"]');
-    // y=108 en un lienzo de 120 es la línea donde apoyan las cinco especies.
+    // y=108 en un lienzo de 120 es la línea donde apoyan todas las especies.
     expect(cuerpo?.style.transformOrigin).toContain('108px');
   });
 
@@ -558,7 +558,20 @@ describe('el dibujo tiene sus capas', () => {
   });
 });
 
-const ESPECIES: Especie[] = ['PET_MILO', 'PET_GATO', 'PET_PERRO', 'PET_BUHO', 'PET_ZORRO'];
+/*
+  Las especies NO se escriben a mano aquí: se sacan del catálogo.
+
+  Esta línea era una lista de cinco, y al entrar cuatro personajes más se quedó
+  vieja en silencio: las pruebas de abajo seguían verdes sin haber mirado a
+  ninguno de los nuevos. Lo que comprueban —que todos tengan las seis bocas,
+  cejas donde toca y que la ropa caiga bien— es justo lo que hay que comprobar
+  de un personaje recién llegado.
+
+  Sacándolas del catálogo, el décimo entra aquí solo el día que alguien lo
+  registre. Es la misma lección que este proyecto ya ha aprendido tres veces
+  este mes con otras listas escritas a mano.
+*/
+const ESPECIES = Object.keys(CATALOGO) as Especie[];
 const ATUENDOS: Atuendo[] = ['OUTFIT_GORRO', 'OUTFIT_BUFANDA', 'OUTFIT_GAFAS', 'OUTFIT_CORONA'];
 
 /** Todo el marcado del dibujo, para comparar dibujos enteros. */
@@ -636,7 +649,7 @@ describe('cada especie es otro animal', () => {
     }
   });
 
-  it('las seis bocas están siempre montadas en las cinco especies', () => {
+  it('las seis bocas están siempre montadas en todas las especies', () => {
     /*
       El cruce en opacidad es del esqueleto, pero solo funciona si la especie
       declara las seis formas. Si una se saltara cualquiera, esa boca no
@@ -647,10 +660,23 @@ describe('cada especie es otro animal', () => {
       for (const estado of TODOS) {
         const { container } = render(<Mascota estado={estado} especie={especie} />);
         for (const visema of VISEMAS) {
+          const hueco = container.querySelector(`[data-boca="${visema}"]`);
+
+          expect(hueco, `a ${especie} le falta la boca ${visema} en ${estado}`).not.toBeNull();
+
+          /*
+            Y que DENTRO haya algo.
+
+            Esto antes solo miraba que el hueco existiera, y el hueco lo monta
+            el esqueleto pase lo que pase: con la boca puesta a `null` la
+            prueba seguía verde. Lo comprobé poniéndole `pena: null` a Beeper y
+            no protestó nadie, que es justo lo que esta prueba dice que no
+            puede ocurrir.
+          */
           expect(
-            container.querySelector(`[data-boca="${visema}"]`),
-            `a ${especie} le falta la boca ${visema} en ${estado}`,
-          ).not.toBeNull();
+            hueco?.innerHTML ?? '',
+            `${especie} monta el hueco de ${visema} pero no dibuja nada dentro`,
+          ).not.toBe('');
         }
       }
     }
@@ -668,7 +694,7 @@ describe('cada especie es otro animal', () => {
     }
   });
 
-  it('las cinco especies tienen cejas, y cada una donde le toca', () => {
+  it('todas las especies tienen cejas, y cada una donde le toca', () => {
     /*
       Las cejas son el añadido más rentable de la cara y son del esqueleto, pero
       dónde nacen lo declara cada especie: la del búho cae dentro del disco
@@ -714,7 +740,7 @@ describe('la mascota lleva atuendos', () => {
     }
   });
 
-  it('los cuatro atuendos se dibujan sobre las cinco especies', () => {
+  it('los cuatro atuendos se dibujan sobre todas las especies', () => {
     for (const especie of ESPECIES) {
       const desnudo = dibujo('neutral', especie);
       for (const atuendo of ATUENDOS) {

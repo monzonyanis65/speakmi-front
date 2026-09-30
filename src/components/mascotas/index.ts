@@ -1,8 +1,12 @@
+import { BARNABY } from './barnaby';
+import { BEEPER } from './beeper';
 import { BUHO } from './buho';
 import { GATO } from './gato';
+import { LIAM } from './liam';
 import { MILO } from './milo';
 import { PERRO } from './perro';
 import { ZORRO } from './zorro';
+import { ZOE } from './zoe';
 import { type Atuendo, type DefinicionEspecie, type Especie } from './tipos';
 
 export { CapaAtuendo } from './atuendos';
@@ -27,6 +31,15 @@ export const ESPECIES: Record<Especie, DefinicionEspecie> = {
   PET_PERRO: PERRO,
   PET_BUHO: BUHO,
   PET_ZORRO: ZORRO,
+
+  /*
+    Los cuatro del reparto. Se montan sobre el mismo esqueleto que los cinco de
+    arriba: la única diferencia es que a estos no se les compra.
+  */
+  CHAR_ZOE: ZOE,
+  CHAR_LIAM: LIAM,
+  CHAR_BARNABY: BARNABY,
+  CHAR_BEEPER: BEEPER,
 };
 
 /** Para la etiqueta accesible: quien no ve el dibujo también lleva el gorro. */

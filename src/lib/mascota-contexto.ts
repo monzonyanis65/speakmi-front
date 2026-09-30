@@ -19,6 +19,17 @@ export const NOMBRE_ESPECIE: Record<Especie, string> = {
   PET_PERRO: 'Tuco',
   PET_BUHO: 'Ulises',
   PET_ZORRO: 'Rufo',
+
+  /*
+    Los cuatro del reparto. Estos NO están en `content/tienda.json`, y no es un
+    olvido: no se compran, así que no hay nada que comprar con su nombre. Aquí
+    manda este archivo y no el catálogo del servidor, al revés que los cinco de
+    arriba. Quien los busque allí no los va a encontrar.
+  */
+  CHAR_ZOE: 'Zoe',
+  CHAR_LIAM: 'Liam',
+  CHAR_BARNABY: 'Barnaby',
+  CHAR_BEEPER: 'Beeper',
 };
 
 export interface MascotaEquipada {

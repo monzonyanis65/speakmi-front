@@ -99,7 +99,22 @@ export function msHablando(turno: Pick<Turno, 'en' | 'es'>, conGlosa: boolean): 
  * Que estén todas lo comprueba una prueba contra `ESPECIES`: si alguien añade
  * un animal sexto, se entera de que también hay que meterlo aquí.
  */
-const ELENCO: Especie[] = ['PET_MILO', 'PET_GATO', 'PET_PERRO', 'PET_BUHO', 'PET_ZORRO'];
+const ELENCO: Especie[] = [
+  'PET_MILO',
+  'PET_GATO',
+  'PET_PERRO',
+  'PET_BUHO',
+  'PET_ZORRO',
+  // Los cuatro del reparto entran DETRÁS, sin tocar el orden de los cinco de
+  // arriba. Aun así los actores de las escenas que ya existían cambian, porque
+  // el sorteo reparte entre nueve y antes repartía entre cinco: eso no se puede
+  // evitar al crecer el elenco, y es preferible a que un personaje nuevo no
+  // actúe nunca.
+  'CHAR_ZOE',
+  'CHAR_LIAM',
+  'CHAR_BARNABY',
+  'CHAR_BEEPER',
+];
 
 /** Qué animal interpreta cada papel. */
 export type Reparto = Record<Papel, Especie>;

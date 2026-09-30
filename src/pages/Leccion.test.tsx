@@ -5,7 +5,21 @@ import { act } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Leccion } from './Leccion';
-import { REPARTO, repartoDeLeccion } from '@/lib/reparto';
+import { repartoDeLeccion } from '@/lib/reparto';
+
+/*
+  Quién da estas dos lecciones NO se escribe a mano: se pregunta.
+
+  Aquí ponía «PET_MILO» y «PET_GATO» porque cuando se escribió el reparto eran
+  cinco y a L5-U1-03 le tocaba Milo. Al entrar cuatro personajes más, el sorteo
+  cambió y se pusieron rojas seis pruebas que no vigilaban nada de eso: lo que
+  comprueban es que la PANTALLA use el guion del reparto, no quién es el de
+  turno. Preguntándolo siguen diciendo lo mismo y dejan de romperse cada vez que
+  el elenco crece.
+*/
+const LECCION = 'L5-U1-03';
+const QUIEN = repartoDeLeccion(LECCION).protagonista;
+const EL_DE_LA_VECINA = repartoDeLeccion('L5-U1-02').protagonista;
 
 /**
  * El reparto dentro de la lección.
@@ -181,18 +195,18 @@ describe('quién da la clase', () => {
 
     const primera = abrir('L5-U1-03');
     await screen.findByRole('button', { name: 'contestar' });
-    expect(elQueAcompana()).toHaveAttribute('data-personaje', 'PET_MILO');
+    expect(elQueAcompana()).toHaveAttribute('data-personaje', QUIEN.especie);
     primera.unmount();
 
     // Y al volver, el mismo. No se sortea al entrar.
     const otraVez = abrir('L5-U1-03');
     await screen.findByRole('button', { name: 'contestar' });
-    expect(elQueAcompana()).toHaveAttribute('data-personaje', 'PET_MILO');
+    expect(elQueAcompana()).toHaveAttribute('data-personaje', QUIEN.especie);
     otraVez.unmount();
 
     const vecina = abrir('L5-U1-02');
     await screen.findByRole('button', { name: 'contestar' });
-    expect(elQueAcompana()).toHaveAttribute('data-personaje', 'PET_GATO');
+    expect(elQueAcompana()).toHaveAttribute('data-personaje', EL_DE_LA_VECINA.especie);
     vecina.unmount();
   });
 
@@ -232,7 +246,7 @@ describe('cómo se lo toma', () => {
 
     const enElPanel = within(screen.getByRole('status')).getByTestId('mascota');
     expect(enElPanel).not.toHaveAttribute('data-estado', 'triste');
-    expect(enElPanel).toHaveAttribute('data-estado', REPARTO.PET_MILO.animo.fallo);
+    expect(enElPanel).toHaveAttribute('data-estado', QUIEN.animo.fallo);
   });
 
   it('acertar algo fácil no se celebra igual que acertar algo difícil', async () => {
@@ -247,9 +261,9 @@ describe('cómo se lo toma', () => {
 
     expect(within(screen.getByRole('status')).getByTestId('mascota')).toHaveAttribute(
       'data-estado',
-      REPARTO.PET_MILO.animo.acierto,
+      QUIEN.animo.acierto,
     );
-    expect(REPARTO.PET_MILO.animo.acierto).not.toBe(REPARTO.PET_MILO.animo.racha);
+    expect(QUIEN.animo.acierto).not.toBe(QUIEN.animo.racha);
   });
 });
 
@@ -268,20 +282,20 @@ describe('estar ahí sin dar la turra', () => {
     abrir('L5-U1-03');
     await screen.findByRole('button', { name: 'contestar' });
 
-    const paciencia = REPARTO.PET_MILO.paciencia;
+    const paciencia = QUIEN.paciencia;
     await act(async () => {
       vi.advanceTimersByTime(paciencia * 1000 + 500);
     });
-    expect(elQueAcompana()).toHaveAttribute('data-estado', REPARTO.PET_MILO.animo.espera);
+    expect(elQueAcompana()).toHaveAttribute('data-estado', QUIEN.animo.espera);
 
     await act(async () => {
       vi.advanceTimersByTime(paciencia * 2000 + 500);
     });
-    expect(elQueAcompana()).toHaveAttribute('data-estado', REPARTO.PET_MILO.animo.sopor);
+    expect(elQueAcompana()).toHaveAttribute('data-estado', QUIEN.animo.sopor);
 
     // Y al escribir, se entera.
     await quien.keyboard('a');
-    expect(elQueAcompana()).toHaveAttribute('data-estado', REPARTO.PET_MILO.animo.atento);
+    expect(elQueAcompana()).toHaveAttribute('data-estado', QUIEN.animo.atento);
   });
 
   it('con movimiento reducido se queda quieto, pero sigue reaccionando', async () => {
@@ -305,14 +319,14 @@ describe('estar ahí sin dar la turra', () => {
     await screen.findByRole('button', { name: 'contestar' });
 
     await act(async () => {
-      vi.advanceTimersByTime(REPARTO.PET_MILO.paciencia * 4000);
+      vi.advanceTimersByTime(QUIEN.paciencia * 4000);
     });
-    expect(elQueAcompana()).toHaveAttribute('data-estado', REPARTO.PET_MILO.animo.reposo);
+    expect(elQueAcompana()).toHaveAttribute('data-estado', QUIEN.animo.reposo);
 
     await contestar(quien);
     expect(within(screen.getByRole('status')).getByTestId('mascota')).toHaveAttribute(
       'data-estado',
-      REPARTO.PET_MILO.animo.fallo,
+      QUIEN.animo.fallo,
     );
   });
 
