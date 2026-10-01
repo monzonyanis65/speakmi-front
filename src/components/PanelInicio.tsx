@@ -3,41 +3,75 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
-import { NOMBRE_CATEGORIA } from '@/components/ejercicios/tipos';
-import { useContador } from '@/lib/contador';
 import { useNombreMascota } from '@/lib/mascota-contexto';
 import { avisarAhora, marcarAvisado, tocaAvisar } from '@/lib/recordatorio';
 
+/** Solo lo que pintan estas dos tiras. El resto de `/progress` lo lee quien lo use. */
 interface Progreso {
   xpTotal: number;
-  xpHoy: number;
   leccionesCompletadas: number;
   racha: { currentDays: number; longestDays: number; freezesAvailable: number };
   repasosPendientes: number;
-  dominio: Array<{ skillCode: string; titleEs: string; mastery: number; attempts: number }>;
-  debilidades: Array<{
-    category: string;
-    veces: number;
-    ultimoEjemplo: string | null;
-    ultimoEsperado: string | null;
-  }>;
 }
 
 /**
- * Cabecera del panel de inicio.
+ * LO QUE HAY EN ESTE ARCHIVO Y POR QUÉ SON DOS TIRAS Y NO UN PANEL
  *
- * El orden importa: primero lo que toca hacer hoy, luego lo que cuesta, y la
- * racha en pequeño. Es lo contrario de Duolingo a propósito, porque la racha
- * mide asistencia y lo que aquí interesa medir es competencia.
+ * Esto era un panel: una pila de tarjetas del mismo tamaño encima del camino de
+ * lecciones —repaso, llamada, conversación, cuatro casillas de cifras, en qué
+ * fallas— que sumaba más de media pantalla. Medido en un móvil de 320×568, el
+ * primer nodo del camino caía por debajo de los 800 px: pantalla y media de
+ * scroll para llegar a lo único por lo que se abre la aplicación.
+ *
+ * El fallo no era ninguna de esas tarjetas por separado; era que TODAS pesaban
+ * lo mismo. Cuando todo es una tarjeta grande, nada es lo principal.
+ *
+ * Así que ahora son dos tiras finas y el camino es lo demás:
+ *
+ *   `CifrasDeHoy`   — racha, XP, monedas y lecciones en la cabecera, ~44 px.
+ *   `AccionesDeHoy` — repasar, llamar y escribir en una fila de tres, ~60 px.
+ *
+ * Lo que se fue: los subtítulos de cada acción (se leen una vez y estorban
+ * todos los días) y el bloque de «en lo que más fallas», que vive ahora en el
+ * perfil, que es la pantalla de mirarse las tripas.
  */
-export function PanelInicio() {
+
+/**
+ * La consulta del progreso, compartida por las dos tiras.
+ *
+ * Misma clave que el perfil: entrar aquí no vuelve a pedir lo mismo. Y siempre
+ * fresca al volver a esta pantalla, porque si acabas de fallar algo en una
+ * lección la chapa de repasos tiene que subir al instante y no en 30 segundos.
+ */
+function useProgreso() {
+  return useQuery({
+    queryKey: ['progreso'],
+    queryFn: () => api.get<Progreso>('/progress'),
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+}
+
+/**
+ * Las cuatro cifras, en una tira de cabecera.
+ *
+ * Eran cuatro casillas de 72 px de alto para cuatro números de cuatro cifras.
+ * Un número no necesita una tarjeta: necesita un icono al lado y sitio para
+ * leerse. Aquí caben los cuatro en la misma fila del botón de menú, que es lo
+ * que hace Duolingo y por lo mismo.
+ *
+ * Tampoco cuentan hacia arriba ya. Un contador animado es un premio, y un
+ * premio que se cobra cada vez que abres la aplicación deja de serlo; donde sí
+ * se gana —al acabar una lección, al cumplir un desafío— ahí sigue contando.
+ */
+export function CifrasDeHoy() {
   const navegar = useNavigate();
-  const nombre = useNombreMascota();
+  const { data } = useProgreso();
 
   /*
     El recordatorio diario, cuando toca.
 
-    Va aquí y no en un sitio más general porque este panel solo se pinta en la
+    Va aquí y no en un sitio más general porque esta tira solo se pinta en la
     ruta, que es la pantalla de inicio: es donde se llega al abrir la
     aplicación, y avisar en cualquier otra sería avisar a mitad de una lección.
   */
@@ -52,17 +86,8 @@ export function PanelInicio() {
     if (avisarAhora('Un rato de inglés y sigues la racha.')) marcarAvisado();
   }, []);
 
-  const { data } = useQuery({
-    queryKey: ['progreso'],
-    queryFn: () => api.get<Progreso>('/progress'),
-    // Siempre fresco al volver a esta pantalla: si acabas de fallar algo en una
-    // lección, el aviso de repaso tiene que aparecer al instante, no en 30 segundos.
-    staleTime: 0,
-    refetchOnMount: 'always',
-  });
-
-  // La cartera va aparte del progreso: son dos cosas distintas y si una falla
-  // la otra se sigue viendo.
+  // La cartera va aparte del progreso: son dos cosas distintas y si una falla la
+  // otra se sigue viendo.
   const { data: cartera } = useQuery({
     queryKey: ['cartera'],
     queryFn: () => api.get<{ coins: number }>('/me/wallet'),
@@ -70,202 +95,220 @@ export function PanelInicio() {
     refetchOnMount: 'always',
   });
 
-  if (!data) return null;
-
-  const debilidad = data.debilidades[0];
-  const flojo = data.dominio.find((skill) => skill.attempts >= 2 && skill.mastery < 0.7);
+  const dias = data?.racha.currentDays ?? 0;
+  const congelados = data?.racha.freezesAvailable ?? 0;
 
   return (
-    <div className="grid gap-3">
-      {data.repasosPendientes > 0 && (
-        <button
-          type="button"
-          onClick={() => navegar('/repaso')}
-          className="boton-3d flex animate-entrada items-center gap-4 rounded-2xl border-acento-600 bg-acento-500 p-4 text-left text-white hover:bg-acento-400"
-        >
-          <span className="animate-latido text-2xl" aria-hidden>
-            🔄
-          </span>
-          <span className="flex-1">
-            <span className="block font-semibold">
-              {data.repasosPendientes === 1
-                ? 'Tienes 1 repaso pendiente'
-                : `Tienes ${data.repasosPendientes} repasos pendientes`}
-            </span>
-            <span className="block text-sm text-amber-50">
-              Cosas que fallaste y toca volver a ver
-            </span>
-          </span>
-          <span aria-hidden>›</span>
-        </button>
-      )}
-
-      {/*
-        Llamar va primero y escribir en segundo plano, no al revés.
-        Hablar es lo que cuesta y lo que se evita; ponerlo delante es la única
-        forma de que se haga. Quien no pueda hablar ahora tiene la otra al lado.
-      */}
-      <button
-        type="button"
-        onClick={() => navegar('/llamada')}
-        className="boton-3d flex animate-entrada items-center gap-4 rounded-2xl border-marca-800 bg-marca-600 p-4 text-left text-white hover:bg-marca-500"
-      >
-        <span className="text-2xl" aria-hidden>
-          📞
-        </span>
-        <span className="flex-1">
-          <span className="block font-bold">Llamar a {nombre}</span>
-          <span className="block text-sm text-marca-100">
-            Una conversación hablada, en inglés. Te corrige al colgar.
-          </span>
-        </span>
-        <span aria-hidden>›</span>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => navegar('/conversar')}
-        style={{ animationDelay: '60ms', animationFillMode: 'backwards' }}
-        className="flex animate-entrada items-center gap-4 rounded-2xl border-2 border-[var(--borde)] bg-[var(--superficie)] p-4 text-left"
-      >
-        <span className="text-2xl" aria-hidden>
-          💬
-        </span>
-        <span className="flex-1">
-          <span className="block font-bold">Conversar escribiendo</span>
-          <span className="block text-sm text-[var(--texto-suave)]">
-            Si ahora no puedes hablar en voz alta.
-          </span>
-        </span>
-        <span aria-hidden className="text-[var(--texto-suave)]">
-          ›
-        </span>
-      </button>
-
-      <div className="grid grid-cols-4 gap-2">
-        <Dato
-          valor={data.racha.currentDays}
-          etiqueta={data.racha.currentDays === 1 ? 'día' : 'días'}
-          icono="🔥"
-          vivo={data.racha.currentDays > 0}
-          retraso={0}
-        />
-        <Dato valor={data.xpTotal} etiqueta="XP" icono="⭐" retraso={80} />
-        {/* Las monedas llevan a la tienda: verlas y no poder gastarlas frustra. */}
-        <Dato
-          valor={cartera?.coins ?? 0}
-          etiqueta="monedas"
-          icono="🪙"
-          retraso={160}
-          onClick={() => navegar('/tienda')}
-        />
-        <Dato valor={data.leccionesCompletadas} etiqueta="lecciones" icono="📘" retraso={240} />
-      </div>
-
-      {/* Solo si tiene alguno: un cero permanente no informa de nada. */}
-      {data.racha.freezesAvailable > 0 && (
-        <p className="text-center text-xs text-[var(--texto-suave)]">
-          ❄️ Tienes {data.racha.freezesAvailable}{' '}
-          {data.racha.freezesAvailable === 1 ? 'congelado' : 'congelados'} para salvar la racha
-        </p>
-      )}
-
-      {(debilidad ?? flojo) && (
-        <div className="rounded-2xl border border-[var(--borde)] bg-[var(--superficie)] p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-[var(--texto-suave)]">
-            En lo que más fallas
-          </p>
-
-          {debilidad && (
-            <p className="mt-2">
-              <span className="font-semibold">
-                {NOMBRE_CATEGORIA[debilidad.category] ?? debilidad.category}
-              </span>
-              <span className="text-[var(--texto-suave)]">
-                {' '}
-                · {debilidad.veces} {debilidad.veces === 1 ? 'vez' : 'veces'}
-              </span>
-            </p>
-          )}
-
-          {debilidad?.ultimoEjemplo && debilidad.ultimoEsperado && (
-            <p className="mt-1 text-sm text-[var(--texto-suave)]">
-              Escribiste{' '}
-              <span className="text-[var(--texto-fallo)]">{debilidad.ultimoEjemplo}</span> donde iba{' '}
-              <span className="text-[var(--texto-acierto)]">{debilidad.ultimoEsperado}</span>
-            </p>
-          )}
-
-          {flojo && (
-            <div className="mt-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[var(--texto-suave)]">{flojo.titleEs}</span>
-                <span className="text-[var(--texto-suave)]">
-                  {Math.round(flojo.mastery * 100)}%
-                </span>
-              </div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--fondo)]">
-                <div
-                  className={cn(
-                    'h-full rounded-full',
-                    flojo.mastery < 0.4 ? 'bg-[var(--color-fallo)]' : 'bg-[var(--color-aviso)]',
-                  )}
-                  style={{ width: `${Math.max(flojo.mastery * 100, 4)}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+    <div className="flex min-w-0 flex-1 items-center justify-between gap-0.5">
+      <Cifra
+        icono="🔥"
+        valor={dias}
+        // Los congelados eran un renglón propio debajo del panel. Son un detalle
+        // de la racha, así que se cuentan contando la racha y no ocupan fila.
+        etiqueta={
+          (dias === 1 ? 'día de racha' : 'días de racha') +
+          (congelados > 0
+            ? `, con ${congelados === 1 ? 'un congelado' : `${congelados} congelados`} para salvarla`
+            : '')
+        }
+      />
+      <Cifra icono="⭐" valor={data?.xpTotal ?? 0} etiqueta="de experiencia" />
+      {/* Las monedas llevan a la tienda: verlas y no poder gastarlas frustra. */}
+      <Cifra
+        icono="🪙"
+        valor={cartera?.coins ?? 0}
+        etiqueta="monedas"
+        onClick={() => navegar('/tienda')}
+      />
+      <Cifra icono="📘" valor={data?.leccionesCompletadas ?? 0} etiqueta="lecciones hechas" />
     </div>
   );
 }
 
 /**
- * Una cifra del panel.
+ * Cinco cifras no caben en 320 px.
  *
- * Las tres entran escalonadas, no las tres a la vez: cuando algo aparece en
- * cascada el ojo lo sigue, y cuando aparece de golpe ni se mira. Y el número
- * sube contando, que es lo que convierte un dato en un pequeño premio.
+ * A partir de diez mil se abrevia, porque el XP es el número que crece sin
+ * techo y es el que rompía la fila: con «124500» puesto entero, las cuatro
+ * cifras se montaban unas encima de otras. Quien escucha la pantalla oye
+ * siempre el número exacto, que va en la etiqueta y no en lo que se ve.
  */
-function Dato({
+function corto(valor: number): string {
+  if (valor < 10_000) return String(valor);
+  return `${Math.round(valor / 1000)} k`;
+}
+
+/**
+ * Una cifra de la tira.
+ *
+ * Con `onClick` se pinta como botón de verdad, no como un elemento que escucha
+ * toques: así se llega con el teclado y el lector de pantalla lo anuncia. Sin
+ * él, el número y el icono se esconden del lector y se dice la frase entera una
+ * sola vez, que es lo que evita oír «fuego 4» como si fuera un dato.
+ */
+function Cifra({
+  icono,
   valor,
   etiqueta,
-  icono,
-  retraso,
-  vivo = false,
   onClick,
 }: {
+  icono: string;
   valor: number;
   etiqueta: string;
-  icono: string;
-  retraso: number;
-  vivo?: boolean;
   onClick?: () => void;
 }) {
-  const contado = useContador(valor);
-  // Con `onClick` se pinta como botón de verdad, no como un div que escucha
-  // toques: así se llega con el teclado y el lector de pantalla lo anuncia.
-  const Caja = onClick ? 'button' : 'div';
+  const visible = (
+    <>
+      <span aria-hidden className="text-base leading-none">
+        {icono}
+      </span>
+      <span aria-hidden className="truncate text-sm font-extrabold tabular-nums">
+        {corto(valor)}
+      </span>
+    </>
+  );
+
+  /*
+    Cada cifra ocupa lo que mide, no un cuarto de la fila.
+
+    Con `flex-1` las cuatro salían iguales y la del XP —que es la única que
+    crece sin parar— se cortaba en «12…» teniendo sitio de sobra al lado: la
+    racha gasta un dígito y se quedaba con el mismo hueco que un número de
+    cuatro. `min-w-0` con `truncate` deja además que se encojan en vez de
+    desbordar el día que las cuatro vengan largas a la vez.
+  */
+  const reparto = 'flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl px-0.5';
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`${valor} ${etiqueta}`}
+        className={reparto}
+      >
+        {visible}
+      </button>
+    );
+  }
 
   return (
-    <Caja
-      {...(onClick ? { type: 'button' as const, onClick } : {})}
+    <span className={reparto}>
+      {visible}
+      <span className="sr-only">{`${valor} ${etiqueta}`}</span>
+    </span>
+  );
+}
+
+/**
+ * Lo que se puede hacer hoy aparte de la lección, en una sola fila.
+ *
+ * ORDEN: LLAMAR ANTES QUE ESCRIBIR, Y ESO NO SE TOCA
+ *
+ * Hablar es lo que cuesta y lo que se evita; ponerlo delante es la única forma
+ * de que se haga. Quien no pueda hablar ahora tiene la otra justo al lado.
+ *
+ * El repaso va el primero de los tres porque es lo único de la fila que caduca:
+ * son cosas que ya fallaste y que vuelven hoy. Pero va en el mismo tamaño que
+ * las otras dos y sin color de alarma; lo urgente lo dice la chapa del número.
+ */
+export function AccionesDeHoy() {
+  const navegar = useNavigate();
+  const nombre = useNombreMascota();
+  const { data } = useProgreso();
+  const pendientes = data?.repasosPendientes ?? 0;
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      <Accion
+        icono="🔄"
+        titulo="Repasar"
+        aviso={pendientes}
+        etiqueta={
+          pendientes > 0
+            ? `Repasar. Tienes ${pendientes} ${pendientes === 1 ? 'repaso pendiente' : 'repasos pendientes'}: cosas que fallaste y toca volver a ver`
+            : 'Repasar lo que fallaste. Ahora mismo no tienes nada pendiente'
+        }
+        onClick={() => navegar('/repaso')}
+      />
+      <Accion
+        icono="📞"
+        titulo="Llamar"
+        principal
+        etiqueta={`Llamar a ${nombre}. Una conversación hablada, en inglés. Te corrige al colgar`}
+        onClick={() => navegar('/llamada')}
+      />
+      <Accion
+        icono="💬"
+        titulo="Escribir"
+        etiqueta="Conversar escribiendo, si ahora no puedes hablar en voz alta"
+        onClick={() => navegar('/conversar')}
+      />
+    </div>
+  );
+}
+
+/**
+ * Una de las tres acciones.
+ *
+ * El subtítulo que antes se leía debajo del título ahora vive en la etiqueta:
+ * no se ha perdido, se ha dejado de repetir. Quien lo necesita —la primera vez,
+ * o quien escucha la pantalla— lo sigue teniendo; quien ya sabe qué es llamar
+ * no tiene que saltárselo cada día.
+ *
+ * `aviso` es la chapa con el número. Un punto sobre un icono dice lo mismo que
+ * una tarjeta ámbar a todo lo ancho, no ocupa una fila y, sobre todo, no se
+ * mueve: lo que late en bucle deja de leerse como información y pasa a leerse
+ * como una notificación gritando.
+ */
+function Accion({
+  icono,
+  titulo,
+  etiqueta,
+  aviso = 0,
+  principal = false,
+  onClick,
+}: {
+  icono: string;
+  titulo: string;
+  etiqueta: string;
+  aviso?: number;
+  principal?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={etiqueta}
       className={cn(
-        'animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] p-3 text-center',
-        onClick && 'boton-3d',
+        'boton-3d flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-2',
+        principal
+          ? 'border-marca-800 bg-marca-600 text-white hover:bg-marca-500'
+          : 'border-2 border-[var(--borde)] bg-[var(--superficie)]',
       )}
-      style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
     >
-      {/* La llama solo late si la racha está viva. Un fuego apagado no parpadea. */}
-      <p className={cn('text-lg', vivo && 'animate-latido')} aria-hidden>
-        {icono}
-      </p>
-      {/* El número cambia solo; para quien escucha la página basta el final. */}
-      <p className="mt-0.5 text-xl font-extrabold tabular-nums" aria-label={`${valor} ${etiqueta}`}>
-        <span aria-hidden>{contado}</span>
-      </p>
-      <p className="text-xs text-[var(--texto-suave)]">{etiqueta}</p>
-    </Caja>
+      <span className="relative">
+        <span aria-hidden className="text-xl leading-none">
+          {icono}
+        </span>
+        {aviso > 0 && (
+          /*
+            El número va sobre el icono y a la vez dentro de la etiqueta del
+            botón. Aquí se esconde del lector para que no lo oiga dos veces, pero
+            SÍ se pinta: sin él, quien no oye la pantalla no tendría la cuenta.
+          */
+          <span
+            aria-hidden
+            className="absolute -right-3 -top-1.5 min-w-5 rounded-full bg-[var(--color-fallo)] px-1 text-center text-[11px] font-extrabold leading-5 text-white"
+          >
+            {aviso > 9 ? '9+' : aviso}
+          </span>
+        )}
+      </span>
+      <span aria-hidden className="truncate text-xs font-bold">
+        {titulo}
+      </span>
+    </button>
   );
 }

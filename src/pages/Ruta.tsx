@@ -3,8 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useSesion } from '@/store/sesion';
-import { PanelInicio } from '@/components/PanelInicio';
-import { PanelDeMisiones } from '@/components/misiones/Misiones';
+import { AccionesDeHoy, CifrasDeHoy } from '@/components/PanelInicio';
 import { NivelVacio } from '@/components/NivelVacio';
 import { MascotaConMensaje } from '@/components/Mascota';
 import { NodoLeccion, type EstadoNodo } from '@/components/NodoLeccion';
@@ -70,15 +69,26 @@ const NOMBRE_TIPO: Record<string, string> = {
 };
 
 /**
- * El saludo de Milo, con el título de la primera unidad dentro.
+ * El saludo de Milo, con la lección por la que se sigue dentro.
  *
  * Muchos títulos son preguntas («¿Cómo te llamas?»), así que no se les puede
  * pegar un punto detrás ni bajarles la mayúscula sin más: quedaba «Hoy toca
  * ¿cómo te llamas?.». Se entrecomilla y se respeta tal cual está escrito.
+ *
+ * El nombre va dentro del saludo y ya no en un renglón aparte de la cabecera.
+ * «Hola, Yanis» escrito encima del título del nivel eran dos líneas para decir
+ * lo que Milo dice de todas formas dos centímetros más abajo.
+ *
+ * Y lo que nombra es la LECCIÓN, no la unidad. Antes decía la unidad y además
+ * siempre la PRIMERA del nivel, así que a mitad de curso saludaba con algo que
+ * ya estaba hecho; y cuando acertaba, decía exactamente lo mismo que la tarjeta
+ * morada de debajo. Con la lección dice algo que no está escrito en ningún otro
+ * sitio de la pantalla y que además es verdad: por ahí se sigue.
  */
-function saludo(titulo?: string): string {
-  if (!titulo) return '¡Hola de nuevo! Vamos a practicar un rato.';
-  return `¡Hola de nuevo! Hoy toca «${titulo}».`;
+function saludo(nombre?: string, titulo?: string): string {
+  const hola = nombre ? `Hola, ${nombre}.` : '¡Hola de nuevo!';
+  if (!titulo) return `${hola} Vamos a practicar un rato.`;
+  return `${hola} Hoy toca «${titulo}».`;
 }
 
 /**
@@ -175,26 +185,40 @@ export function Ruta() {
 
   // Dónde se retoma. Se calcula una vez para toda la pantalla.
   const actual = codigoActual(data?.units ?? []);
+  const leccionActual = data?.units
+    .flatMap((unidad) => unidad.lessons)
+    .find((leccion) => leccion.code === actual);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
-      <header className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm text-[var(--texto-suave)]">Hola, {usuario?.displayName}</p>
-          <h1 className="truncate text-xl font-bold">
-            {data?.level.titleEs ?? 'Tu ruta'}
-            {data && (
-              <span className="ml-2 rounded-full bg-[var(--superficie)] px-2 py-0.5 text-xs font-medium text-[var(--texto-suave)]">
-                {data.level.cefr}
-              </span>
-            )}
-          </h1>
-        </div>
+    /*
+      `pt-3` en móvil y no `py-6`. Doce píxeles de aire arriba no se echan de
+      menos y son doce píxeles menos de camino por debajo del borde; en una
+      pantalla de 568 px cada cosa que se recorta cuenta.
+
+      El hueco de abajo para la barra de navegación lo reserva ella misma.
+    */
+    <div className="mx-auto w-full max-w-5xl px-4 pb-6 pt-3 sm:px-6 sm:pt-6">
+      {/*
+        La cabecera, en una sola fila fina: las cuatro cifras y el menú.
+
+        El título del nivel ya no se pinta. Ocupaba una línea de cabecera entera
+        para decir algo que no cambia en meses, y donde sí hace falta —al
+        empezar una unidad— está en la tarjeta de la unidad, con su nivel MCER
+        delante. Para quien escucha la pantalla sigue siendo el encabezado de
+        primer nivel, que es lo que le da nombre a la página.
+      */}
+      <header className="flex items-center gap-1">
+        <h1 className="sr-only">
+          {data ? `${data.level.titleEs}, nivel ${data.level.cefr}` : 'Tu ruta'}
+        </h1>
+
+        <CifrasDeHoy />
+
         <button
           type="button"
           onClick={() => navegar('/menu')}
           aria-label="Tu cuenta"
-          className="-mr-2 flex min-h-12 shrink-0 items-center rounded-xl px-4 text-sm text-[var(--texto-suave)] hover:bg-[var(--superficie)]"
+          className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-xl text-[var(--texto-suave)] hover:bg-[var(--superficie)]"
         >
           <span aria-hidden className="text-xl">
             ☰
@@ -203,31 +227,34 @@ export function Ruta() {
       </header>
 
       {/*
-        En pantalla ancha, el saludo y el panel se van a una columna lateral y la
-        ruta ocupa la principal. En móvil siguen uno encima de otro.
+        En pantalla ancha, el saludo y las acciones se van a una columna lateral
+        y la ruta ocupa la principal. En móvil siguen uno encima de otro.
       */}
-      <div className="mt-5 lg:grid lg:grid-cols-[1fr_340px] lg:items-start lg:gap-8">
+      <div className="mt-3 lg:grid lg:grid-cols-[1fr_340px] lg:items-start lg:gap-8">
         <div className="lg:order-2 lg:sticky lg:top-6">
-          <MascotaConMensaje estado="feliz" mensaje={saludo(data?.units[0]?.titleEs)} />
-          <div className="mt-5">
-            <PanelInicio />
-          </div>
           {/*
-            Los desafíos del día, justo debajo del panel. Aquí y no en un menú:
-            una misión que hay que ir a buscar no es una razón para volver.
+            Milo se queda, pero a 56 px en vez de a 90. Lo que sobraba era el
+            tamaño, no él: saluda, dice qué toca hoy y con eso ya ha hecho su
+            trabajo. A 90 px el bocadillo se iba a cuatro líneas en un móvil de
+            320 y el conjunto pasaba de los 140 px de alto.
           */}
-          <div className="mt-5">
-            <PanelDeMisiones />
+          <MascotaConMensaje
+            estado="feliz"
+            mensaje={saludo(usuario?.displayName, leccionActual?.titleEs)}
+            tamano={56}
+          />
+          <div className="mt-3">
+            <AccionesDeHoy />
           </div>
         </div>
 
         <div className="lg:order-1 lg:min-w-0">
           {cargando && (
-            <p className="mt-10 text-center text-[var(--texto-suave)]">Cargando tu ruta…</p>
+            <p className="mt-8 text-center text-[var(--texto-suave)]">Cargando tu ruta…</p>
           )}
 
           {isError && (
-            <p role="alert" className="mt-10 text-center text-[var(--texto-fallo)]">
+            <p role="alert" className="mt-8 text-center text-[var(--texto-fallo)]">
               No pudimos cargar tu ruta. Inténtalo de nuevo en un momento.
             </p>
           )}
@@ -236,21 +263,35 @@ export function Ruta() {
             <NivelVacio {...(codigoNivel ? { nivel: codigoNivel } : {})} />
           )}
 
-          <div className="mt-8 grid min-w-0 gap-8 lg:mt-0">
+          <div className="mt-4 grid min-w-0 gap-6 lg:mt-0">
             {data?.units.map((unidad, iUnidad) => (
               <section key={unidad.code} className="min-w-0">
-                <div className="animate-entrada rounded-2xl border-b-4 border-marca-800 bg-marca-600 p-5 text-white">
-                  <div className="flex items-start justify-between gap-3">
+                <div className="animate-entrada rounded-2xl border-b-4 border-marca-800 bg-marca-600 p-3 text-white">
+                  <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-xs font-medium uppercase tracking-wide text-marca-100">
-                        {unidad.code.replace('-', ' · ')}
+                        {data.level.cefr} · {unidad.code.replace('-', ' · ')}
                       </p>
-                      <h2 className="mt-1 text-lg font-bold">{unidad.titleEs}</h2>
+                      {/*
+                        Dos líneas como mucho. A 320 px un título largo se iba a
+                        tres y empujaba el primer nodo fuera de la pantalla, que
+                        es justo lo que esta pantalla vino a arreglar. El título
+                        entero está a un toque, en la guía de al lado.
+                      */}
+                      <h2 className="mt-0.5 line-clamp-2 text-base font-bold">{unidad.titleEs}</h2>
                     </div>
 
-                    {/* La salida a las reglas explicadas. Va aquí, junto al
-                        título, porque es donde se mira cuando uno no entiende
-                        de qué va la unidad. */}
+                    {/*
+                      La salida a las reglas explicadas. Va aquí, junto al
+                      título, porque es donde se mira cuando uno no entiende de
+                      qué va la unidad.
+
+                      Y va SOLA: las cuatro frases de «puedo saludar y
+                      despedirme…» estaban desplegadas justo debajo de este
+                      botón, que lleva a una pantalla donde vuelven a estar. Era
+                      la misma información dos veces, y la de arriba costaba
+                      ochenta píxeles de camino en cada unidad.
+                    */}
                     <button
                       type="button"
                       onClick={() => navegar(`/guia/${unidad.code}`)}
@@ -262,21 +303,11 @@ export function Ruta() {
                       Guía
                     </button>
                   </div>
-                  {unidad.canDoStatements.length > 0 && (
-                    <ul className="mt-3 grid gap-1.5">
-                      {unidad.canDoStatements.map((frase) => (
-                        <li key={frase} className="flex gap-2 text-sm text-marca-50">
-                          <span aria-hidden>✓</span>
-                          <span>{frase}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
                 </div>
 
                 {/* La línea de puntos va detrás y sujeta visualmente el camino:
                     sin ella los nodos parecen sueltos en vez de un recorrido. */}
-                <ol className="relative mt-6 grid min-w-0 justify-items-center gap-5 before:absolute before:inset-y-4 before:left-1/2 before:-z-10 before:w-0.5 before:-translate-x-1/2 before:border-l-4 before:border-dotted before:border-[var(--borde)]">
+                <ol className="relative mt-4 grid min-w-0 justify-items-center gap-4 before:absolute before:inset-y-4 before:left-1/2 before:-z-10 before:w-0.5 before:-translate-x-1/2 before:border-l-4 before:border-dotted before:border-[var(--borde)]">
                   {unidad.lessons.map((leccion, indice) => (
                     <NodoLeccion
                       key={leccion.code}

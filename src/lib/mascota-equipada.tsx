@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { mascotaDe } from './mascota-cartera';
 import { useSesion } from '@/store/sesion';
-import { ContextoMascota, MASCOTA_POR_DEFECTO, type MascotaEquipada } from '@/lib/mascota-contexto';
-import type { Atuendo, Especie } from '@/components/mascotas';
+import { ContextoMascota } from '@/lib/mascota-contexto';
 
 /**
  * Qué mascota lleva puesta esta persona, para toda la aplicación.
@@ -17,6 +17,7 @@ import type { Atuendo, Especie } from '@/components/mascotas';
  * Sin proveedor sale Milo, que es lo que hace que las pruebas de los
  * componentes sigan funcionando sin montar nada alrededor.
  */
+
 export function ProveedorMascota({ children }: { children: ReactNode }) {
   const usuario = useSesion((estado) => estado.usuario);
 
@@ -40,12 +41,10 @@ export function ProveedorMascota({ children }: { children: ReactNode }) {
     refetchOnMount: 'always',
   });
 
-  const equipado: MascotaEquipada = data
-    ? {
-        especie: (data.equipped.mascota as Especie) ?? MASCOTA_POR_DEFECTO.especie,
-        atuendo: (data.equipped.atuendo as Atuendo | null) ?? null,
-      }
-    : MASCOTA_POR_DEFECTO;
+  // Qué se lleva puesto lo decide `mascotaDe`, que está arriba y fuera del
+  // componente para poder probarla: aquí dentro no se puede, y el porqué está
+  // escrito en ella.
+  const equipado = mascotaDe(data);
 
   return <ContextoMascota.Provider value={equipado}>{children}</ContextoMascota.Provider>;
 }

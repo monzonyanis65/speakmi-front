@@ -6,6 +6,7 @@ import { cn } from '@/lib/cn';
 import { useContador } from '@/lib/contador';
 import { Boton } from '@/components/Boton';
 import { Mascota } from '@/components/Mascota';
+import { EnLoQueMasFallas } from '@/components/EnLoQueMasFallas';
 import { Insignia } from '@/components/logros/Insignia';
 import { ASPECTOS, type CodigoLogro } from '@/components/logros/aspecto';
 import { MedallaDelMes } from '@/components/logros/MedallaDelMes';
@@ -171,16 +172,34 @@ export function Perfil() {
             <h1 className="truncate text-xl font-bold">{nombre}</h1>
           </div>
         </div>
+        {/*
+          Aquí había un «Volver». Desde que hay barra abajo, el perfil es una
+          sección raíz —se entra desde cualquier sitio y se sale por la barra—,
+          así que volver atrás ya no significa nada concreto.
+
+          Lo que sí hacía falta es una puerta a los ajustes y a la seguridad, que
+          cuelgan de la cuenta. Sin ella, la única entrada a `/menu` era la
+          hamburguesa de la ruta, y el día que esa hamburguesa desaparezca se
+          quedarían sin camino los ajustes, la seguridad y el botón de salir.
+        */}
         <button
           type="button"
-          onClick={() => navegar(-1)}
+          onClick={() => navegar('/menu')}
+          aria-label="Más opciones, ajustes y seguridad"
           className="-mr-2 min-h-12 shrink-0 rounded-xl px-3 text-sm text-[var(--texto-suave)] hover:bg-[var(--superficie)]"
         >
-          Volver
+          Más
         </button>
       </header>
 
       <Resumen progreso={progreso} perfil={perfil} error={consultaProgreso.error} />
+
+      {/*
+        En lo que más fallas, que antes vivía en la portada. Va aquí, pegado al
+        resumen: lo que llevas hecho y lo que se te atraganta se leen juntos, y
+        esta es la pantalla a la que se entra a mirarse, no la de cada día.
+      */}
+      <EnLoQueMasFallas />
 
       {logros && logros.nuevos.length > 0 && <LoNuevo nuevos={logros.nuevos} />}
 

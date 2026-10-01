@@ -35,6 +35,7 @@ import { Conversar } from '@/pages/Conversar';
 import { Lecturas } from '@/pages/Lecturas';
 import { Lectura } from '@/pages/Lectura';
 import { AvisoActualizacion } from '@/components/AvisoActualizacion';
+import { MarcoConBarra } from '@/components/BarraInferior';
 
 // El cliente de API necesita saber de dónde sacar el token y cómo renovarlo.
 // Se le dice una sola vez, al cargar la aplicación.
@@ -79,210 +80,218 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ProveedorMascota>
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<SoloVisitantes />} />
-            <Route path="/recuperar" element={<OlvideClave />} />
-            <Route
-              path="/empezar"
-              element={
-                <SoloConSesion>
-                  <ComoEmpezar />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/prueba"
-              element={
-                <SoloConSesion>
-                  <Prueba />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/nivel"
-              element={
-                <SoloConSesion>
-                  <Bienvenida />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/ruta"
-              element={
-                <SoloConSesion>
-                  <Ruta />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/leccion/:code"
-              element={
-                <SoloConSesion>
-                  <Leccion />
-                </SoloConSesion>
-              }
-            />
-            {/* El examen que cierra un nivel. Se llega desde el final de la ruta. */}
-            <Route
-              path="/examen"
-              element={
-                <SoloConSesion>
-                  <Examen />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/menu"
-              element={
-                <SoloConSesion>
-                  <Menu />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/misiones"
-              element={
-                <SoloConSesion>
-                  <Misiones />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/perfil"
-              element={
-                <SoloConSesion>
-                  <Perfil />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/ajustes"
-              element={
-                <SoloConSesion>
-                  <Ajustes />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/tienda"
-              element={
-                <SoloConSesion>
-                  <Tienda />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/seguridad"
-              element={
-                <SoloConSesion>
-                  <Seguridad />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/guia/:code"
-              element={
-                <SoloConSesion>
-                  <Guia />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/juegos"
-              element={
-                <SoloConSesion>
-                  <Juegos />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/juegos/:code"
-              element={
-                <SoloConSesion>
-                  <Juego />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/liga"
-              element={
-                <SoloConSesion>
-                  <Liga />
-                </SoloConSesion>
-              }
-            />
-            {/* El muro de novedades. Va suelto y no dentro de la liga porque lo
+          {/*
+            Todas las pantallas van dentro del marco, y no solo las que llevan
+            barra: es el marco quien decide si hoy la hay y quien reserva su
+            hueco. Pasar las rutas por aquí es lo que hace imposible que una
+            pantalla nueva nazca con el último botón tapado.
+          */}
+          <MarcoConBarra>
+            <Routes>
+              <Route path="/" element={<SoloVisitantes />} />
+              <Route path="/recuperar" element={<OlvideClave />} />
+              <Route
+                path="/empezar"
+                element={
+                  <SoloConSesion>
+                    <ComoEmpezar />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/prueba"
+                element={
+                  <SoloConSesion>
+                    <Prueba />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/nivel"
+                element={
+                  <SoloConSesion>
+                    <Bienvenida />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/ruta"
+                element={
+                  <SoloConSesion>
+                    <Ruta />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/leccion/:code"
+                element={
+                  <SoloConSesion>
+                    <Leccion />
+                  </SoloConSesion>
+                }
+              />
+              {/* El examen que cierra un nivel. Se llega desde el final de la ruta. */}
+              <Route
+                path="/examen"
+                element={
+                  <SoloConSesion>
+                    <Examen />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/menu"
+                element={
+                  <SoloConSesion>
+                    <Menu />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/misiones"
+                element={
+                  <SoloConSesion>
+                    <Misiones />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/perfil"
+                element={
+                  <SoloConSesion>
+                    <Perfil />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/ajustes"
+                element={
+                  <SoloConSesion>
+                    <Ajustes />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/tienda"
+                element={
+                  <SoloConSesion>
+                    <Tienda />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/seguridad"
+                element={
+                  <SoloConSesion>
+                    <Seguridad />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/guia/:code"
+                element={
+                  <SoloConSesion>
+                    <Guia />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/juegos"
+                element={
+                  <SoloConSesion>
+                    <Juegos />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/juegos/:code"
+                element={
+                  <SoloConSesion>
+                    <Juego />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/liga"
+                element={
+                  <SoloConSesion>
+                    <Liga />
+                  </SoloConSesion>
+                }
+              />
+              {/* El muro de novedades. Va suelto y no dentro de la liga porque lo
                 que cuenta no es una competición: es lo que ha hecho tu gente. */}
-            <Route
-              path="/novedades"
-              element={
-                <SoloConSesion>
-                  <Novedades />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/repaso"
-              element={
-                <SoloConSesion>
-                  <Repaso />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/llamada"
-              element={
-                <SoloConSesion>
-                  <Llamada />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/conversar"
-              element={
-                <SoloConSesion>
-                  <Conversar />
-                </SoloConSesion>
-              }
-            />
-            {/*
+              <Route
+                path="/novedades"
+                element={
+                  <SoloConSesion>
+                    <Novedades />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/repaso"
+                element={
+                  <SoloConSesion>
+                    <Repaso />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/llamada"
+                element={
+                  <SoloConSesion>
+                    <Llamada />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/conversar"
+                element={
+                  <SoloConSesion>
+                    <Conversar />
+                  </SoloConSesion>
+                }
+              />
+              {/*
               Los textos que trae cada uno. Van en plural y singular, como la
               ruta y las lecciones: la lista y el que estés leyendo.
             */}
-            <Route
-              path="/lecturas"
-              element={
-                <SoloConSesion>
-                  <Lecturas />
-                </SoloConSesion>
-              }
-            />
-            <Route
-              path="/lecturas/:id"
-              element={
-                <SoloConSesion>
-                  <Lectura />
-                </SoloConSesion>
-              }
-            />
-            {/*
+              <Route
+                path="/lecturas"
+                element={
+                  <SoloConSesion>
+                    <Lecturas />
+                  </SoloConSesion>
+                }
+              />
+              <Route
+                path="/lecturas/:id"
+                element={
+                  <SoloConSesion>
+                    <Lectura />
+                  </SoloConSesion>
+                }
+              />
+              {/*
               Banco de pruebas del Milo con física. No lleva sesión a propósito:
               es para verlo y compararlo, no una pantalla del producto.
             */}
-            <Route path="/vivo" element={<MiloVivo />} />
-            {/*
+              <Route path="/vivo" element={<MiloVivo />} />
+              {/*
               Banco de pruebas del shadowing, mientras el ejercicio no esté
               cosido a la lección. Sin sesión por el mismo motivo que /vivo.
             */}
-            <Route path="/shadowing" element={<PruebaShadowing />} />
-            {/*
+              <Route path="/shadowing" element={<PruebaShadowing />} />
+              {/*
               Banco de pruebas de escribir libre. Sin sesión por lo mismo que
               los dos de arriba: la pantalla de verdad vive dentro de una
               lección y llegar a ella pide cuenta, servidor y clave del modelo.
             */}
-            <Route path="/escritura" element={<PruebaEscritura />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              <Route path="/escritura" element={<PruebaEscritura />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </MarcoConBarra>
           {/* Fuera de las rutas: el aviso vale para cualquier pantalla. */}
           <AvisoActualizacion />
         </BrowserRouter>
