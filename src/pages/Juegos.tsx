@@ -13,6 +13,7 @@ import {
   type CodigoJuego,
   type JuegoDelCatalogo,
 } from '@/components/juegos/tipos';
+import { Candado, Copa, Diana } from '@/components/iconos';
 
 /**
  * Los juegos.
@@ -180,7 +181,7 @@ function Tarjeta({
           <span className="flex items-start gap-2">
             <span className="min-w-0 flex-1 text-lg font-extrabold leading-tight">{titulo}</span>
             <span aria-hidden className="mt-0.5 shrink-0 text-[var(--texto-suave)]">
-              {bloqueadoEs !== null ? '🔒' : '›'}
+              {bloqueadoEs !== null ? <Candado tamano={18} /> : '›'}
             </span>
           </span>
 
@@ -258,9 +259,9 @@ function Marca({
         hayRecord ? aspecto.tinte : 'bg-[var(--fondo)]',
       )}
     >
-      <span aria-hidden className="text-lg leading-none">
-        {hayRecord ? '🏆' : '🎯'}
-      </span>
+      {/* Copa si ya hay marca, diana si todavía no: la copa es lo ganado y la
+          diana lo que queda por ganar, que es justo lo que cambia aquí. */}
+      {hayRecord ? <Copa tamano={20} /> : <Diana tamano={20} />}
 
       <span className="min-w-0 flex-1">
         {hayRecord ? (

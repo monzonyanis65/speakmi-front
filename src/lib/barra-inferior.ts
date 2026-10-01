@@ -8,8 +8,18 @@
  * expresión regular.
  */
 
+import { type ClaveIconoDoble } from '@/components/iconos';
+
 export interface Destino {
-  icono: string;
+  /**
+   * El nombre del dibujo, no el dibujo.
+   *
+   * Este archivo se lee y se prueba sin montar nada, que es la razón de que
+   * viva fuera del componente, y un componente de React importado aquí dentro
+   * tiraría esa propiedad por la borda. La barra resuelve el nombre contra
+   * `components/iconos` en el momento de pintar, que es donde toca.
+   */
+  icono: ClaveIconoDoble;
   etiqueta: string;
   a: string;
   /**
@@ -33,16 +43,16 @@ export interface Destino {
  */
 export const DESTINOS: readonly Destino[] = [
   {
-    icono: '📘',
+    icono: 'libro',
     etiqueta: 'Aprender',
     a: '/ruta',
     dentro: /^\/(leccion|guia|examen|repaso|misiones|lecturas)\b/,
   },
-  { icono: '🎮', etiqueta: 'Juegos', a: '/juegos' },
-  { icono: '🏆', etiqueta: 'Liga', a: '/liga', dentro: /^\/novedades$/ },
-  { icono: '🛍️', etiqueta: 'Tienda', a: '/tienda' },
+  { icono: 'mando', etiqueta: 'Juegos', a: '/juegos' },
+  { icono: 'copa', etiqueta: 'Liga', a: '/liga', dentro: /^\/novedades$/ },
+  { icono: 'bolsa', etiqueta: 'Tienda', a: '/tienda' },
   {
-    icono: '👤',
+    icono: 'persona',
     etiqueta: 'Perfil',
     a: '/perfil',
     dentro: /^\/(menu|ajustes|seguridad)$/,

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/cn';
+import { ICONOS, type ClaveIconoDoble } from '@/components/iconos';
 import {
   ALTO_BARRA,
   DESTINOS,
@@ -29,6 +30,18 @@ export function MarcoConBarra({ children }: { children: ReactNode }) {
       {conBarra && <BarraInferior />}
     </>
   );
+}
+
+/**
+ * El dibujo de un destino, resuelto por nombre.
+ *
+ * Existe para que `barra-inferior.ts` pueda seguir siendo una lista de datos
+ * sin React dentro. Es la única indirección del archivo y se paga aquí, en una
+ * línea, en vez de en el sitio que se lee para entender la navegación.
+ */
+function Icono({ icono, relleno }: { icono: ClaveIconoDoble; relleno: boolean }) {
+  const Dibujo = ICONOS[icono];
+  return <Dibujo relleno={relleno} tamano={24} />;
 }
 
 /**
@@ -100,9 +113,17 @@ export function BarraInferior() {
                     : 'text-[var(--texto-suave)]',
                 )}
               >
-                <span aria-hidden className="text-xl leading-none">
-                  {destino.icono}
-                </span>
+                {/*
+                  Relleno donde estás, línea donde no.
+
+                  Es la segunda señal de «estás aquí», y es la que funciona sin
+                  color: la pestaña de arriba y el morado se pierden para quien
+                  no distingue bien los tonos, pero un icono macizo al lado de
+                  cuatro huecos se ve siempre. Decorativo: la palabra de debajo
+                  ya lo dice, y es la que oye el lector de pantalla.
+                */}
+                <Icono icono={destino.icono} relleno={actual} />
+
                 <span className="w-full truncate text-center">{destino.etiqueta}</span>
               </Link>
             </li>

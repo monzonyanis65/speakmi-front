@@ -1,6 +1,8 @@
+import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSesion } from '@/store/sesion';
 import { Mascota } from '@/components/Mascota';
+import { Diana, Lapiz } from '@/components/iconos';
 
 /**
  * Bifurcación para quien acaba de entrar y todavía no tiene nivel.
@@ -26,7 +28,7 @@ export function ComoEmpezar() {
 
       <div className="mt-8 grid gap-4">
         <Opcion
-          emoji="🎯"
+          icono={<Diana tamano={32} />}
           titulo="Ya sé mi nivel"
           descripcion="Elígelo tú de la lista. Es lo más rápido si estás siguiendo un curso."
           onClick={() => navegar('/nivel')}
@@ -34,7 +36,7 @@ export function ComoEmpezar() {
         />
 
         <Opcion
-          emoji="📝"
+          icono={<Lapiz tamano={32} />}
           titulo="Hazme una prueba"
           descripcion="Veinticuatro preguntas, unos cinco minutos. Te decimos dónde encajas."
           onClick={() => navegar('/prueba')}
@@ -49,13 +51,13 @@ export function ComoEmpezar() {
 }
 
 function Opcion({
-  emoji,
+  icono,
   titulo,
   descripcion,
   onClick,
   principal = false,
 }: {
-  emoji: string;
+  icono: ReactNode;
   titulo: string;
   descripcion: string;
   onClick: () => void;
@@ -72,9 +74,7 @@ function Opcion({
       }
     >
       <span className="flex items-start gap-4">
-        <span className="text-3xl" aria-hidden>
-          {emoji}
-        </span>
+        <span className="shrink-0">{icono}</span>
         <span>
           <span className="block font-semibold">{titulo}</span>
           <span

@@ -7,6 +7,7 @@ import { Explicacion } from '@/components/Explicacion';
 import { decir, hayVoz } from '@/lib/voz';
 import { servidorPuedeHablarYa } from '@/lib/voz-servidor';
 import { MascotaConMensaje } from '@/components/Mascota';
+import { Altavoz, AltavozLlano } from '@/components/iconos';
 
 interface Regla {
   code: string;
@@ -170,7 +171,7 @@ function FraseClave({ palabra, retraso }: { palabra: Palabra; retraso: number })
           aria-label={`Escuchar «${palabra.exampleEn ?? palabra.lemma}»`}
           className="boton-3d grid size-11 shrink-0 place-items-center rounded-xl border-marca-900 bg-marca-700 text-lg text-white hover:bg-marca-600 disabled:opacity-70"
         >
-          <span aria-hidden>{sonando ? '🔈' : '🔊'}</span>
+          {sonando ? <AltavozLlano tamano={22} /> : <Altavoz tamano={22} />}
         </button>
       )}
 

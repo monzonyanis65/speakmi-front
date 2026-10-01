@@ -4,6 +4,7 @@ import { callar, decir, hayVoz, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
 import { EscenaDialogo } from './EscenaDialogo';
 import { EscrituraLibre } from './EscrituraLibre';
 import type { Correccion, PropsEjercicio } from './tipos';
+import { Altavoz, AltavozLlano, Micro } from '@/components/iconos';
 
 /**
  * Los tipos que se pintan aquí.
@@ -574,7 +575,7 @@ function Dictado({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
           aria-label="Escuchar la frase"
           className="flex size-24 items-center justify-center rounded-full bg-marca-600 text-4xl text-white shadow-lg transition hover:bg-marca-500 disabled:opacity-70"
         >
-          <span aria-hidden>{sonando ? '🔈' : '🔊'}</span>
+          {sonando ? <AltavozLlano tamano={40} /> : <Altavoz tamano={40} />}
         </button>
 
         <button
@@ -583,7 +584,13 @@ function Dictado({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
           disabled={sonando}
           className="rounded-xl px-4 py-2.5 text-sm font-bold text-marca-600 hover:bg-marca-50 disabled:opacity-60 dark:text-marca-400 dark:hover:bg-marca-900/30"
         >
-          🐢 Más despacio
+          {/*
+            Aquí iba una tortuga y se quedó fuera sin sustituto. «Despacio» no
+            es una cosa, es un adverbio: dibujarlo pide un animal, y un animal a
+            24 px es una mancha. Además el botón ya lo dice con todas las letras
+            a su lado, que es lo que se lee de verdad.
+          */}
+          Más despacio
         </button>
 
         <p className="text-xs text-[var(--texto-suave)]">
@@ -838,9 +845,7 @@ function ParMinimo({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio
               style={{ animationDelay: `${indice * 80}ms`, animationFillMode: 'backwards' }}
               className="flex size-20 animate-entrada flex-col items-center justify-center gap-0.5 rounded-full bg-marca-600 text-white shadow-lg transition hover:bg-marca-500 disabled:opacity-70"
             >
-              <span className="text-2xl" aria-hidden>
-                {fuente === cual ? '🔈' : '🔊'}
-              </span>
+              {fuente === cual ? <AltavozLlano tamano={26} /> : <Altavoz tamano={26} />}
               <span className="text-sm font-bold" aria-hidden>
                 {indice + 1}
               </span>
@@ -864,7 +869,13 @@ function ParMinimo({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio
           disabled={sonando}
           className="rounded-xl px-4 py-2.5 text-sm font-bold text-marca-600 hover:bg-marca-50 disabled:opacity-60 dark:text-marca-400 dark:hover:bg-marca-900/30"
         >
-          🐢 Más despacio
+          {/*
+            Aquí iba una tortuga y se quedó fuera sin sustituto. «Despacio» no
+            es una cosa, es un adverbio: dibujarlo pide un animal, y un animal a
+            24 px es una mancha. Además el botón ya lo dice con todas las letras
+            a su lado, que es lo que se lee de verdad.
+          */}
+          Más despacio
         </button>
 
         <p className="text-xs text-[var(--texto-suave)]">
@@ -906,8 +917,8 @@ function ParMinimo({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio
 function Pendiente({ tipo }: { tipo: string }) {
   return (
     <div className="rounded-2xl border border-dashed border-[var(--borde)] p-8 text-center">
-      <p className="text-3xl" aria-hidden>
-        🎤
+      <p className="flex justify-center">
+        <Micro tamano={32} />
       </p>
       <p className="mt-3 font-medium">Este ejercicio necesita voz</p>
       <p className="mt-1 text-sm text-[var(--texto-suave)]">

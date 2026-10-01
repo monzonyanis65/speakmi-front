@@ -262,7 +262,7 @@ function PanelLiga({ consulta }: { consulta: ReturnType<typeof useQuery<VistaDeL
           role="status"
           className="rounded-2xl border-2 border-acento-400 bg-acento-300/25 px-4 py-3 text-sm font-bold"
         >
-          🏆 La semana pasada acabaste {ordinal(data.premioNuevo.puesto)} en la División{' '}
+          La semana pasada acabaste {ordinal(data.premioNuevo.puesto)} en la División{' '}
           {data.premioNuevo.division.nombre} y ganaste {data.premioNuevo.monedas} monedas.
           {data.premioNuevo.divisionNueva.numero > data.premioNuevo.division.numero &&
             ` Subes a la División ${data.premioNuevo.divisionNueva.nombre}.`}
@@ -1018,7 +1018,7 @@ function AccionesConUnAmigo({
         title={amigo.puedoRegalar ? undefined : 'Hoy ya le mandaste uno'}
         className="min-h-11 rounded-xl border-2 border-[var(--hueco)] px-3 text-xs font-bold hover:bg-[var(--fondo)] disabled:opacity-50"
       >
-        <span aria-hidden>🎁</span> Regalar {monedasDelRegalo}
+        Regalar {monedasDelRegalo}
       </button>
 
       <button
@@ -1029,7 +1029,7 @@ function AccionesConUnAmigo({
         title={motivos[amigo.motivoDelToque]}
         className="min-h-11 rounded-xl border-2 border-[var(--hueco)] px-3 text-xs font-bold hover:bg-[var(--fondo)] disabled:opacity-50"
       >
-        <span aria-hidden>👋</span> Un toque
+        Un toque
       </button>
 
       <button
@@ -1338,9 +1338,16 @@ function DesafioConUnAmigo({ amigos }: { amigos: Amigo[] }) {
       )}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-bold">
-          <span aria-hidden>{logrado ? '🧰' : '🤝'}</span> Tú y {desafio.otro}
-        </h2>
+        {/*
+          Aquí había un emoji que cambiaba —un apretón de manos mientras iba,
+          un cofre al cumplirse— y se quitó sin poner un dibujo en su lugar.
+
+          Lo que contaba ya lo cuentan tres cosas a la vez: el borde dorado, el
+          XP escrito al lado y el «Llegasteis» de abajo. Un icono de 24 px
+          dentro de un título de 14 no era la cuarta señal, era ruido. No todo
+          lo que llevaba emoji necesita un dibujo.
+        */}
+        <h2 className="text-sm font-bold">Tú y {desafio.otro}</h2>
         <span className="text-xs text-[var(--texto-suave)] tabular-nums">
           {desafio.llevan} / {desafio.objetivo} XP
         </span>
@@ -1367,7 +1374,7 @@ function DesafioConUnAmigo({ amigos }: { amigos: Amigo[] }) {
 
       {desafio.cofreNuevo !== null && (
         <p role="status" className="mt-3 text-sm font-bold">
-          🧰 Llegasteis. {desafio.cofreNuevo} monedas para cada uno.
+          Llegasteis. {desafio.cofreNuevo} monedas para cada uno.
         </p>
       )}
 

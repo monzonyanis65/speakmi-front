@@ -9,6 +9,7 @@ import { Aviso, CabeceraJuego, Contador, Racha } from './Tablero';
 import { Destello, PuntosGanados } from './efectos';
 import { loQueSumaElSiguiente, puntosDelServidor } from './puntos';
 import type { Marcador, RespuestaCorregida, RondaDeEscucha } from './tipos';
+import { Altavoz, AltavozLlano } from '@/components/iconos';
 
 /**
  * Escucha: suena una palabra y hay que decir cuál era.
@@ -245,7 +246,9 @@ export function Escucha({
             sonando && !menosMovimiento && 'animate-latido',
           )}
         >
-          <span aria-hidden>{sonando ? '🔊' : '▶'}</span>
+          <span aria-hidden>
+            {sonando ? <Altavoz tamano={20} /> : <AltavozLlano tamano={20} />}
+          </span>
         </button>
         <p className="mt-3 text-sm text-[var(--texto-suave)]">
           {sonando ? 'Sonando…' : 'Tócalo para oírla otra vez'}

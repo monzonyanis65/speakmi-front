@@ -3,6 +3,7 @@ import { cn } from '@/lib/cn';
 import { usePreferencias } from '@/lib/preferencias';
 import { decir, elegirVoz, hayVoz, listarVoces, vozElegida, type VozDisponible } from '@/lib/voz';
 import { servidorPuedeHablar, servidorPuedeHablarYa } from '@/lib/voz-servidor';
+import { Altavoz, AltavozLlano } from '@/components/iconos';
 
 /** Lo que se dice al probar una voz. Corto, y con sonidos que delatan lo malo. */
 const FRASE_DE_PRUEBA = 'Hello! This is how I sound. Nice to meet you.';
@@ -161,7 +162,9 @@ export function SelectorDeVoz() {
                   : 'border-[var(--borde)] hover:border-marca-400',
               )}
             >
-              <span aria-hidden>{sonando === voz.id ? '🔈' : '🔊'}</span>
+              <span aria-hidden>
+                {sonando === voz.id ? <AltavozLlano tamano={18} /> : <Altavoz tamano={18} />}
+              </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{voz.nombre}</span>
                 <span className="block text-xs text-[var(--texto-suave)]">{voz.idioma}</span>

@@ -6,6 +6,7 @@ import { Barra } from './Barra';
 import { useMisiones } from './consulta';
 import { Cofre } from './Cofre';
 import { cuantoFalta, type DesafioDelMes, type Misiones, type MisionDiaria } from './tipos';
+import { Check, ICONOS, type ClaveIcono } from '@/components/iconos';
 
 /**
  * Las misiones: los desafíos del día y el del mes.
@@ -73,6 +74,34 @@ const DESTINO: Record<string, string> = {
   REPASAR: '/repaso',
   UNA_PARTIDA: '/juegos',
 };
+
+/**
+ * El dibujo de un desafío, traducido del emoji que manda el servidor.
+ *
+ * ESTO ES UNA TRADUCCIÓN, NO UN APAÑO.
+ *
+ * El catálogo de desafíos vive en el back y manda un emoji por desafío. Ese
+ * emoji nunca fue el dibujo: era la forma de decir «esto va de lecciones»,
+ * «esto va de rachas». Aquí se lee como lo que siempre fue —un nombre— y se
+ * pinta con el icono de la casa, sin tocar el servidor ni obligar a desplegar
+ * las dos mitades a la vez.
+ *
+ * Lo que no esté en la tabla cae en la diana: todos los desafíos son un
+ * objetivo, así que es el comodín que menos miente.
+ */
+const ICONO_DE_MISION: Record<string, ClaveIcono> = {
+  '📘': 'libro',
+  '🎯': 'diana',
+  '⚡': 'rayo',
+  '🎖️': 'medalla',
+  '🔄': 'repasar',
+  '🎮': 'mando',
+};
+
+function IconoDeMision({ emoji }: { emoji: string }) {
+  const Dibujo = ICONOS[ICONO_DE_MISION[emoji] ?? 'diana'];
+  return <Dibujo tamano={24} />;
+}
 
 /**
  * Una misión del día.
@@ -145,7 +174,7 @@ function TarjetaMision({
               : 'flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-b from-marca-400 to-marca-600 text-xl shadow-sm'
           }
         >
-          {mision.cumplida ? '✓' : mision.icono}
+          {mision.cumplida ? <Check tamano={24} /> : <IconoDeMision emoji={mision.icono} />}
         </span>
 
         <span className="min-w-0 flex-1 text-sm font-bold">{mision.tituloEs}</span>

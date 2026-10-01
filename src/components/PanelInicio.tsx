@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { Bocadillo, Estrella, Libro, Llama, Moneda, Repasar, Telefono } from '@/components/iconos';
 import { useNombreMascota } from '@/lib/mascota-contexto';
 import { avisarAhora, marcarAvisado, tocaAvisar } from '@/lib/recordatorio';
 
@@ -101,7 +102,7 @@ export function CifrasDeHoy() {
   return (
     <div className="flex min-w-0 flex-1 items-center justify-between gap-0.5">
       <Cifra
-        icono="🔥"
+        icono={<Llama tamano={18} />}
         valor={dias}
         // Los congelados eran un renglón propio debajo del panel. Son un detalle
         // de la racha, así que se cuentan contando la racha y no ocupan fila.
@@ -112,15 +113,23 @@ export function CifrasDeHoy() {
             : '')
         }
       />
-      <Cifra icono="⭐" valor={data?.xpTotal ?? 0} etiqueta="de experiencia" />
+      <Cifra
+        icono={<Estrella tamano={18} />}
+        valor={data?.xpTotal ?? 0}
+        etiqueta="de experiencia"
+      />
       {/* Las monedas llevan a la tienda: verlas y no poder gastarlas frustra. */}
       <Cifra
-        icono="🪙"
+        icono={<Moneda tamano={18} />}
         valor={cartera?.coins ?? 0}
         etiqueta="monedas"
         onClick={() => navegar('/tienda')}
       />
-      <Cifra icono="📘" valor={data?.leccionesCompletadas ?? 0} etiqueta="lecciones hechas" />
+      <Cifra
+        icono={<Libro tamano={18} />}
+        valor={data?.leccionesCompletadas ?? 0}
+        etiqueta="lecciones hechas"
+      />
     </div>
   );
 }
@@ -152,16 +161,14 @@ function Cifra({
   etiqueta,
   onClick,
 }: {
-  icono: string;
+  icono: ReactNode;
   valor: number;
   etiqueta: string;
   onClick?: () => void;
 }) {
   const visible = (
     <>
-      <span aria-hidden className="text-base leading-none">
-        {icono}
-      </span>
+      {icono}
       <span aria-hidden className="truncate text-sm font-extrabold tabular-nums">
         {corto(valor)}
       </span>
@@ -221,7 +228,7 @@ export function AccionesDeHoy() {
   return (
     <div className="grid grid-cols-3 gap-2">
       <Accion
-        icono="🔄"
+        icono={<Repasar tamano={24} />}
         titulo="Repasar"
         aviso={pendientes}
         etiqueta={
@@ -232,14 +239,14 @@ export function AccionesDeHoy() {
         onClick={() => navegar('/repaso')}
       />
       <Accion
-        icono="📞"
+        icono={<Telefono tamano={24} />}
         titulo="Llamar"
         principal
         etiqueta={`Llamar a ${nombre}. Una conversación hablada, en inglés. Te corrige al colgar`}
         onClick={() => navegar('/llamada')}
       />
       <Accion
-        icono="💬"
+        icono={<Bocadillo tamano={24} />}
         titulo="Escribir"
         etiqueta="Conversar escribiendo, si ahora no puedes hablar en voz alta"
         onClick={() => navegar('/conversar')}
@@ -269,7 +276,7 @@ function Accion({
   principal = false,
   onClick,
 }: {
-  icono: string;
+  icono: ReactNode;
   titulo: string;
   etiqueta: string;
   aviso?: number;
@@ -288,10 +295,15 @@ function Accion({
           : 'border-2 border-[var(--borde)] bg-[var(--superficie)]',
       )}
     >
-      <span className="relative">
-        <span aria-hidden className="text-xl leading-none">
-          {icono}
-        </span>
+      {/*
+        `inline-flex` y no un `span` suelto: un SVG es texto en línea, así que
+        la caja que lo envuelve se lleva además el hueco del renglón —el sitio
+        de las colas de la «p»— y crece tres o cuatro píxeles por abajo. La
+        chapa se coloca contra esa caja, y con el hueco de más se le descolgaba
+        del icono. En línea-flexible la caja mide exactamente el dibujo.
+      */}
+      <span className="relative inline-flex">
+        {icono}
         {aviso > 0 && (
           /*
             El número va sobre el icono y a la vez dentro de la etiqueta del

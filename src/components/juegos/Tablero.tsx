@@ -3,6 +3,7 @@ import { cn } from '@/lib/cn';
 import { useMenosMovimiento } from '@/lib/movimiento';
 import { sonar } from '@/lib/sonido';
 import { NumeroVivo } from './efectos';
+import { Llama } from '@/components/iconos';
 
 /**
  * Las piezas que se repiten en los cuatro juegos: la cabecera con la salida, el
@@ -187,7 +188,17 @@ export function Racha({ racha }: { racha: number }) {
         !menosMovimiento && 'animate-crecer',
       )}
     >
-      <span aria-hidden>{tramo === 2 ? '🔥🔥🔥' : '🔥'}</span>
+      <span aria-hidden className="inline-flex">
+        {tramo === 2 ? (
+          <>
+            <Llama tamano={16} />
+            <Llama tamano={16} />
+            <Llama tamano={16} />
+          </>
+        ) : (
+          <Llama tamano={16} />
+        )}
+      </span>
       <span>{racha} seguidas</span>
     </span>
   );

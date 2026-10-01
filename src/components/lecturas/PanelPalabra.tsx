@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { EstadoPalabra, Palabra } from '@/lib/lecturas';
 import { ASPECTO, ORDEN } from '@/components/lecturas/aspecto';
 import { cn } from '@/lib/cn';
+import { Altavoz, Cerrar, EnlaceExterno } from '@/components/iconos';
 
 interface Props {
   palabra: Palabra;
@@ -119,7 +120,7 @@ export function PanelPalabra({
               aria-label={`Escuchar ${palabra.texto}`}
               className="boton-3d flex size-11 shrink-0 items-center justify-center rounded-xl border-2 border-[var(--hueco)] bg-[var(--fondo)] text-xl"
             >
-              <span aria-hidden>🔊</span>
+              <Altavoz tamano={22} />
             </button>
           )}
 
@@ -129,7 +130,7 @@ export function PanelPalabra({
             aria-label="Cerrar y seguir leyendo"
             className="flex size-11 shrink-0 items-center justify-center rounded-xl text-xl text-[var(--texto-suave)] hover:bg-[var(--fondo)]"
           >
-            <span aria-hidden>✕</span>
+            <Cerrar tamano={22} />
           </button>
         </div>
 
@@ -185,7 +186,7 @@ export function PanelPalabra({
           rel="noreferrer"
           className="mt-2 inline-flex min-h-11 items-center text-sm font-bold text-marca-700 underline underline-offset-4 dark:text-marca-300"
         >
-          Buscarla en el diccionario ↗
+          Buscarla en el diccionario <EnlaceExterno tamano={16} className="ml-1" />
         </a>
       </div>
     </div>

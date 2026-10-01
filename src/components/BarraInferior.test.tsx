@@ -39,6 +39,54 @@ describe('la barra de abajo', () => {
   });
 
   /*
+    LOS CINCO SON DIBUJO PROPIO, NO EMOJIS.
+
+    Un emoji no lo pinta la aplicación: lo pinta el sistema operativo, así que
+    la misma barra sale plana en Android, brillante en iPhone y de otra manera
+    en Windows, y al lado de nueve personajes dibujados a mano se lee como
+    pegado de otro sitio. Esto se mira aquí porque la barra es lo único que se
+    ve en TODAS las pantallas: si se cuela un emoji, se cuela en todas.
+
+    El rango que se busca es el de los pictogramas y emoticonos. No incluye el
+    «›» ni la «·», que son tipografía y los pinta la misma fuente que el texto.
+  */
+  it('los cinco llevan dibujo propio y ni un solo emoji', () => {
+    const { container } = pintar('/ruta');
+
+    const barra = screen.getByRole('navigation', { name: /secciones/i });
+    expect(container.querySelectorAll('nav svg')).toHaveLength(5);
+    expect(barra.textContent, 'se coló un emoji en la barra').not.toMatch(
+      // El selector de variación va aparte y no dentro de la clase: ahí dentro
+      // se combina con el carácter anterior y eslint lo rechaza con razón.
+      /[\u{1F300}-\u{1FAFF}\u{1F000}-\u{1F0FF}\u{2600}-\u{27BF}]|\u{FE0F}/u,
+    );
+  });
+
+  /*
+    LA SEGUNDA SEÑAL DE «ESTÁS AQUÍ», LA QUE NO DEPENDE DEL COLOR.
+
+    La pestaña de arriba y el morado se pierden para quien no distingue bien los
+    tonos. Un icono macizo al lado de cuatro huecos se ve siempre, y es
+    exactamente la misma información.
+
+    Esta prueba se rompió a propósito antes de darla por buena: con el relleno
+    desconectado —`relleno={false}` fijo en la barra— se pone roja en la primera
+    expectativa, y con los emojis de antes se pone roja en las tres.
+  */
+  it('el destino en el que estás se pinta relleno, y los otros cuatro en línea', () => {
+    const { container } = pintar('/tienda');
+
+    const rellenos = [...container.querySelectorAll('nav svg')].filter((svg) =>
+      svg.querySelector('[fill="currentColor"]'),
+    );
+
+    expect(rellenos, 'ninguno o más de uno se pinta relleno').toHaveLength(1);
+    const enlace = rellenos[0]!.closest('a');
+    expect(enlace).toHaveAccessibleName('Tienda');
+    expect(enlace).toHaveAttribute('aria-current', 'page');
+  });
+
+  /*
     Se recorre tabulando y en el orden en que se ve. Son enlaces de verdad y no
     divs con un `onClick`, que es lo que lo hace funcionar sin tocar nada.
   */

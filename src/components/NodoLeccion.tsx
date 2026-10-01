@@ -1,12 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import { Candado, Check } from '@/components/iconos';
 
 export type EstadoNodo = 'hecha' | 'actual' | 'bloqueada';
 
 interface Props {
   titulo: string;
   tipo: string;
-  icono: string;
+  /** El dibujo del tipo de lección. Solo se ve en el nodo que toca y en los que
+   *  quedan: lo hecho lleva su marca y lo cerrado, su candado. */
+  icono: ReactNode;
   estado: EstadoNodo;
   /** Cuánto se desplaza del centro, de -1 a 1. Es lo que dibuja la serpiente. */
   desvio: number;
@@ -95,7 +98,7 @@ export function NodoLeccion({ titulo, tipo, icono, estado, desvio, retraso, onAb
           <span
             aria-hidden
             className={cn(
-              'boton-3d grid size-full place-items-center rounded-full border-b-[6px] text-3xl',
+              'boton-3d grid size-full place-items-center rounded-full border-b-[6px]',
               estado !== 'bloqueada' &&
                 'group-active:translate-y-[3px] group-active:border-b-[1px]',
               estado === 'hecha' && 'border-emerald-800 bg-emerald-600 text-white',
@@ -104,7 +107,13 @@ export function NodoLeccion({ titulo, tipo, icono, estado, desvio, retraso, onAb
                 'border-[var(--hueco)] bg-[var(--fondo)] text-[var(--texto-suave)] opacity-60',
             )}
           >
-            {estado === 'hecha' ? '✓' : estado === 'bloqueada' ? '🔒' : icono}
+            {estado === 'hecha' ? (
+              <Check tamano={32} />
+            ) : estado === 'bloqueada' ? (
+              <Candado tamano={30} />
+            ) : (
+              icono
+            )}
           </span>
         </span>
 

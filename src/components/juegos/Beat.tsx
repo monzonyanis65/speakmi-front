@@ -8,6 +8,7 @@ import { Aviso, CabeceraJuego, Contador, Racha } from './Tablero';
 import { Destello, PuntosGanados } from './efectos';
 import { puntosDelServidor } from './puntos';
 import type { GrupoDeBeat, Marcador, NotaDeBeat, RespuestaCorregida, RondaDeBeat } from './tipos';
+import { Altavoz } from '@/components/iconos';
 
 /**
  * AL COMPÁS: caen notas por una pista y hay que mandarlas a su pastilla EN EL
@@ -1061,8 +1062,8 @@ function TextoDeNota({ viva }: { viva: NotaEnElTiempo }) {
   */
   return (
     <span className="flex min-w-0 items-center gap-1.5">
-      <span aria-hidden className="text-lg">
-        🔊
+      <span aria-hidden className="flex">
+        <Altavoz tamano={18} />
       </span>
       <span className="truncate text-sm font-bold text-[var(--texto-suave)]">
         la {viva.orden + 1}.ª que oíste

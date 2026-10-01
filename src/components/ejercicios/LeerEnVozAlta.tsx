@@ -5,6 +5,7 @@ import { grabarWav, type GrabacionWav } from '@/lib/wav';
 import { escuchar, estaDisponible, type Escuchado, type SesionEscucha } from '@/lib/reconocimiento';
 import { ComoSonaste } from './ComoSonaste';
 import type { EvaluacionFonetica } from '@/lib/fonetica';
+import { Micro } from '@/components/iconos';
 
 interface PalabraLeida {
   wordIndex: number;
@@ -269,9 +270,9 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
               type="button"
               onClick={() => void empezar()}
               aria-label="Empezar a leer"
-              className="flex size-20 items-center justify-center rounded-full bg-marca-600 text-3xl text-white transition hover:bg-marca-700"
+              className="flex size-20 items-center justify-center rounded-full bg-marca-600 text-white transition hover:bg-marca-700"
             >
-              🎤
+              <Micro tamano={36} />
             </button>
             <p className="mt-3 text-sm text-[var(--texto-suave)]">Toca y lee en voz alta</p>
           </>

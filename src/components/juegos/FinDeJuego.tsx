@@ -8,6 +8,7 @@ import { sonar, useDespertarSonido } from '@/lib/sonido';
 import { Aviso } from './Tablero';
 import { LluviaDeMonedas } from './efectos';
 import type { FichaDeJuego, Marcador, ResultadoFinal } from './tipos';
+import { Copa } from '@/components/iconos';
 
 /**
  * El final de la partida.
@@ -96,7 +97,7 @@ export function FinDeJuego({
             !menosMovimiento && 'animate-crecer',
           )}
         >
-          <span aria-hidden>🏆</span> Nunca habías llegado tan lejos
+          <Copa tamano={18} /> Nunca habías llegado tan lejos
         </p>
       )}
 

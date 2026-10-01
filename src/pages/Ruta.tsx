@@ -7,6 +7,7 @@ import { AccionesDeHoy, CifrasDeHoy } from '@/components/PanelInicio';
 import { NivelVacio } from '@/components/NivelVacio';
 import { MascotaConMensaje } from '@/components/Mascota';
 import { NodoLeccion, type EstadoNodo } from '@/components/NodoLeccion';
+import { Copa, ICONOS, Menu, type ClaveIcono } from '@/components/iconos';
 
 interface EstadoExamen {
   levelCode: string | null;
@@ -46,15 +47,23 @@ interface RespuestaNivel {
   units: Unidad[];
 }
 
-const ICONO: Record<string, string> = {
-  vocab: '📖',
-  grammar: '🧩',
-  reading: '📰',
-  listening: '🎧',
-  speaking: '🎤',
-  conversation: '💬',
-  review: '🔄',
-  checkpoint: '🏁',
+/**
+ * El dibujo de cada tipo de lección.
+ *
+ * Es lo único que distingue un nodo de otro de un vistazo, antes de leer el
+ * título: los ocho tienen el mismo círculo, el mismo tamaño y el mismo color.
+ * Por eso se eligieron ocho siluetas que no se parecen entre sí —redonda,
+ * cuadrada, con pico, con mango— y no ocho variaciones del mismo cuadrado.
+ */
+const ICONO: Record<string, ClaveIcono> = {
+  vocab: 'libro',
+  grammar: 'pieza',
+  reading: 'documento',
+  listening: 'auriculares',
+  speaking: 'micro',
+  conversation: 'bocadillo',
+  review: 'repasar',
+  checkpoint: 'bandera',
 };
 
 const NOMBRE_TIPO: Record<string, string> = {
@@ -67,6 +76,18 @@ const NOMBRE_TIPO: Record<string, string> = {
   review: 'Repaso',
   checkpoint: 'Prueba de unidad',
 };
+
+/**
+ * El dibujo que va dentro del nodo, a partir del tipo que manda el servidor.
+ *
+ * Si llega un tipo que aquí no está —una lección nueva antes de que el front se
+ * entere— cae en el libro, que es lo más genérico que hay: un nodo sin dibujo
+ * sería un agujero en mitad del camino.
+ */
+function IconoDeTipo({ tipo }: { tipo: string }) {
+  const Dibujo = ICONOS[ICONO[tipo] ?? 'libro'];
+  return <Dibujo tamano={32} />;
+}
 
 /**
  * El saludo de Milo, con la lección por la que se sigue dentro.
@@ -220,9 +241,7 @@ export function Ruta() {
           aria-label="Tu cuenta"
           className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-xl text-[var(--texto-suave)] hover:bg-[var(--superficie)]"
         >
-          <span aria-hidden className="text-xl">
-            ☰
-          </span>
+          <Menu />
         </button>
       </header>
 
@@ -313,7 +332,7 @@ export function Ruta() {
                       key={leccion.code}
                       titulo={leccion.titleEs}
                       tipo={NOMBRE_TIPO[leccion.type] ?? leccion.type}
-                      icono={ICONO[leccion.type] ?? '📘'}
+                      icono={<IconoDeTipo tipo={leccion.type} />}
                       estado={estadoDe(leccion, actual)}
                       desvio={desvioDe(leccionesAntes(data.units, iUnidad) + indice)}
                       retraso={indice * 70}
@@ -410,7 +429,7 @@ function ExamenDelNivel({ estado, onAbrir }: { estado: EstadoExamen; onAbrir: ()
         <NodoLeccion
           titulo={estado.enCurso ? 'Seguir el examen' : 'Examen del nivel'}
           tipo="Examen"
-          icono="🏆"
+          icono={<Copa tamano={32} />}
           estado={nodo}
           desvio={0}
           retraso={0}

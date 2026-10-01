@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { escuchar, estaDisponible, type SesionEscucha } from '@/lib/reconocimiento';
+import { Cerrar, Micro } from '@/components/iconos';
 
 interface Informe {
   aprobado: boolean;
@@ -181,7 +182,9 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
           )}
           aria-label={estado === 'grabando' ? 'Terminar de hablar' : 'Empezar a hablar'}
         >
-          <span aria-hidden>{estado === 'grabando' ? '⏹' : '🎤'}</span>
+          <span aria-hidden>
+            {estado === 'grabando' ? <Cerrar tamano={20} /> : <Micro tamano={20} />}
+          </span>
         </button>
 
         <p className="text-sm font-medium">

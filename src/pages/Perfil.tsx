@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { useContador } from '@/lib/contador';
 import { Boton } from '@/components/Boton';
+import { Birrete, Estrella, Llama } from '@/components/iconos';
 import { Mascota } from '@/components/Mascota';
 import { EnLoQueMasFallas } from '@/components/EnLoQueMasFallas';
 import { Insignia } from '@/components/logros/Insignia';
@@ -274,14 +275,14 @@ function Resumen({
     <section className="mt-6" aria-label="Tu resumen">
       <div className="grid grid-cols-3 gap-2">
         <Cifra
-          icono="🔥"
+          icono={<Llama tamano={20} />}
           valor={dias}
           texto={dias === 1 ? 'día de racha' : 'días de racha'}
           etiqueta={`${dias} ${dias === 1 ? 'día de racha' : 'días de racha'}`}
           retraso={0}
         />
         <Cifra
-          icono="🎓"
+          icono={<Birrete tamano={20} />}
           crudo={perfil?.level?.cefr ?? '—'}
           texto={perfil?.level ? 'tu nivel' : 'sin nivel'}
           etiqueta={
@@ -292,7 +293,7 @@ function Resumen({
           retraso={70}
         />
         <Cifra
-          icono="⭐"
+          icono={<Estrella tamano={20} />}
           valor={progreso?.xpTotal ?? 0}
           texto="de experiencia"
           etiqueta={`${progreso?.xpTotal ?? 0} de experiencia`}
@@ -321,7 +322,7 @@ function Cifra({
   etiqueta,
   retraso,
 }: {
-  icono: string;
+  icono: ReactNode;
   valor?: number;
   crudo?: string;
   texto: string;
@@ -335,9 +336,9 @@ function Cifra({
       className="animate-entrada rounded-2xl border-2 border-b-4 border-[var(--borde)] bg-[var(--superficie)] px-2 py-3 text-center"
       style={{ animationDelay: `${retraso}ms`, animationFillMode: 'backwards' }}
     >
-      <p className="text-base leading-none" aria-hidden>
-        {icono}
-      </p>
+      {/* El dibujo va centrado en su propia fila, como estaba el emoji. `flex`
+          para que la caja mida el icono y no el renglón de texto. */}
+      <p className="flex justify-center">{icono}</p>
       <p className="mt-1 truncate text-xl font-extrabold tabular-nums" aria-label={etiqueta}>
         <span aria-hidden>{crudo ?? contado}</span>
       </p>
