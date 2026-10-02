@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { guardarNivel } from '@/lib/auth';
 import { NIVELES, tramoDe } from '@/data/niveles';
@@ -29,6 +28,15 @@ interface Respondida {
   alternatives?: string[];
 }
 
+/** Lo que devuelve el servidor en cada paso de la escalera. */
+interface Paso {
+  ejercicio: EjercicioDePrueba | null;
+  terminada: boolean;
+  servidos: number;
+  /** De 0 a 1. */
+  progreso: number;
+}
+
 /** Cómo se llama cada destreza cuando hay que enseñársela a alguien. */
 const NOMBRE_DESTREZA: Record<Destreza, string> = {
   gramatica: 'Gramática',
@@ -50,38 +58,69 @@ const NOMBRE_DESTREZA: Record<Destreza, string> = {
  * correcta en una lista y no ser capaz de escribir una frase ni de entender una
  * dicha en voz alta. Usa los mismos ejercicios que las lecciones —que ya estaban
  * construidos— en vez de un formato propio más pobre.
+ *
+ * Y se pide de uno en uno, que es lo que cambió. Antes se descargaba la prueba
+ * entera y se recorría de arriba abajo; ahora el servidor lleva una escalera:
+ * empieza por la mitad del curso y sube o baja según se acierte, así que CUÁL ES
+ * LA SIGUIENTE depende de lo que se acabe de responder y no se puede saber de
+ * antemano. Por eso no hay lista que recorrer ni «3 de 24» que enseñar: en cada
+ * paso se manda lo respondido y el servidor contesta qué toca ahora. A cambio la
+ * prueba dura ocho o diez ejercicios en vez de veinticuatro.
  */
 export function Prueba() {
   const navegar = useNavigate();
-  const [indice, setIndice] = useState(0);
+  const [paso, setPaso] = useState<Paso | null>(null);
   const [respuestas, setRespuestas] = useState<Respondida[]>([]);
   const [actual, setActual] = useState<Respuesta | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
+  const [esperando, setEsperando] = useState(true);
+  const [corrigiendo, setCorrigiendo] = useState(false);
+  const [fallo, setFallo] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
-  const { data, isPending } = useQuery({
-    queryKey: ['prueba'],
-    queryFn: () => api.get<{ exercises: EjercicioDePrueba[] }>('/placement/exercises'),
-  });
+  /**
+   * Pide el siguiente ejercicio y, si ya no queda, entrega la prueba.
+   *
+   * Se le pasan las respuestas en vez de leerlas del estado porque se le llama
+   * justo después de añadir una: el estado todavía tiene la lista de antes.
+   */
+  async function pedirSiguiente(acumuladas: Respondida[]) {
+    setEsperando(true);
+    setFallo(false);
+    try {
+      const siguiente = await api.post<Paso>('/placement/next', { answers: acumuladas });
 
-  const enviar = useMutation({
-    mutationFn: (answers: Respondida[]) => api.post<Resultado>('/placement/submit', { answers }),
-    onSuccess: setResultado,
-  });
+      if (siguiente.ejercicio) {
+        setPaso(siguiente);
+        return;
+      }
 
-  const ejercicios = data?.exercises ?? [];
-  const ejercicio = ejercicios[indice];
+      setCorrigiendo(true);
+      setResultado(await api.post<Resultado>('/placement/submit', { answers: acumuladas }));
+    } catch {
+      setFallo(true);
+    } finally {
+      setEsperando(false);
+      setCorrigiendo(false);
+    }
+  }
+
+  // Arrancar una sola vez. El guardia no es por gusto: en desarrollo React monta
+  // dos veces, y sin él la prueba pediría el primer ejercicio por duplicado.
+  const arrancada = useRef(false);
+  useEffect(() => {
+    if (arrancada.current) return;
+    arrancada.current = true;
+    void pedirSiguiente([]);
+  }, []);
+
+  const ejercicio = paso?.ejercicio ?? null;
 
   function avanzar(respondida: Respondida) {
     const acumuladas = [...respuestas, respondida];
     setRespuestas(acumuladas);
     setActual(null);
-
-    if (indice + 1 < ejercicios.length) {
-      setIndice(indice + 1);
-    } else {
-      enviar.mutate(acumuladas);
-    }
+    void pedirSiguiente(acumuladas);
   }
 
   async function empezarEnNivel(codigo: string) {
@@ -94,8 +133,9 @@ export function Prueba() {
     }
   }
 
-  if (isPending) return <Centrado>Preparando la prueba…</Centrado>;
-  if (enviar.isPending) return <Centrado>Calculando tu nivel…</Centrado>;
+  if (corrigiendo) return <Centrado>Calculando tu nivel…</Centrado>;
+  if (esperando && !resultado) return <Centrado>Preparando la prueba…</Centrado>;
+  if (fallo) return <Centrado>No pudimos cargar la prueba. Vuelve a entrar.</Centrado>;
 
   if (resultado) {
     const nivel = NIVELES.find((n) => n.codigo === resultado.suggestedLevel);
@@ -206,7 +246,15 @@ export function Prueba() {
 
   if (!ejercicio) return <Centrado>No pudimos cargar la prueba.</Centrado>;
 
-  const progreso = ((indice + 1) / ejercicios.length) * 100;
+  /*
+    La barra mide cuánto se ha estrechado la búsqueda, no cuántas preguntas van.
+
+    No hay un total que prometer: la prueba se acaba cuando el servidor sabe
+    dónde colocar a la persona, y eso son ocho preguntas unas veces y quince
+    otras. Enseñar «3 de 24» sería mentir en la dirección que hace abandonar,
+    y enseñar «3» a secas no dice nada.
+  */
+  const progreso = (paso?.progreso ?? 0) * 100;
   const esDeVoz = ejercicio.type === 'read_aloud' || ejercicio.type === 'speak_prompt';
 
   return (
@@ -219,7 +267,7 @@ export function Prueba() {
           />
         </div>
         <span className="text-xs text-[var(--texto-suave)]">
-          {indice + 1}/{ejercicios.length}
+          Pregunta {(paso?.servidos ?? 0) + 1}
         </span>
       </div>
 
@@ -258,7 +306,7 @@ export function Prueba() {
           // en 1.5 de contraste y el rótulo no se leía.
           className="mt-6 rounded-2xl bg-marca-600 px-6 py-4 font-semibold text-white transition hover:bg-marca-700 disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-300"
         >
-          {indice + 1 < ejercicios.length ? 'Siguiente' : 'Terminar'}
+          Siguiente
         </button>
       )}
 
@@ -266,13 +314,14 @@ export function Prueba() {
         Saltar, y no es una comodidad: sin esto la prueba puede ser IMPOSIBLE de
         terminar. En un equipo sin voces en inglés instaladas, los dictados se
         pintan con un aviso y sin caja donde escribir; sin micrófono, las
-        lecturas en voz alta no arrancan. Ocho de los veinticuatro ejercicios son
-        de oído o de voz: quien no pueda hacerlos se quedaba encerrado en la
-        pantalla, sin nivel y sin poder empezar el curso.
+        lecturas en voz alta no arrancan. Casi la mitad del banco es de oído o de
+        voz: quien no pueda hacerlos se quedaba encerrado en la pantalla, sin
+        nivel y sin poder empezar el curso.
 
-        Lo que se salta no cuenta ni a favor ni en contra: se descuenta del total
-        de su nivel. Contarlo como fallo colocaría por debajo de su sitio a quien
-        solo tiene el equipo mal configurado.
+        Lo que se salta no cuenta ni a favor ni en contra: el servidor sirve otro
+        ejercicio del mismo nivel en su lugar y lo descuenta del total. Contarlo
+        como fallo colocaría por debajo de su sitio a quien solo tiene el equipo
+        mal configurado.
       */}
       <button
         type="button"
