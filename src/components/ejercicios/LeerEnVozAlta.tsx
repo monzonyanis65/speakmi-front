@@ -96,23 +96,55 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
   // lectura se evaluaría dos veces y el aviso de "no te escuchamos" se quedaría
   // pegado junto al resultado bueno.
   const yaEvaluado = useRef(false);
+  /**
+   * De quién es el micrófono ahora mismo.
+   *
+   * Abrirlo tarda —el permiso, el módulo del worklet— y en ese hueco se puede
+   * salir de la pantalla o cambiar de ejercicio. Lo que vuelva del `await` mira
+   * este número para saber si sigue siendo suyo; si no lo es, suelta lo que
+   * acaba de abrir. Sin esto, una grabación que nace huérfana se queda con el
+   * micrófono cogido para siempre, y el aparato no se lo da a nadie más: a
+   * partir de ahí la app no oye, y ya no hay forma de recuperarlo sin recargar.
+   */
+  const turno = useRef(0);
 
   const soportado = estaDisponible();
   const { referenceText, trickyWords } = ejercicio.prompt;
 
-  // Si se sale a mitad, se cortan los dos micrófonos. Dejarlos abiertos sería
-  // feo y además deja el piloto rojo encendido en la pestaña.
-  useEffect(
-    () => () => {
+  /*
+    Cambiar de ejercicio es empezar de cero, y lo primero es devolver el micro.
+
+    Hay pantallas que NO vuelven a montar este componente entre una pregunta y
+    la siguiente: el examen le cambia el ejercicio y nada más. Con la limpieza
+    colgada solo del desmontaje, ahí no se ejecutaba nunca: la segunda pregunta
+    de voz heredaba el resultado de la primera —sin botón de micrófono que
+    tocar— y además heredaba el flujo del micro y el `AudioContext` abiertos del
+    intento anterior. Eso es lo que se nota como «en la primera me deja y en las
+    demás ya no me escucha»: no es la app la que deja de oír, es el sistema, que
+    no reparte dos veces un micrófono que nadie ha devuelto.
+  */
+  useEffect(() => {
+    setEstado('listo');
+    setParcial('');
+    setInforme(null);
+    setError(null);
+    yaEvaluado.current = false;
+    arrancando.current = false;
+
+    return () => {
+      // Lo que esté a medio abrir deja de ser de esta pantalla.
+      turno.current += 1;
       sesion.current?.cancelar();
+      sesion.current = null;
       audio.current?.cancelar();
-    },
-    [],
-  );
+      audio.current = null;
+    };
+  }, [ejercicio.code]);
 
   async function empezar() {
     if (arrancando.current) return;
     arrancando.current = true;
+    const mio = turno.current;
     setError(null);
     setParcial('');
     setInforme(null);
@@ -128,8 +160,18 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     // reconocedor no entendió nada y se volvió a empezar— se cierra antes de
     // abrir otra: dos streams del micrófono a la vez dejan el piloto encendido.
     audio.current?.cancelar();
-    audio.current = await grabarWav();
+    const grabacion = await grabarWav();
     arrancando.current = false;
+
+    // Mientras se abría el micrófono se cambió de ejercicio o se salió. Esta
+    // grabación ya no es de nadie, así que se cierra aquí mismo: guardarla sería
+    // dejar el micrófono cogido por una pantalla que ya no existe.
+    if (mio !== turno.current) {
+      grabacion?.cancelar();
+      return;
+    }
+
+    audio.current = grabacion;
     inicio.current = Date.now();
 
     const abierta = escuchar({
