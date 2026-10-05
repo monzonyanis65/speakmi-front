@@ -1,36 +1,40 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Leccion } from './Leccion';
+import { Menu } from './Menu';
 
 /**
- * Que se pueda imitar el ritmo, y no solo leer la frase.
+ * Dónde vive el shadowing, y dónde ya no.
  *
  *
- * POR QUÉ ESTÁ EN UN ARCHIVO APARTE
+ * QUÉ CAMBIÓ Y POR QUÉ ESTE ARCHIVO SIGUE AQUÍ
  *
- * `Leccion.test.tsx` mira el reparto de personajes y monta su escenario para
- * eso. Esto es otra pregunta —qué ejercicio se enseña en los de voz— y mezclar
- * las dos dejaría un archivo que se pone rojo por dos motivos distintos sin que
- * el nombre diga cuál.
+ * Antes esto comprobaba lo contrario: que desde un ejercicio de leer en voz
+ * alta se pudiera pasar a imitar el ritmo con un botón debajo. La pregunta es
+ * la misma —qué se enseña en los ejercicios de voz de una lección— y lo que
+ * cambió es la respuesta, así que el archivo se queda y las afirmaciones se
+ * dan la vuelta.
+ *
+ * El motivo del cambio: el shadowing no es un paso de una lección, es una
+ * sesión entera. Pide auriculares, sonda el micrófono para ver si el altavoz se
+ * cuela en la grabación y parte la frase en trozos que se repiten uno a uno.
+ * Ofrecer eso en medio de una lección era interrumpir la lección.
  *
  *
  * QUÉ SE APRIETA
  *
- * Leer en voz alta y hacer shadowing NO son lo mismo, y esa diferencia es todo
- * el asunto: leer mide QUÉ palabras dijiste, imitar mide CÓMO las dijiste. El
- * ritmo es lo que de verdad separa a un hispanohablante —el inglés aplasta las
- * sílabas débiles para llegar a tiempo a las fuertes y el español las reparta
- * por igual— y era lo único que esta app no medía en ninguna parte.
+ * Las dos mitades del cambio, porque por separado no valen nada. Quitarlo de la
+ * lección sin darle puerta propia es perder el ejercicio; darle puerta sin
+ * quitarlo de la lección es tenerlo en dos sitios. Por eso las dos cosas se
+ * comprueban en el mismo archivo:
  *
- * El motor y la pantalla del shadowing estaban construidos y probados, pero
- * colgando de una dirección suelta: desde la lección no había forma de llegar.
- * Esto es lo que comprueba que siga habiéndola.
+ *   1. En la lección se lee en voz alta y no se ofrece nada más.
+ *   2. Desde el menú se llega a imitar el ritmo.
  *
- * Y comprueba también lo que NO debe cambiar: que se entre leyendo. Quien ya
- * usaba la app no tiene que encontrarse otra cosa por sorpresa.
+ * Y sigue comprobándose lo que NO debe cambiar: que leer en voz alta se quede
+ * exactamente donde estaba.
  */
 
 vi.mock('@/components/Mascota', () => ({
@@ -59,6 +63,11 @@ vi.mock('@/components/ejercicios/Shadowing', () => ({
   ),
 }));
 
+vi.mock('@/store/sesion', () => ({
+  useSesion: (selector: (estado: unknown) => unknown) =>
+    selector({ usuario: { displayName: 'Yanis' } }),
+}));
+
 const LEER = {
   code: 'L5-U1-03-E02',
   type: 'read_aloud',
@@ -85,18 +94,20 @@ function servidor(ejercicio: Record<string, unknown>) {
   });
 }
 
-function abrir() {
+function conRutas(entrada: string, elemento: React.ReactNode, ruta: string) {
   const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={cliente}>
-      <MemoryRouter initialEntries={['/leccion/L5-U1-03']}>
+      <MemoryRouter initialEntries={[entrada]}>
         <Routes>
-          <Route path="/leccion/:code" element={<Leccion />} />
+          <Route path={ruta} element={elemento} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
+
+const abrirLeccion = () => conRutas('/leccion/L5-U1-03', <Leccion />, '/leccion/:code');
 
 beforeEach(() => {
   vi.stubGlobal('matchMedia', () => ({
@@ -111,57 +122,41 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('imitar el ritmo dentro de la lección', () => {
-  it('se entra leyendo: quien ya usaba la app no se encuentra otra cosa', async () => {
+describe('el shadowing ya no vive dentro de la lección', () => {
+  it('en un ejercicio de voz se lee en voz alta, como siempre', async () => {
     vi.stubGlobal('fetch', servidor(LEER));
-    abrir();
+    abrirLeccion();
 
     expect(await screen.findByTestId('leer-en-voz-alta')).toBeInTheDocument();
-    expect(screen.queryByTestId('shadowing')).toBeNull();
   });
 
-  it('desde un ejercicio de leer en voz alta se puede pasar a imitar', async () => {
-    const quien = userEvent.setup();
-    vi.stubGlobal('fetch', servidor(LEER));
-    abrir();
-
-    await screen.findByTestId('leer-en-voz-alta');
-    await quien.click(screen.getByRole('button', { name: /imitar el ritmo/i }));
-
-    expect(screen.getByTestId('shadowing')).toBeInTheDocument();
-    expect(screen.queryByTestId('leer-en-voz-alta')).toBeNull();
-  });
-
-  it('imita LA MISMA frase, no otra cualquiera', async () => {
+  it('no se ofrece cambiar a imitar el ritmo', async () => {
     /*
-      Es el detalle que haría inútil todo lo demás sin que se notara: una
-      pantalla de shadowing que sale con una frase distinta de la que estabas
-      haciendo se ve perfecta y no practica lo que tenías delante.
+      Este es el botón que se quitó. La lección tiene que poder terminarse de
+      principio a fin sin que aparezca otra actividad por el medio.
     */
-    const quien = userEvent.setup();
     vi.stubGlobal('fetch', servidor(LEER));
-    abrir();
+    abrirLeccion();
 
     await screen.findByTestId('leer-en-voz-alta');
-    await quien.click(screen.getByRole('button', { name: /imitar el ritmo/i }));
-
-    expect(screen.getByTestId('shadowing')).toHaveAttribute('data-code', LEER.code);
+    expect(screen.queryByRole('button', { name: /imitar el ritmo/i })).toBeNull();
   });
 
-  it('se puede volver a leerlo uno mismo', async () => {
-    const quien = userEvent.setup();
+  it('y el shadowing no se monta en ningún momento de la lección', async () => {
+    /*
+      No basta con que no haya botón: lo que no puede quedar es el componente
+      montado por otro camino. Monta un `<audio>`, pide permiso de micrófono y
+      sonda los auriculares, y nada de eso tiene por qué pasar dentro de una
+      lección.
+    */
     vi.stubGlobal('fetch', servidor(LEER));
-    abrir();
+    abrirLeccion();
 
     await screen.findByTestId('leer-en-voz-alta');
-    await quien.click(screen.getByRole('button', { name: /imitar el ritmo/i }));
-    await quien.click(screen.getByRole('button', { name: /mejor lo leo yo/i }));
-
-    expect(screen.getByTestId('leer-en-voz-alta')).toBeInTheDocument();
     expect(screen.queryByTestId('shadowing')).toBeNull();
   });
 
-  it('en los ejercicios escritos no se ofrece, porque no hay nada que imitar', async () => {
+  it('en los ejercicios escritos tampoco se ofrece, como antes', async () => {
     vi.stubGlobal(
       'fetch',
       servidor({
@@ -171,9 +166,26 @@ describe('imitar el ritmo dentro de la lección', () => {
         prompt: { text: 'She ___ a doctor.' },
       }),
     );
-    abrir();
+    abrirLeccion();
 
     await screen.findByRole('button', { name: /saltar|comprobar/i });
     expect(screen.queryByRole('button', { name: /imitar el ritmo/i })).toBeNull();
+  });
+});
+
+describe('pero se llega a él desde el menú', () => {
+  it('«Más cosas que hacer» lleva a imitar el ritmo', () => {
+    /*
+      La otra mitad del cambio. Sin esto, lo de arriba solo demostraría que el
+      ejercicio desapareció de la aplicación.
+
+      En el menú y no en la barra de abajo porque en la barra no cabe: son cinco
+      destinos y a 320 px un sexto los bajaría de los 44 px de zona pulsable.
+      Ver `barra-inferior.ts`.
+    */
+    conRutas('/menu', <Menu />, '/menu');
+
+    const entrada = screen.getByRole('button', { name: /imitar el ritmo/i });
+    expect(entrada).toBeInTheDocument();
   });
 });

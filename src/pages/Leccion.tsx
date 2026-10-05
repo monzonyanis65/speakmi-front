@@ -6,7 +6,6 @@ import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { Ejercicio } from '@/components/ejercicios/Ejercicio';
 import { LeerEnVozAlta } from '@/components/ejercicios/LeerEnVozAlta';
-import { Shadowing } from '@/components/ejercicios/Shadowing';
 import { HablarLibre } from '@/components/ejercicios/HablarLibre';
 import { useContador } from '@/lib/contador';
 import { Mascota, MascotaConMensaje, type EstadoMascota } from '@/components/Mascota';
@@ -74,17 +73,6 @@ export function Leccion() {
   const [enviando, setEnviando] = useState(false);
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [vozHecha, setVozHecha] = useState(false);
-  /**
-   * Si en este ejercicio de leer en voz alta se está imitando al modelo en vez
-   * de leerlo por cuenta propia.
-   *
-   * Son dos cosas distintas y por eso se elige, en vez de sustituir una por la
-   * otra: leer mide si sabes decirlo, e imitar mide CÓMO lo dices —el ritmo—,
-   * que es lo que de verdad separa a un hispanohablante y lo único que la app
-   * no medía en ninguna parte. Arranca siempre en leer, así que quien ya usaba
-   * la app no nota ningún cambio hasta que lo pulsa.
-   */
-  const [imitando, setImitando] = useState(false);
   /**
    * Lo que se falló y hay que volver a preguntar antes de dar la lección por
    * terminada.
@@ -225,7 +213,6 @@ export function Leccion() {
     setCorreccion(null);
     setRespuesta(null);
     setVozHecha(false);
-    setImitando(false);
     setContestados((n) => n + 1);
 
     // Mientras quede lista por delante se sigue en orden. Ojo: esto NO vale
@@ -362,35 +349,20 @@ export function Leccion() {
         key={`${ejercicio.code}-${repitiendo ? 'rep' : 'ini'}`}
         className="mt-4 flex-1 animate-entrada"
       >
-        {ejercicio.type === 'read_aloud' ? (
-          <>
-            {imitando ? (
-              <Shadowing
-                ejercicio={{ code: ejercicio.code }}
-                onTerminado={() => setVozHecha(true)}
-              />
-            ) : (
-              <LeerEnVozAlta
-                ejercicio={ejercicio as unknown as Parameters<typeof LeerEnVozAlta>[0]['ejercicio']}
-                onTerminado={() => setVozHecha(true)}
-              />
-            )}
+        {/*
+          Aquí se lee en voz alta, y ya está.
 
-            {/*
-              El cambio va DEBAJO y en pequeño, no arriba como dos pestañas.
-              Arriba obligaría a elegir antes de haber visto la frase, y quien
-              no sepa qué es el shadowing elegiría a ciegas; aquí se ofrece
-              cuando ya se sabe qué se está mirando. No borra lo hecho: `vozHecha`
-              se queda, así que probar lo otro nunca quita el paso ya dado.
-            */}
-            <button
-              type="button"
-              onClick={() => setImitando((antes) => !antes)}
-              className="mt-6 w-full rounded-xl px-4 py-3 text-sm text-[var(--texto-suave)] underline underline-offset-4"
-            >
-              {imitando ? 'Mejor lo leo yo' : 'Imitar el ritmo del modelo'}
-            </button>
-          </>
+          Debajo hubo un botón para cambiar a imitar el ritmo del modelo, y se
+          quitó: el shadowing es una sesión entera —auriculares, sonda de
+          micrófono, varios trozos que repetir— y ofrecerla en medio de una
+          lección era interrumpir la lección para empezar otra cosa. Ahora tiene
+          su propia puerta en el menú: ver `pages/Imitar.tsx`.
+        */}
+        {ejercicio.type === 'read_aloud' ? (
+          <LeerEnVozAlta
+            ejercicio={ejercicio as unknown as Parameters<typeof LeerEnVozAlta>[0]['ejercicio']}
+            onTerminado={() => setVozHecha(true)}
+          />
         ) : ejercicio.type === 'speak_prompt' ? (
           <HablarLibre
             ejercicio={ejercicio as unknown as Parameters<typeof HablarLibre>[0]['ejercicio']}

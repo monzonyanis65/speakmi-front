@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { callar, decir, hayVoz, hayVozInglesa, vozInglesaYa } from '@/lib/voz';
+import { useAltavozDeOpciones } from '@/lib/voz-opciones';
 import { EscenaDialogo } from './EscenaDialogo';
 import { EscrituraLibre } from './EscrituraLibre';
 import type { Correccion, PropsEjercicio } from './tipos';
@@ -75,6 +76,13 @@ function OpcionMultiple({ ejercicio, bloqueado, onCambio, resultado }: PropsEjer
 
   useEffect(() => setElegida(null), [ejercicio.code]);
 
+  /*
+    Las cuatro opciones a la vez, no una a una: el idioma se decide mirando el
+    grupo entero, y eso es lo que rescata a «box» por ir con «boxes». Ver
+    `idiomaDeCada`.
+  */
+  const sonar = useAltavozDeOpciones(prompt.options.map((opcion) => opcion.text));
+
   return (
     <div>
       <Instruccion>{prompt.instruction_es}</Instruccion>
@@ -106,6 +114,12 @@ function OpcionMultiple({ ejercicio, bloqueado, onCambio, resultado }: PropsEjer
               onClick={() => {
                 setElegida(indice);
                 onCambio(indice);
+                /*
+                  Después de registrar la respuesta, nunca antes. Si el audio
+                  fallara o tardara, lo elegido ya está guardado: oírse la
+                  opción es un extra, no un paso del ejercicio.
+                */
+                sonar(opcion.text);
               }}
               className={cn(
                 'flex items-center gap-3 rounded-2xl border px-5 py-4 text-left text-base transition',
@@ -234,6 +248,17 @@ function Hueco({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio) {
 
   useEffect(() => setValor(''), [ejercicio.code]);
 
+  /*
+    Aquí el idioma lo decide la FRASE, no las fichas.
+
+    Las opciones de un hueco son «in / to / of» o «that / who / what»: palabras
+    vacías que no delatan ningún idioma por sí solas. Lo que sí lo delata es la
+    frase que vienen a completar, que está en inglés entera. Sobre las 492
+    preguntas de hueco con fichas del temario, mirando la frase se resuelven
+    todas; mirando solo las fichas se quedaban mudas unas cuantas.
+  */
+  const sonar = useAltavozDeOpciones(prompt.choices ?? [], prompt.text);
+
   const [antes, despues] = prompt.text.split('___');
 
   function fijar(nuevo: string) {
@@ -262,7 +287,10 @@ function Hueco({ ejercicio, bloqueado, onCambio, resultado }: PropsEjercicio) {
               bloqueado={bloqueado}
               elegida={valor === opcion}
               marca={marcaDe({ resultado, texto: opcion, esLaElegida: valor === opcion })}
-              onElegir={() => fijar(opcion)}
+              onElegir={() => {
+                fijar(opcion);
+                sonar(opcion);
+              }}
             />
           ))}
         </div>
@@ -360,6 +388,19 @@ function Emparejar({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
   // uno pone cada pareja en su fila. Sin barajar se resuelve sin leer.
   const [ordenDerecha, setOrdenDerecha] = useState(() => barajarIndices(prompt.right.length));
 
+  /*
+    Una columna, un altavoz, y no uno para las ocho fichas juntas.
+
+    Emparejar es casi siempre inglés a la izquierda y significados en español a
+    la derecha, así que mezclarlas dejaría cada columna contaminando el recuento
+    de la otra. Separadas, cada una se juzga sola y sale lo que tiene que salir.
+    Y no se da por hecho cuál es cuál: hay ejercicios con las dos columnas en
+    inglés —frases y sus respuestas— y alguno con las dos en español. Preguntar
+    por el texto acierta en los tres casos; fiarse del lado, solo en uno.
+  */
+  const sonarIzquierda = useAltavozDeOpciones(prompt.left);
+  const sonarDerecha = useAltavozDeOpciones(prompt.right);
+
   useEffect(() => {
     setPares(prompt.left.map(() => null));
     setActiva(null);
@@ -395,7 +436,10 @@ function Emparejar({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
               // Cuál está elegida se contaba solo con el color del borde. Quien
               // no lo ve pulsaba una palabra y no pasaba nada perceptible.
               aria-pressed={activa === indice}
-              onClick={() => setActiva(indice)}
+              onClick={() => {
+                setActiva(indice);
+                sonarIzquierda(texto);
+              }}
               className={cn(
                 'rounded-xl border px-3 py-3 text-left text-sm transition disabled:opacity-60',
                 activa === indice
@@ -423,7 +467,10 @@ function Emparejar({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
                 key={prompt.right[indice]}
                 type="button"
                 disabled={bloqueado || activa === null}
-                onClick={() => emparejar(indice)}
+                onClick={() => {
+                  emparejar(indice);
+                  sonarDerecha(prompt.right[indice] ?? '');
+                }}
                 className={cn(
                   'rounded-xl border px-3 py-3 text-left text-sm transition disabled:opacity-50',
                   usada

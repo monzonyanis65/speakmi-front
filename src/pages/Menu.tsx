@@ -1,10 +1,18 @@
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { salir } from '@/lib/auth';
 import { useSesion } from '@/store/sesion';
 import { MascotaConMensaje } from '@/components/Mascota';
+import { Auriculares, Bandera, Candado, Diana, Libro, Pieza } from '@/components/iconos';
 
 interface Entrada {
-  icono: string;
+  /*
+    El icono es un dibujo nuestro, no un emoji. Este archivo se quedo fuera
+    cuando se hizo el juego de iconos y era el ultimo sitio con emojis: un
+    emoji lo dibuja el sistema operativo, asi que se veia distinto en cada
+    telefono y no se parecia al resto de la app.
+  */
+  icono: ReactNode;
   titulo: string;
   descripcion: string;
   a: string;
@@ -39,19 +47,33 @@ const GRUPOS: Grupo[] = [
     titulo: 'Más cosas que hacer',
     entradas: [
       {
-        icono: '📖',
+        icono: <Libro />,
         titulo: 'Tus textos',
         descripcion: 'Trae un artículo tuyo y léelo tocando lo que no conozcas',
         a: '/lecturas',
       },
       {
-        icono: '⚔️',
+        /*
+          Imitar el ritmo. Vivía dentro de los ejercicios de leer en voz alta y
+          ahí interrumpía la lección: es una sesión entera —auriculares, sonda
+          de micro, varios trozos— y no un paso de otra cosa. Encaja aquí por la
+          definición misma del grupo, al lado de los textos propios: algo que se
+          hace de vez en cuando y que no cabe en los cinco de la barra, donde un
+          sexto botón bajaría los otros cinco de los 44 px pulsables.
+        */
+        icono: <Auriculares />,
+        titulo: 'Imitar el ritmo',
+        descripcion: 'Oye a un nativo decir una frase tuya y repítela encima',
+        a: '/imitar',
+      },
+      {
+        icono: <Diana />,
         titulo: 'Desafíos',
         descripcion: 'Los tres de hoy, el del mes y cuánto te falta para cada uno',
         a: '/misiones',
       },
       {
-        icono: '📣',
+        icono: <Bandera />,
         titulo: 'Novedades',
         descripcion: 'Lo que habéis hecho tú y tu gente estos días',
         a: '/novedades',
@@ -62,13 +84,13 @@ const GRUPOS: Grupo[] = [
     titulo: 'Tu cuenta',
     entradas: [
       {
-        icono: '⚙️',
+        icono: <Pieza />,
         titulo: 'Ajustes',
         descripcion: 'Voz, tema y recordatorios',
         a: '/ajustes',
       },
       {
-        icono: '🔒',
+        icono: <Candado />,
         titulo: 'Seguridad',
         descripcion: 'Contraseña y sesiones abiertas',
         a: '/seguridad',
@@ -136,7 +158,7 @@ export function Menu() {
                 }}
                 className="boton-3d flex animate-entrada items-center gap-4 rounded-2xl border-2 border-[var(--hueco)] bg-[var(--superficie)] p-4 text-left"
               >
-                <span aria-hidden className="text-2xl">
+                <span aria-hidden className="flex text-[var(--texto-suave)]">
                   {entrada.icono}
                 </span>
                 <span className="min-w-0 flex-1">

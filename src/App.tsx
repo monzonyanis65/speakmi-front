@@ -31,6 +31,7 @@ import { MiloVivo } from '@/components/MiloVivo';
 import { PruebaShadowing } from '@/pages/PruebaShadowing';
 import { PruebaEscritura } from '@/pages/PruebaEscritura';
 import { Repaso } from '@/pages/Repaso';
+import { Imitar } from '@/pages/Imitar';
 import { Conversar } from '@/pages/Conversar';
 import { Lecturas } from '@/pages/Lecturas';
 import { Lectura } from '@/pages/Lectura';
@@ -234,6 +235,18 @@ export default function App() {
                 element={
                   <SoloConSesion>
                     <Repaso />
+                  </SoloConSesion>
+                }
+              />
+              {/*
+              Imitar el ritmo. Antes vivía dentro de los ejercicios de leer en
+              voz alta y ahora tiene puerta propia: ver `pages/Imitar.tsx`.
+            */}
+              <Route
+                path="/imitar"
+                element={
+                  <SoloConSesion>
+                    <Imitar />
                   </SoloConSesion>
                 }
               />

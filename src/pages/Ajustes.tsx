@@ -12,6 +12,7 @@ import { SelectorDeVoz } from '@/components/SelectorDeVoz';
 import { CLAVE_HORA, usePreferencias } from '@/lib/preferencias';
 import { useMenosMovimiento } from '@/lib/movimiento';
 import { despertarSonido, sonar, useSonido } from '@/lib/sonido';
+import { useDecirOpciones } from '@/lib/voz-opciones';
 
 const TEMAS: Array<{ valor: Tema; titulo: string; icono: string }> = [
   { valor: 'auto', titulo: 'Como el sistema', icono: '🌓' },
@@ -114,7 +115,21 @@ export function Ajustes() {
           <SelectorDeVoz />
         </div>
 
-        <Bloque titulo="Recordatorios" retraso={210}>
+        {/*
+          Debajo del selector de voz y no dentro de él, aunque sea la misma voz.
+
+          `SelectorDeVoz` se esconde entero cuando este equipo no tiene ninguna
+          voz inglesa, y en ese caso enseña otra cosa: o el aviso de que no se
+          va a oír nada, o la nota de que el audio lo pone el servidor. Metido
+          ahí, el interruptor desaparecería justo en los dos equipos donde más
+          falta hace saber por qué no suena. Fuera se ve siempre y se explica
+          solo.
+        */}
+        <Bloque titulo="Al tocar una opción" retraso={210}>
+          <PronunciarLasOpciones />
+        </Bloque>
+
+        <Bloque titulo="Recordatorios" retraso={280}>
           {permiso === 'sin-soporte' ? (
             <p className="text-sm text-[var(--texto-suave)]">
               Este navegador no sabe mostrar avisos. Prueba con Chrome o Edge.
@@ -183,6 +198,28 @@ export function Ajustes() {
 }
 
 /**
+ * El interruptor de oír las opciones al tocarlas.
+ *
+ * Suena solo lo que está en inglés, y eso hay que decirlo aquí: quien lo
+ * encienda y toque una pregunta de comprensión lectora —opciones en español—
+ * no va a oír nada, y sin esta línea daría por hecho que está roto. Es el mismo
+ * motivo por el que el aviso de «menos movimiento» está debajo del sonido de
+ * los juegos.
+ */
+function PronunciarLasOpciones() {
+  const { encendido, cambiar } = useDecirOpciones();
+
+  return (
+    <Interruptor
+      encendido={encendido}
+      onCambiar={() => cambiar(!encendido)}
+      titulo={encendido ? 'Se pronuncia sola' : 'En silencio'}
+      detalle="Al elegir una opción en inglés se oye cómo se pronuncia. Las opciones en español no suenan: una voz inglesa las leería mal."
+    />
+  );
+}
+
+/**
  * El interruptor del sonido de los juegos.
  *
  * Está en los ajustes y no escondido dentro de una partida porque es lo primero
@@ -210,36 +247,12 @@ function SonidoDeLosJuegos() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={alternar}
-        role="switch"
-        aria-checked={encendido}
-        className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-[var(--borde)] px-4 py-2 text-left hover:border-marca-400"
-      >
-        <span className="min-w-0">
-          <span className="block text-sm font-bold">
-            {encendido ? 'Con sonido' : 'En silencio'}
-          </span>
-          <span className="mt-0.5 block text-xs text-[var(--texto-suave)]">
-            Pitidos de acierto, fallo, racha y reloj. Solo en este aparato.
-          </span>
-        </span>
-        <span
-          aria-hidden
-          className={cn(
-            'flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors',
-            encendido ? 'bg-marca-600' : 'bg-[var(--hueco)]',
-          )}
-        >
-          <span
-            className={cn(
-              'size-5 rounded-full bg-white transition-transform',
-              encendido && 'translate-x-5',
-            )}
-          />
-        </span>
-      </button>
+      <Interruptor
+        encendido={encendido}
+        onCambiar={alternar}
+        titulo={encendido ? 'Con sonido' : 'En silencio'}
+        detalle="Pitidos de acierto, fallo, racha y reloj. Solo en este aparato."
+      />
 
       {/*
         Hay que decirlo: con «menos movimiento» pedido en el sistema, el juego se
@@ -253,6 +266,62 @@ function SonidoDeLosJuegos() {
         </p>
       )}
     </>
+  );
+}
+
+/**
+ * El interruptor de los ajustes, uno para todos.
+ *
+ * Estaba escrito a mano dentro del sonido de los juegos y al añadir el segundo
+ * tocaba copiarlo. Copiado, lo que se habría duplicado no es el dibujo sino lo
+ * que lo hace usable: el `role="switch"` con su `aria-checked` —sin él, un
+ * lector de pantalla lee «botón» y no dice si está encendido— y el `min-h-12`,
+ * que son los 48 px de zona pulsable. Esas dos cosas se olvidan al copiar y no
+ * se nota hasta que alguien no puede usarlo.
+ *
+ * El rótulo cambia con el estado («Con sonido» / «En silencio») en vez de ser
+ * fijo: el muñequito de la derecha es gris cuando está apagado y verde cuando
+ * está encendido, y quien no distinga esos dos colores no tendría ninguna otra
+ * forma de saber cómo está.
+ */
+function Interruptor({
+  encendido,
+  onCambiar,
+  titulo,
+  detalle,
+}: {
+  encendido: boolean;
+  onCambiar: () => void;
+  titulo: string;
+  detalle: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onCambiar}
+      role="switch"
+      aria-checked={encendido}
+      className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-[var(--borde)] px-4 py-2 text-left hover:border-marca-400"
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-bold">{titulo}</span>
+        <span className="mt-0.5 block text-xs text-[var(--texto-suave)]">{detalle}</span>
+      </span>
+      <span
+        aria-hidden
+        className={cn(
+          'flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors',
+          encendido ? 'bg-marca-600' : 'bg-[var(--hueco)]',
+        )}
+      >
+        <span
+          className={cn(
+            'size-5 rounded-full bg-white transition-transform',
+            encendido && 'translate-x-5',
+          )}
+        />
+      </span>
+    </button>
   );
 }
 

@@ -87,6 +87,12 @@ const SIN_BARRA: readonly RegExp[] = [
   /^\/examen$/,
   /^\/repaso$/,
   /^\/llamada$/,
+  /*
+    Imitar el ritmo. Es el caso de libro: hay un micrófono abierto y una
+    grabación a medias, y una barra fija pondría el botón de irse a un dedo del
+    de grabar. Lleva su propia salida arriba.
+  */
+  /^\/imitar$/,
   /^\/conversar$/,
   // Una partida con reloj. El catálogo (/juegos) sí lleva barra.
   /^\/juegos\/.+/,
