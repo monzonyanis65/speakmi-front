@@ -38,3 +38,21 @@ for (const nombre of ['localStorage', 'sessionStorage'] as const) {
     configurable: true,
   });
 }
+
+/**
+ * El segundo reloj de las pruebas, el que no se veía.
+ *
+ * `vitest.config.ts` ya sube a treinta segundos el tiempo de cada prueba, y aun
+ * así seguían cayéndose por tiempo pruebas correctas: una distinta cada vez, y
+ * todas verdes al correrlas solas. El motivo es que `findBy*` y `waitFor` NO
+ * miran ese límite. Traen el suyo, de un segundo, y es el que saltaba.
+ *
+ * Subirlo no hace pasar nada que estuviera roto: si lo que se espera no llega a
+ * aparecer, la prueba sigue fallando, solo que más tarde. Lo único que cambia
+ * es que deja de depender de lo ocupada que esté la máquina — y una prueba que
+ * se pone roja según la carga enseña a no hacer caso del rojo, que es lo que no
+ * nos podemos permitir aquí.
+ */
+import { configure } from '@testing-library/react';
+
+configure({ asyncUtilTimeout: 15_000 });
