@@ -23,8 +23,8 @@ vi.mock('./auth', () => ({ getToken: () => 'un-token' }));
 let dichas: string[] = [];
 /** Lo que se le pidió al servidor. */
 let pedidas: string[] = [];
-/** Los audios que se llegaron a reproducir. */
-let sonadas: string[] = [];
+/** Los audios que se llegaron a reproducir, y a qué velocidad. */
+let sonadas: Array<{ src: string; velocidad: number }> = [];
 
 function montarSintetizador(voces: Array<{ lang: string; name: string }>) {
   class UtteranceFalsa {
@@ -102,7 +102,9 @@ function montarReproductor() {
       constructor(public src: string) {}
       pause() {}
       play() {
-        sonadas.push(this.src);
+        // Se apunta también la velocidad: es lo único que distingue «más
+        // despacio» de volver a darle al play, y lo que había que comprobar.
+        sonadas.push({ src: this.src, velocidad: this.playbackRate });
         setTimeout(() => this.onended?.(), 0);
         return Promise.resolve();
       }
@@ -181,6 +183,54 @@ describe('sin voz inglesa pero con servidor', () => {
   });
 });
 
+/**
+ * El botón de «más despacio», que es el que no servía.
+ *
+ * Lo contó quien lo usa en un iPhone: la frase se repetía, pero igual de
+ * rápida. La causa es que `SpeechSynthesisUtterance.rate` es una sugerencia y
+ * Safari no la aplica, así que pedir 0,55 y pedir 0,9 sonaban idénticos.
+ *
+ * Lo que se comprueba aquí es la decisión, no el sonido: que una frase lenta
+ * deje de ir por el sintetizador del aparato aunque el aparato tenga voz
+ * inglesa, porque tenerla no sirve de nada si no respeta la velocidad.
+ */
+describe('más despacio', () => {
+  beforeEach(() => {
+    // El caso del iPhone: SÍ hay voz inglesa en el aparato.
+    montarSintetizador([{ lang: 'en-US', name: 'Inglesa' }]);
+    montarServidor({ puedeHablar: true });
+  });
+
+  it('a velocidad normal sigue hablando el aparato, que es gratis', async () => {
+    await decir('good morning', { velocidad: 0.9 });
+
+    expect(dichas).toEqual(['good morning']);
+    expect(pedidas).toEqual([]);
+  });
+
+  it('despacio lo dice el servidor, y despacio de verdad', async () => {
+    await decir('good morning', { velocidad: 0.55 });
+
+    expect(dichas, 'la frase lenta se le sigue pidiendo al aparato').toEqual([]);
+    expect(pedidas).toEqual(['good morning']);
+    expect(sonadas).toEqual([{ src: expect.any(String), velocidad: 0.55 }]);
+  });
+});
+
+describe('más despacio, con el servidor caído', () => {
+  beforeEach(() => {
+    montarSintetizador([{ lang: 'en-US', name: 'Inglesa' }]);
+    montarServidor({ puedeHablar: false });
+  });
+
+  it('se le pide igualmente al aparato antes que quedarse callado', async () => {
+    await decir('good morning', { velocidad: 0.55 });
+
+    // Puede que no se ralentice, pero suena. Callar sería peor.
+    expect(dichas).toEqual(['good morning']);
+  });
+});
+
 describe('sin voz inglesa y sin servidor', () => {
   beforeEach(() => {
     montarSintetizador([{ lang: 'es-ES', name: 'Española' }]);
@@ -223,7 +273,8 @@ describe('el gancho para medir lo que suena', () => {
       alSonar: (audio) => {
         // Si esto llegara después del play, el analizador se perdería el
         // principio de la frase.
-        recibidos.push({ sonandoYa: sonadas.includes((audio as { src: string }).src) });
+        const suyo = (audio as { src: string }).src;
+        recibidos.push({ sonandoYa: sonadas.some((sonada) => sonada.src === suyo) });
       },
     });
 

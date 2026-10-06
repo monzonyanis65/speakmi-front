@@ -238,6 +238,15 @@ async function vozAUsar(): Promise<SpeechSynthesisVoice | null> {
   return inglesas.reduce((mejor, voz) => (calidadDe(voz) > calidadDe(mejor) ? voz : mejor));
 }
 
+/**
+ * Por debajo de aquí la frase se considera «despacio».
+ *
+ * No es un ajuste de gusto: es la frontera a partir de la cual se deja de
+ * confiar en el sintetizador del navegador y se pide el audio al servidor. Lo
+ * normal anda por 0,9 y 0,95; el botón de despacio pide 0,55.
+ */
+const LENTO = 0.8;
+
 export interface OpcionesDecir {
   /** Por debajo de 1 se entiende mejor a quien está empezando. */
   velocidad?: number;
@@ -275,6 +284,26 @@ export async function decir(texto: string, opciones: OpcionesDecir = {}): Promis
   callar();
 
   const velocidad = opciones.velocidad ?? 0.95;
+
+  /*
+    Lo lento NO se le pide al sintetizador del navegador.
+
+    `SpeechSynthesisUtterance.rate` es una sugerencia, y cada motor hace con ella
+    lo que quiere. En el Safari del iPhone no se nota nada: el botón de «más
+    despacio» suena exactamente igual que el normal. Lo dijo quien lo usa —«la
+    opción más despacio como que no sirve»— y tiene razón, porque la frase sí se
+    volvía a decir, solo que a la misma velocidad.
+
+    Lo que sí respetan todos los navegadores es `playbackRate` sobre un audio de
+    verdad, y eso es lo que hace el camino del servidor, con `preservesPitch`
+    para que al bajarlo no salga una voz grave. Es también lo que se oye en las
+    aplicaciones donde este botón funciona.
+
+    Si el servidor no puede —sin sesión, sin clave, sin cuota— se sigue abajo y
+    se le pide igualmente al sintetizador: una frase que a lo mejor no se
+    ralentiza es mejor que una frase que no suena.
+  */
+  if (velocidad < LENTO && (await decirEnServidor(limpio, velocidad, opciones.alSonar))) return;
 
   const voces = hayVoz() ? await vocesListas() : [];
   const voz = opciones.vozId
@@ -327,9 +356,14 @@ export async function decir(texto: string, opciones: OpcionesDecir = {}): Promis
     };
     frase.onend = cerrar;
     frase.onerror = cerrar;
-    // Chrome se queda a veces sin disparar `onend`. El tope evita que el botón
-    // se quede en "reproduciendo" para siempre.
-    setTimeout(cerrar, Math.max(4000, texto.length * 120));
+    /*
+      Chrome se queda a veces sin disparar `onend`. El tope evita que el botón
+      se quede en "reproduciendo" para siempre.
+
+      Y se estira con lo lenta que vaya la frase: a 0,55 tarda casi el doble, y
+      con el tope fijo el botón se desbloqueaba a media frase.
+    */
+    setTimeout(cerrar, Math.max(4000, texto.length * 120) / Math.max(0.5, velocidad));
     window.speechSynthesis.speak(frase);
   });
 }
