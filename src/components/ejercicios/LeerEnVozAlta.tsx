@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { enviarLectura } from '@/lib/lectura';
 import { grabarWav, type GrabacionWav } from '@/lib/wav';
@@ -6,6 +7,24 @@ import { escuchar, estaDisponible, type Escuchado, type SesionEscucha } from '@/
 import { ComoSonaste } from './ComoSonaste';
 import type { EvaluacionFonetica } from '@/lib/fonetica';
 import { Micro } from '@/components/iconos';
+
+/**
+ * Por debajo de esto la grabación no tiene voz dentro y no vale la pena mandarla.
+ *
+ * Son los 44 bytes de cabecera más un pelín: un WAV de 16 kHz a 16 bits son
+ * 32 KB por segundo, así que mil bytes no llegan ni a una sílaba.
+ */
+const MINIMO_AUDIO = 1000;
+
+/**
+ * Lo que se espera al reconocedor después de pedirle que pare.
+ *
+ * Normalmente contesta en seguida. Pero en el Safari del iPhone puede no haber
+ * llegado a arrancar —el micrófono lo tiene la grabación— y entonces no avisa
+ * nunca de que terminó: sin este tope, la pantalla se quedaba en «evaluando»
+ * para siempre y había que salirse de la lección.
+ */
+const ESPERA_RECONOCEDOR_MS = 1500;
 
 interface PalabraLeida {
   wordIndex: number;
@@ -115,6 +134,8 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     con el micrófono muerto: el botón de parar puesto y nada que parar.
   */
   const fallo = useRef(false);
+  /** El tope de `parar`, para poder cancelarlo al salir o al cambiar de frase. */
+  const espera = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const soportado = estaDisponible();
   const { referenceText, trickyWords } = ejercicio.prompt;
@@ -142,6 +163,7 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     return () => {
       // Lo que esté a medio abrir deja de ser de esta pantalla.
       turno.current += 1;
+      clearTimeout(espera.current);
       sesion.current?.cancelar();
       sesion.current = null;
       audio.current?.cancelar();
@@ -238,6 +260,20 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
   function parar() {
     sesion.current?.detener();
     setEstado('evaluando');
+
+    /*
+      Y si el reconocedor no contesta, se evalúa igual con lo grabado.
+
+      Pararlo dispara `onend`, que es quien llama a `evaluar`. Pero si nunca
+      llegó a arrancar de verdad —en iOS el micrófono lo tiene la grabación— no
+      hay nada que parar y ese aviso no llega jamás: la pantalla se quedaba en
+      «evaluando» sin salida. `evaluar` se protege sola contra entrar dos veces,
+      así que si el reconocedor sí contesta, el que llegue segundo no hace nada.
+    */
+    clearTimeout(espera.current);
+    espera.current = setTimeout(() => {
+      void evaluar({ texto: '', alternativas: [] });
+    }, ESPERA_RECONOCEDOR_MS);
   }
 
   /** Cierra la grabación y entrega el WAV, o null si no hubo ninguna. */
@@ -247,35 +283,90 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     return abierta ? abierta.terminar() : null;
   }
 
+  /**
+   * Lo que se dijo, preguntándoselo al servidor si el aparato no se enteró.
+   *
+   * ESTE ES EL CAMINO QUE HACE QUE FUNCIONE EN UN IPHONE.
+   *
+   * Leer en voz alta usa dos cosas a la vez: la grabación en crudo (para saber
+   * qué SONIDO falló) y el reconocedor del navegador (para saber qué palabras
+   * se dijeron). En iOS esas dos no se reparten el micrófono: lo coge la
+   * grabación —se ve el punto naranja encendido— y el reconocedor se queda
+   * mudo. La primera vez cuela y a partir de la segunda ya no, que es
+   * exactamente como se nota: «la primera funciona, la siguiente no».
+   *
+   * Pero el audio SÍ se está grabando. Así que cuando el reconocedor no trae
+   * nada, lo que se grabó se manda a transcribir al servidor en vez de dar el
+   * intento por perdido.
+   *
+   * Y se manda SIN decirle qué frase tocaba leer. El servidor acepta una pista,
+   * y ponerle ahí el texto de referencia haría que Whisper devolviera justo esa
+   * frase aunque se hubiera leído mal: un aprobado inventado, que es lo único
+   * peor que no poder evaluar. Sin pista, su instrucción por defecto ya dice
+   * que transcriba exactamente lo que oiga, errores incluidos.
+   */
+  async function loQueSeDijo(oido: Escuchado, grabado: Blob | null): Promise<Escuchado> {
+    const delNavegador = oido.texto.trim();
+    if (delNavegador) return { texto: delNavegador, alternativas: oido.alternativas ?? [] };
+    if (!grabado || grabado.size < MINIMO_AUDIO) return { texto: '', alternativas: [] };
+
+    try {
+      const delServidor = await api.post<{ text: string }>('/speech/transcribe', grabado, {
+        timeoutMs: 15_000,
+      });
+      const texto = delServidor.text.trim();
+      // Una sola versión: Whisper entrega su mejor lectura, no un abanico.
+      return { texto, alternativas: texto ? [texto] : [] };
+    } catch {
+      // Sin servidor se queda como estaba: no se oyó, y se dice.
+      return { texto: '', alternativas: [] };
+    }
+  }
+
   async function evaluar(oido: Escuchado) {
     if (yaEvaluado.current) return;
+    /*
+      Se marca ya, y no después de saber si hubo texto.
 
-    if (!oido.texto.trim()) {
-      // Puede llegar vacío si se corta antes de que el reconocedor entregue algo.
-      // No se marca como evaluado: si el texto llega después, todavía cuenta.
-      //
-      // Pero el micrófono SÍ se devuelve. La pantalla vuelve a «listo» y se queda
-      // esperando a que toques otra vez, y durante toda esa espera el aparato
-      // estaba cogido por una grabación que ya no iba a servir para nada.
-      soltarTodo();
+      Ahora en medio puede haber una transcripción en el servidor, que son
+      segundos; sin marcarlo aquí, un segundo aviso del reconocedor durante esa
+      espera mandaría la misma lectura dos veces. Si al final no se oyó nada se
+      vuelve a poner en falso, y se puede reintentar igual que antes.
+    */
+    yaEvaluado.current = true;
+    clearTimeout(espera.current);
+    setError(null);
+    setEstado('evaluando');
+
+    /*
+      El micrófono se devuelve ANTES de decidir nada.
+
+      Lo que venga después —transcribir, evaluar, fallar— puede tardar segundos,
+      y durante todo ese rato el aparato no tiene por qué seguir cogido. Es lo
+      que deja el micro libre para el ejercicio siguiente pase lo que pase.
+    */
+    const grabado = await recogerAudio();
+    sesion.current?.cancelar();
+    sesion.current = null;
+
+    const dicho = await loQueSeDijo(oido, grabado);
+
+    if (!dicho.texto) {
+      yaEvaluado.current = false;
       setError('No te escuchamos. Acércate al micrófono e inténtalo otra vez.');
       setEstado('listo');
       return;
     }
 
-    yaEvaluado.current = true;
-    setError(null);
-    setEstado('evaluando');
-    const grabado = await recogerAudio();
     try {
       const resultado = await enviarLectura<Informe>(
         {
           referenceText,
-          transcript: oido.texto,
+          transcript: dicho.texto,
           // El reconocedor entrega varias versiones de lo mismo. Aquí no se sabe
           // cuál es la buena; el servidor sí, porque tiene el texto que había que
           // leer, así que se le mandan todas y él se queda con la que encaja.
-          alternatives: oido.alternativas,
+          alternatives: dicho.alternativas,
           exerciseCode: ejercicio.code,
           durationMs: Date.now() - inicio.current,
           ...(trickyWords
@@ -286,11 +377,12 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
       );
       setInforme(resultado);
       setEstado('hecho');
-      onTerminado(resultado.aprobado, {
-        texto: oido.texto,
-        alternativas: oido.alternativas ?? [],
-      });
+      // Lo que de verdad se dijo, venga del aparato o del servidor. La prueba de
+      // nivel vuelve a corregir esto allí, así que mandar lo del reconocedor
+      // cuando quien oyó fue Whisper le daría a corregir una frase vacía.
+      onTerminado(resultado.aprobado, dicho);
     } catch {
+      yaEvaluado.current = false;
       setError('No pudimos evaluar tu lectura. Inténtalo otra vez.');
       setEstado('listo');
     }

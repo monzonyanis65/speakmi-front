@@ -46,10 +46,26 @@ class ContextoFalso {
   }
 }
 
+const nodos: NodoFalso[] = [];
+
 class NodoFalso {
   port: { onmessage: ((e: { data: Float32Array }) => void) | null } = { onmessage: null };
+  constructor() {
+    nodos.push(this);
+  }
   connect() {}
   disconnect() {}
+}
+
+/**
+ * Hablarle al micrófono de mentira.
+ *
+ * Sin esto la grabación sale vacía y `terminar()` devuelve null, así que no
+ * habría audio que mandar a transcribir y la prueba pasaría por el motivo
+ * equivocado: no porque el camino nuevo funcione, sino porque no se recorre.
+ */
+function hablarAlMicrofono(muestras = 2000) {
+  for (const nodo of nodos) nodo.port.onmessage?.({ data: new Float32Array(muestras) });
 }
 
 class ReconocedorFalso {
@@ -79,7 +95,17 @@ class ReconocedorFalso {
     this.onend?.();
   }
 
+  /**
+   * Si este reconocedor se hace el muerto.
+   *
+   * Es lo que pasa en iOS cuando el micrófono lo tiene la grabación: `start()`
+   * no protesta, pero no llega a arrancar nada, y entonces `stop()` tampoco
+   * avisa de que terminó. Sin eso, nadie llama a `evaluar` nunca.
+   */
+  mudoDelTodo = false;
+
   stop() {
+    if (this.mudoDelTodo) return;
     this.acabar();
   }
 
@@ -107,16 +133,38 @@ class ReconocedorFalso {
   }
 }
 
+/** Lo que se le mandó a `enviarLectura`, para ver con qué texto se corrigió. */
+const corregidas: Array<Record<string, unknown>> = [];
+/** Las veces que se le pidió al servidor que transcribiera el audio. */
+let transcripciones = 0;
+/** Lo que contesta Whisper en el servidor. Vacío = tampoco él oyó nada. */
+let loQueOyeElServidor = '';
+
+vi.mock('@/lib/api', () => ({
+  api: {
+    post: (ruta: string) => {
+      if (ruta.startsWith('/speech/transcribe')) {
+        transcripciones += 1;
+        return Promise.resolve({ text: loQueOyeElServidor });
+      }
+      return Promise.resolve({});
+    },
+  },
+  URL_API: 'https://servidor',
+}));
+
 vi.mock('@/lib/lectura', () => ({
-  enviarLectura: () =>
-    Promise.resolve({
+  enviarLectura: (datos: Record<string, unknown>) => {
+    corregidas.push(datos);
+    return Promise.resolve({
       words: [{ wordIndex: 0, word: 'I', heard: 'I', score: 0.9, verdict: 'correct' }],
       accuracy: 1,
       completeness: 1,
       transcript: 'I think so',
       aprobado: true,
       palabrasParaTrabajar: [],
-    }),
+    });
+  },
 }));
 
 const PRIMERO = {
@@ -156,6 +204,10 @@ function microfonoDeMentira(abrir: () => Promise<void> = () => Promise.resolve()
 beforeEach(() => {
   titulares.length = 0;
   contextos.length = 0;
+  nodos.length = 0;
+  corregidas.length = 0;
+  transcripciones = 0;
+  loQueOyeElServidor = '';
   recon = null;
 
   vi.stubGlobal('AudioContext', ContextoFalso);
@@ -257,6 +309,86 @@ describe('el micrófono entre un ejercicio de voz y el siguiente', () => {
 
     expect(cogidos(), 'el aviso sale mientras el micrófono sigue cogido').toEqual([]);
     expect(contextos.filter((c) => c.state !== 'closed')).toHaveLength(0);
+  });
+
+  /*
+    El caso del iPhone, que es el que dejaba la app inservible.
+
+    En iOS la grabación y el reconocedor no se reparten el micrófono: lo coge la
+    grabación y el reconocedor se queda mudo, sin dar ningún error. Lo contó
+    quien lo probó: «la primera funciona, pero la siguiente no».
+
+    Lo que se comprueba es que el ejercicio se resuelva igual, porque el audio
+    SÍ se grabó: se manda a transcribir al servidor y la lectura se corrige con
+    eso. Un reconocedor mudo deja de ser un ejercicio perdido.
+  */
+  it('con el reconocedor mudo, la lectura se corrige con lo que se grabó', async () => {
+    const usuario = userEvent.setup();
+    loQueOyeElServidor = 'I think so';
+    render(<LeerEnVozAlta ejercicio={PRIMERO} onTerminado={() => {}} />);
+
+    await usuario.click(screen.getByRole('button', { name: /empezar a leer/i }));
+    hablarAlMicrofono();
+    // Y el reconocedor no entrega NADA, ni texto ni error: solo termina.
+    await usuario.click(screen.getByRole('button', { name: /terminé de leer/i }));
+
+    await screen.findByText(/bien dichas/i);
+    expect(transcripciones).toBe(1);
+    expect(corregidas).toHaveLength(1);
+    expect(corregidas[0]!.transcript).toBe('I think so');
+    // Y el micrófono queda libre para el ejercicio siguiente.
+    expect(cogidos()).toEqual([]);
+    expect(contextos.filter((c) => c.state !== 'closed')).toHaveLength(0);
+  });
+
+  it('no le dice al servidor qué frase tocaba leer: sería regalarle el aprobado', async () => {
+    const usuario = userEvent.setup();
+    // El servidor oye algo DISTINTO de la frase de referencia. Si se colara la
+    // frase esperada como pista, Whisper devolvería esa y la nota sería falsa.
+    loQueOyeElServidor = 'I sink so';
+    render(<LeerEnVozAlta ejercicio={PRIMERO} onTerminado={() => {}} />);
+
+    await usuario.click(screen.getByRole('button', { name: /empezar a leer/i }));
+    hablarAlMicrofono();
+    await usuario.click(screen.getByRole('button', { name: /terminé de leer/i }));
+
+    await screen.findByText(/bien dichas/i);
+    expect(corregidas[0]!.transcript, 'se corrigió con la frase esperada, no con lo dicho').toBe(
+      'I sink so',
+    );
+  });
+
+  it('y si el reconocedor ni avisa de que terminó, la lectura sale igual', async () => {
+    const usuario = userEvent.setup();
+    loQueOyeElServidor = 'I think so';
+    render(<LeerEnVozAlta ejercicio={PRIMERO} onTerminado={() => {}} />);
+
+    await usuario.click(screen.getByRole('button', { name: /empezar a leer/i }));
+    hablarAlMicrofono();
+    // El peor caso de iOS: no arrancó, así que pararlo no dispara nada. Sin el
+    // tope de `parar`, la pantalla se quedaba en «evaluando» para siempre y
+    // había que salirse de la lección.
+    recon!.mudoDelTodo = true;
+    await usuario.click(screen.getByRole('button', { name: /terminé de leer/i }));
+
+    await screen.findByText(/bien dichas/i);
+    expect(corregidas[0]!.transcript).toBe('I think so');
+    expect(cogidos()).toEqual([]);
+  });
+
+  it('si tampoco el servidor oye nada, lo dice y deja reintentar', async () => {
+    const usuario = userEvent.setup();
+    loQueOyeElServidor = '';
+    render(<LeerEnVozAlta ejercicio={PRIMERO} onTerminado={() => {}} />);
+
+    await usuario.click(screen.getByRole('button', { name: /empezar a leer/i }));
+    hablarAlMicrofono();
+    await usuario.click(screen.getByRole('button', { name: /terminé de leer/i }));
+
+    await screen.findByText(/no te escuchamos/i);
+    expect(corregidas).toHaveLength(0);
+    expect(cogidos()).toEqual([]);
+    expect(screen.getByRole('button', { name: /empezar a leer/i })).toBeInTheDocument();
   });
 
   it('si el micrófono falla, suelta todo y deja volver a intentarlo', async () => {
