@@ -59,8 +59,21 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
     setInforme(null);
     setError(null);
     yaEvaluado.current = false;
-    return () => sesion.current?.cancelar();
+    return () => soltar();
   }, [ejercicio.code]);
+
+  /**
+   * Devuelve el micrófono.
+   *
+   * Se llama en TODOS los caminos que dejan de escuchar, y no solo en el bueno:
+   * al fallar el micrófono, al no entender nada y antes de volver a empezar. Lo
+   * que no se suelta el sistema no se lo da a nadie más, y en un iPhone eso no
+   * se ve como un error sino como que el siguiente ejercicio de voz ya no oye.
+   */
+  function soltar() {
+    sesion.current?.cancelar();
+    sesion.current = null;
+  }
 
   // El reloj corre solo mientras se graba.
   useEffect(() => {
@@ -78,6 +91,7 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
     const duracion = (Date.now() - inicio.current) / 1000;
 
     if (!texto.trim()) {
+      soltar();
       setEstado('listo');
       setError('No se te oyó nada. Comprueba el micrófono y vuelve a intentarlo.');
       yaEvaluado.current = false;
@@ -107,6 +121,9 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
   }
 
   function empezar() {
+    // Si quedó una escucha viva de un intento anterior, se cierra antes de abrir
+    // otra: dos reconocedores a la vez no se reparten el micrófono, se lo quitan.
+    soltar();
     setError(null);
     setParcial('');
     setSegundos(0);
@@ -122,6 +139,9 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
       // que no hay forma de elegir entre alternativas: se usa la más probable.
       onFinal: (oido) => void evaluar(oido.texto),
       onError: () => {
+        // Primero devolver el micrófono y después contarlo: si no, el aviso sale
+        // en pantalla con el aparato todavía cogido, y de ahí no se sale solo.
+        soltar();
         setEstado('listo');
         setError('El micrófono no respondió. Dale permiso al navegador y prueba otra vez.');
       },

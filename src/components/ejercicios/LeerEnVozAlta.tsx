@@ -107,6 +107,14 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
    * partir de ahí la app no oye, y ya no hay forma de recuperarlo sin recargar.
    */
   const turno = useRef(0);
+  /*
+    Si el reconocedor ha fallado en este intento.
+
+    El fallo puede llegar MIENTRAS `empezar` sigue dentro del `await`, y entonces
+    lo que viene después pisaría el estado dejando la pantalla en «escuchando»
+    con el micrófono muerto: el botón de parar puesto y nada que parar.
+  */
+  const fallo = useRef(false);
 
   const soportado = estaDisponible();
   const { referenceText, trickyWords } = ejercicio.prompt;
@@ -141,6 +149,22 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     };
   }, [ejercicio.code]);
 
+  /**
+   * Devuelve el micrófono y el reconocedor, los dos.
+   *
+   * Es la operación que faltaba en los dos caminos que no acaban bien —el
+   * reconocedor no entiende nada, o el micrófono da un error— y es justo donde
+   * más falta hacía: lo que no se suelta, el sistema no se lo da a nadie más.
+   * En un iPhone eso no se ve como un error, se ve como que a partir del segundo
+   * ejercicio la app ya no te oye, sin decir nada.
+   */
+  function soltarTodo() {
+    sesion.current?.cancelar();
+    sesion.current = null;
+    audio.current?.cancelar();
+    audio.current = null;
+  }
+
   async function empezar() {
     if (arrancando.current) return;
     arrancando.current = true;
@@ -149,6 +173,7 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     setParcial('');
     setInforme(null);
     yaEvaluado.current = false;
+    fallo.current = false;
 
     /*
       La grabación se abre ANTES que el reconocedor, y se espera a que esté.
@@ -178,12 +203,19 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
       idioma: 'en-US',
       onParcial: setParcial,
       onFinal: (oido) => void evaluar(oido),
-      onError: (motivo) =>
+      onError: (motivo) => {
+        fallo.current = true;
+        // Primero devolver el micrófono, y después contarlo. Al revés, el aviso
+        // sale en pantalla mientras el aparato sigue cogido, que es el estado
+        // del que ya no se sale sin recargar.
+        soltarTodo();
+        setEstado('listo');
         setError(
           motivo === 'not-allowed'
             ? 'Necesitamos permiso para usar el micrófono.'
             : 'No pudimos escucharte. Inténtalo otra vez.',
-        ),
+        );
+      },
     });
 
     if (!abierta) {
@@ -194,6 +226,12 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     }
 
     sesion.current = abierta;
+    // El fallo puede haber llegado mientras se abría. Si ya se soltó todo, no se
+    // vuelve a poner cara de estar escuchando.
+    if (fallo.current) {
+      soltarTodo();
+      return;
+    }
     setEstado('escuchando');
   }
 
@@ -215,6 +253,11 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     if (!oido.texto.trim()) {
       // Puede llegar vacío si se corta antes de que el reconocedor entregue algo.
       // No se marca como evaluado: si el texto llega después, todavía cuenta.
+      //
+      // Pero el micrófono SÍ se devuelve. La pantalla vuelve a «listo» y se queda
+      // esperando a que toques otra vez, y durante toda esa espera el aparato
+      // estaba cogido por una grabación que ya no iba a servir para nada.
+      soltarTodo();
       setError('No te escuchamos. Acércate al micrófono e inténtalo otra vez.');
       setEstado('listo');
       return;

@@ -94,6 +94,17 @@ class ReconocedorFalso {
       results: [Object.assign([{ transcript: texto, confidence: 0.9 }], { isFinal: true })],
     });
   }
+
+  /**
+   * Como cuando el sistema no suelta el micrófono.
+   *
+   * No se inventa: `audio-capture` es lo que manda Safari en un iPhone cuando se
+   * pide el micrófono y el aparato lo tiene ocupado, y por eso salta a partir del
+   * SEGUNDO ejercicio y no en el primero.
+   */
+  fallar(motivo: string) {
+    this.onerror?.({ error: motivo });
+  }
 }
 
 vi.mock('@/lib/lectura', () => ({
@@ -224,5 +235,44 @@ describe('el micrófono entre un ejercicio de voz y el siguiente', () => {
 
     expect(cogidos()).toEqual([]);
     expect(contextos.filter((c) => c.state !== 'closed')).toHaveLength(0);
+  });
+
+  /*
+    Los dos caminos que NO acaban en una lectura corregida.
+
+    Los tres de arriba comprueban lo que pasa al cambiar de ejercicio o al salir;
+    estos dos comprueban que un intento que sale mal tampoco se queda el
+    micrófono. Lo contó quien lo usa en un iPhone: «funciona una vez, y cuando me
+    pide hacer algo más con la voz ya no lo detecta». No era permiso —Safari no
+    vuelve a preguntar una vez concedido—, era que nadie devolvía el aparato.
+  */
+  it('si el reconocedor no entiende nada, devuelve el micrófono igual', async () => {
+    const usuario = userEvent.setup();
+    render(<LeerEnVozAlta ejercicio={PRIMERO} onTerminado={() => {}} />);
+
+    await usuario.click(screen.getByRole('button', { name: /empezar a leer/i }));
+    // Se para sin haber dicho nada que el reconocedor entendiera.
+    await usuario.click(screen.getByRole('button', { name: /terminé de leer/i }));
+    await screen.findByText(/no te escuchamos/i);
+
+    expect(cogidos(), 'el aviso sale mientras el micrófono sigue cogido').toEqual([]);
+    expect(contextos.filter((c) => c.state !== 'closed')).toHaveLength(0);
+  });
+
+  it('si el micrófono falla, suelta todo y deja volver a intentarlo', async () => {
+    const usuario = userEvent.setup();
+    render(<LeerEnVozAlta ejercicio={PRIMERO} onTerminado={() => {}} />);
+
+    await usuario.click(screen.getByRole('button', { name: /empezar a leer/i }));
+    await act(async () => {
+      recon?.fallar('audio-capture');
+    });
+
+    expect(cogidos()).toEqual([]);
+    expect(contextos.filter((c) => c.state !== 'closed')).toHaveLength(0);
+    // Y la pantalla vuelve a ser usable: el botón de hablar, no el de parar una
+    // escucha que ya no existe.
+    expect(screen.getByRole('button', { name: /empezar a leer/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /terminé de leer/i })).not.toBeInTheDocument();
   });
 });

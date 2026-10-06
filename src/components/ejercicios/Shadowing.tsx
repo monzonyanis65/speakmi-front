@@ -122,14 +122,23 @@ export function Shadowing({ ejercicio, opciones, onTerminado }: Props) {
     setSonando(false);
   }, []);
 
-  // Al salir de la pantalla: nada sonando, nada grabando, y el audio propio
-  // devuelto al navegador. Un blob sin revocar se queda en memoria hasta recargar.
+  /*
+    Al salir, y también al cambiar de frase: nada sonando, nada grabando.
+
+    Va colgado de `ejercicio.code` y no solo del desmontaje, que es lo que había.
+    En «Imitar el ritmo» se cambia de frase sin desmontar nada —solo cambia la
+    prop—, así que con la limpieza atada al desmontaje no se ejecutaba nunca y la
+    frase siguiente heredaba el micrófono abierto de la anterior. Es el mismo
+    fallo que en leer en voz alta, y se nota igual: la primera vez te oye y a
+    partir de ahí no, sin decir nada.
+  */
   useEffect(
     () => () => {
       parar();
       grabacion.current?.cancelar();
+      grabacion.current = null;
     },
-    [parar],
+    [parar, ejercicio.code],
   );
 
   useEffect(() => {
@@ -202,6 +211,12 @@ export function Shadowing({ ejercicio, opciones, onTerminado }: Props) {
       URL.revokeObjectURL(miAudio);
       setMiAudio(null);
     }
+
+    // Si quedó una grabación viva de un intento anterior se cierra antes de
+    // abrir otra: dos flujos del micrófono a la vez dejan el piloto encendido y
+    // el aparato cogido por el que ya nadie va a usar.
+    grabacion.current?.cancelar();
+    grabacion.current = null;
 
     const abierta = await grabar();
     if (!abierta) {
