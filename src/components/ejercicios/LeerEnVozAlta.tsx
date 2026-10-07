@@ -4,6 +4,8 @@ import { cn } from '@/lib/cn';
 import { enviarLectura } from '@/lib/lectura';
 import { grabarWav } from '@/lib/wav';
 import { grabar } from '@/lib/grabacion';
+import { callar } from '@/lib/voz';
+import { dormirElAudioCompartido } from '@/lib/amplitud';
 
 /**
  * Una grabación del micrófono, venga de donde venga.
@@ -31,6 +33,22 @@ interface Grabando {
  * y seguir, que es lo que importa.
  */
 async function abrirMicrofono(): Promise<Grabando | null> {
+  /*
+    Antes de pedir el micrófono, callar del todo.
+
+    En un iPhone el sistema decide si la sesión de audio está en modo
+    reproducción o en modo reproducción-y-grabación. Mientras quede algo
+    sonando, o un grafo de Web Audio enchufado a los altavoces, se queda en
+    reproducción: el micrófono se abre sin dar ningún error y no trae nada.
+
+    Las dos cosas que lo mantienen vivo son la voz que acaba de leer el
+    enunciado y el contexto compartido que mueve la boca de la mascota —y ese
+    segundo no se apaga solo nunca, porque se reutiliza para toda la aplicación
+    desde la primera frase que suena—.
+  */
+  callar();
+  await dormirElAudioCompartido();
+
   return (await grabarWav()) ?? (await grabar());
 }
 import { escuchar, estaDisponible, type Escuchado, type SesionEscucha } from '@/lib/reconocimiento';
@@ -125,6 +143,8 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
   const [parcial, setParcial] = useState('');
   const [informe, setInforme] = useState<Informe | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** En qué paso se cayó, cuando se cae. Letra pequeña debajo del aviso. */
+  const [detalle, setDetalle] = useState<string | null>(null);
   const sesion = useRef<SesionEscucha | null>(null);
   /*
     El micrófono se graba APARTE del reconocedor, y a la vez.
@@ -187,6 +207,7 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     setParcial('');
     setInforme(null);
     setError(null);
+    setDetalle(null);
     yaEvaluado.current = false;
     arrancando.current = false;
 
@@ -222,6 +243,7 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     arrancando.current = true;
     const mio = turno.current;
     setError(null);
+    setDetalle(null);
     setParcial('');
     setInforme(null);
     yaEvaluado.current = false;
@@ -335,10 +357,23 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
    * peor que no poder evaluar. Sin pista, su instrucción por defecto ya dice
    * que transcriba exactamente lo que oiga, errores incluidos.
    */
-  async function loQueSeDijo(oido: Escuchado, grabado: Blob | null): Promise<Escuchado> {
+  async function loQueSeDijo(
+    oido: Escuchado,
+    grabado: Blob | null,
+  ): Promise<Escuchado & { porque?: string }> {
     const delNavegador = oido.texto.trim();
     if (delNavegador) return { texto: delNavegador, alternativas: oido.alternativas ?? [] };
-    if (!grabado || grabado.size < MINIMO_AUDIO) return { texto: '', alternativas: [] };
+
+    if (!grabado) {
+      return { texto: '', alternativas: [], porque: 'no se grabó nada' };
+    }
+    if (grabado.size < MINIMO_AUDIO) {
+      return {
+        texto: '',
+        alternativas: [],
+        porque: `la grabación salió vacía (${grabado.size} bytes)`,
+      };
+    }
 
     try {
       const delServidor = await api.post<{ text: string }>('/speech/transcribe', grabado, {
@@ -346,10 +381,14 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
       });
       const texto = delServidor.text.trim();
       // Una sola versión: Whisper entrega su mejor lectura, no un abanico.
-      return { texto, alternativas: texto ? [texto] : [] };
-    } catch {
+      if (!texto) {
+        return { texto: '', alternativas: [], porque: 'se grabó, pero no se entendió nada' };
+      }
+      return { texto, alternativas: [texto] };
+    } catch (error) {
       // Sin servidor se queda como estaba: no se oyó, y se dice.
-      return { texto: '', alternativas: [] };
+      const que = error instanceof Error ? error.message : 'sin detalle';
+      return { texto: '', alternativas: [], porque: `el servidor no contestó: ${que}` };
     }
   }
 
@@ -384,6 +423,17 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     if (!dicho.texto) {
       yaEvaluado.current = false;
       setError('No te escuchamos. Acércate al micrófono e inténtalo otra vez.');
+      /*
+        Y además, en qué paso se quedó.
+
+        «No te escuchamos» es verdad pero no sirve de nada: tapa por igual un
+        micrófono que no se abrió, una grabación vacía y un servidor caído, que
+        son tres averías distintas y se arreglan de tres maneras. Va en letra
+        pequeña porque a quien está estudiando no le importa; va EN PANTALLA
+        porque es la única forma de saber qué pasa en un teléfono que no tengo
+        delante.
+      */
+      setDetalle(dicho.porque ?? null);
       setEstado('listo');
       return;
     }
@@ -465,9 +515,12 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
       {informe && <Resultado informe={informe} />}
 
       {error && (
-        <p role="alert" className="mt-4 text-sm text-[var(--texto-fallo)]">
-          {error}
-        </p>
+        <div className="mt-4">
+          <p role="alert" className="text-sm text-[var(--texto-fallo)]">
+            {error}
+          </p>
+          {detalle && <p className="mt-1 text-xs text-[var(--texto-suave)]">{detalle}</p>}
+        </div>
       )}
 
       <div className="mt-8 flex flex-col items-center">

@@ -117,6 +117,34 @@ function contextoDeAudio(): AudioContext | null {
 }
 
 /**
+ * Duerme el contexto compartido para que el sistema suelte los altavoces.
+ *
+ * Esto existe por el micrófono, no por el sonido. Un iPhone no tiene «audio» a
+ * secas: tiene una sesión de audio que está en modo reproducción o en modo
+ * reproducción-y-grabación, y la cambia él. Mientras haya un grafo de Web Audio
+ * vivo y enchufado a los altavoces, la sesión se queda en reproducción, y el
+ * micrófono que se pida después puede abrirse sin dar ningún error y no traer
+ * nada dentro.
+ *
+ * Y el contexto de aquí es de los que duran: se crea la primera vez que habla la
+ * mascota y se reutiliza para toda la aplicación, así que una vez que alguien ha
+ * oído una frase ya no se apaga solo nunca más. Encaja con lo que se ve al
+ * usarla: en la primera lección el micrófono va, y a partir de ahí no.
+ *
+ * No se cierra, se duerme: cerrarlo obligaría a crear otro, y los navegadores
+ * limitan cuántos se pueden tener. `seguirAmplitud` ya lo despierta solo cuando
+ * vuelve a hacer falta.
+ */
+export async function dormirElAudioCompartido(): Promise<void> {
+  if (!contexto || contexto.state !== 'running') return;
+  try {
+    await contexto.suspend();
+  } catch {
+    // Si no se deja, se sigue: puede que este navegador no lo necesite.
+  }
+}
+
+/**
  * Engancha un analizador a este audio y va avisando de lo fuerte que suena.
  *
  * Devuelve cómo soltarlo. Hay que llamarlo siempre: sin soltar, el bucle de
