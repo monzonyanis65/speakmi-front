@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { enviarLectura } from '@/lib/lectura';
-import { grabarWav } from '@/lib/wav';
+import { grabarWav, PICO_MINIMO } from '@/lib/wav';
 import { grabar } from '@/lib/grabacion';
 import { callar } from '@/lib/voz';
 import { dormirElAudioCompartido } from '@/lib/amplitud';
@@ -19,6 +19,10 @@ import { dormirElAudioCompartido } from '@/lib/amplitud';
 interface Grabando {
   terminar: () => Promise<Blob | null>;
   cancelar: () => void;
+  /** El pico de volumen, cuando se puede saber. Ver `PICO_MINIMO` en `lib/wav`. */
+  nivel?: () => number | null;
+  /** Si el sistema entregó la pista ya muda. Solo lo sabe la grabación en WAV. */
+  muda?: () => boolean;
 }
 
 /**
@@ -329,10 +333,19 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
   }
 
   /** Cierra la grabación y entrega el WAV, o null si no hubo ninguna. */
-  async function recogerAudio(): Promise<Blob | null> {
+  /** Cierra la grabación y entrega el WAV junto con lo fuerte que sonó. */
+  async function recogerAudio(): Promise<{
+    blob: Blob | null;
+    pico: number | null;
+    muda: boolean;
+  }> {
     const abierta = audio.current;
     audio.current = null;
-    return abierta ? abierta.terminar() : null;
+    if (!abierta) return { blob: null, pico: null, muda: false };
+    const blob = await abierta.terminar();
+    // El nivel solo se puede preguntar DESPUÉS de terminar: hasta entonces no
+    // están todos los trozos.
+    return { blob, pico: abierta.nivel?.() ?? null, muda: abierta.muda?.() ?? false };
   }
 
   /**
@@ -360,6 +373,8 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
   async function loQueSeDijo(
     oido: Escuchado,
     grabado: Blob | null,
+    pico: number | null,
+    muda: boolean,
   ): Promise<Escuchado & { porque?: string }> {
     const delNavegador = oido.texto.trim();
     if (delNavegador) return { texto: delNavegador, alternativas: oido.alternativas ?? [] };
@@ -372,6 +387,26 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
         texto: '',
         alternativas: [],
         porque: `la grabación salió vacía (${grabado.size} bytes)`,
+      };
+    }
+
+    /*
+      Y aquí el que importa: si lo grabado no tiene voz dentro, NO se manda a
+      transcribir.
+
+      Un micrófono que se abre y no capta nada entrega un archivo válido lleno
+      de ceros. Quien transcribe eso no devuelve vacío: se inventa una frase, y
+      esa frase se puntúa. Es lo que pasó de verdad —«no hablé y me salió lo
+      mismo»—: un 6 % de palabras bien dichas sacado de un silencio. Un marcador
+      falso es peor que no tener marcador, porque enseña algo que no ocurrió.
+    */
+    if (pico !== null && pico < PICO_MINIMO) {
+      return {
+        texto: '',
+        alternativas: [],
+        porque: muda
+          ? 'el sistema abrió el micrófono pero no dejó entrar sonido'
+          : `se grabó, pero sin voz dentro (volumen ${pico.toFixed(4)})`,
       };
     }
 
@@ -414,11 +449,11 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
       y durante todo ese rato el aparato no tiene por qué seguir cogido. Es lo
       que deja el micro libre para el ejercicio siguiente pase lo que pase.
     */
-    const grabado = await recogerAudio();
+    const { blob: grabado, pico, muda } = await recogerAudio();
     sesion.current?.cancelar();
     sesion.current = null;
 
-    const dicho = await loQueSeDijo(oido, grabado);
+    const dicho = await loQueSeDijo(oido, grabado, pico, muda);
 
     if (!dicho.texto) {
       yaEvaluado.current = false;

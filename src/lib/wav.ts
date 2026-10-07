@@ -54,7 +54,52 @@ export interface GrabacionWav {
   terminar: () => Promise<Blob | null>;
   /** Para y lo tira. */
   cancelar: () => void;
+  /**
+   * El pico de volumen de lo grabado, de 0 a 1. Null si no se puede medir.
+   *
+   * Hay que mirarlo ANTES de mandar el audio a transcribir, y no es un lujo: un
+   * micrófono que se abre pero no capta nada entrega un archivo perfectamente
+   * válido lleno de ceros, y a quien transcribe eso no le sale vacío — se
+   * inventa una frase. Esa frase luego se puntúa, y alguien que no ha abierto
+   * la boca recibe un «6 % bien dichas» que es mentira.
+   */
+  nivel: () => number | null;
+  /**
+   * Si el sistema entregó la pista ya muda.
+   *
+   * Pasa en iOS cuando otro está usando el micrófono o cuando la sesión de
+   * audio se quedó en modo reproducción: la pista existe, está «viva», y solo
+   * salen ceros. Distinguirlo de «habló bajito» es lo que permite decir la
+   * verdad en pantalla.
+   */
+  muda: () => boolean;
 }
+
+/**
+ * El pico de volumen de un bloque de muestras, de 0 a 1.
+ *
+ * Se mira el pico y no la media: una frase es sobre todo silencio entre
+ * palabras, así que la media de algo perfectamente audible sale baja y no
+ * distingue una grabación floja de una muda. El pico sí.
+ */
+export function picoDe(datos: Float32Array): number {
+  let pico = 0;
+  for (let i = 0; i < datos.length; i += 1) {
+    const valor = Math.abs(datos[i] ?? 0);
+    if (valor > pico) pico = valor;
+  }
+  return pico;
+}
+
+/**
+ * Por debajo de este pico se da por hecho que no se grabó ninguna voz.
+ *
+ * Son unos −40 dB. El silencio digital es 0, el ruido de una habitación callada
+ * anda por 0,002, y una voz a medio metro pasa de 0,1 sin esfuerzo. Dejarlo aquí
+ * deja fuera el silencio y el siseo del micrófono sin llegar a descartar a quien
+ * habla bajito.
+ */
+export const PICO_MINIMO = 0.01;
 
 export function puedeGrabarWav(): boolean {
   return (
@@ -111,15 +156,32 @@ export async function grabarWav(): Promise<GrabacionWav | null> {
 
   let micro: MediaStream;
   try {
-    micro = await navigator.mediaDevices.getUserMedia({
-      // Sin control automático de ganancia: sube el volumen de los silencios y
-      // convierte el ruido de fondo en algo que el evaluador intenta puntuar.
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
-    });
+    /*
+      El micrófono se pide a secas, sin pedirle tratamiento.
+
+      Antes se le pedía cancelación de eco y supresión de ruido, que sobre el
+      papel mejoran el audio. En un iPhone hacen otra cosa: activan la unidad de
+      proceso de voz del sistema, y esa unidad, cuando el aparato cree que está
+      reproduciendo algo, entrega una pista viva y MUDA. No da error, no avisa;
+      simplemente llegan ceros. Era eso lo que puntuaba a quien no había hablado.
+
+      La cancelación de eco estaba ahí para que el micro no se grabara la voz que
+      acababa de leer el enunciado, y eso ya no hace falta: ahora se calla todo y
+      se duerme el audio del sistema antes de abrir el micrófono.
+    */
+    micro = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
     void contexto.close();
     return null;
   }
+
+  /*
+    Una pista puede estar viva y muda a la vez, y es la avería que nos ocupa.
+    Saberlo aquí no la arregla, pero se cuenta aguas abajo en vez de dejar que
+    se note como una nota inventada.
+  */
+  const pista = micro.getAudioTracks()[0];
+  const nacioMuda = pista?.muted === true;
 
   const soltar = () => micro.getTracks().forEach((pista) => pista.stop());
 
@@ -181,17 +243,28 @@ export async function grabarWav(): Promise<GrabacionWav | null> {
     soltar();
   };
 
+  /*
+    El pico se va calculando sobre la marcha y no al final: al terminar, los
+    trozos ya se han pegado y recortado, y además así se puede preguntar por él
+    aunque la grabación se haya cerrado.
+  */
+  let pico: number | null = null;
+
   return {
     terminar: async () => {
       const muestreo = contexto.sampleRate;
       cerrar();
       if (muestras === 0) return null;
-      return construirWav(juntar(trozos, Math.min(muestras, tope)), muestreo);
+      const todo = juntar(trozos, Math.min(muestras, tope));
+      pico = picoDe(todo);
+      return construirWav(todo, muestreo);
     },
     cancelar: () => {
       trozos.length = 0;
       cerrar();
     },
+    nivel: () => pico,
+    muda: () => nacioMuda,
   };
 }
 

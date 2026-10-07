@@ -65,6 +65,21 @@ class NodoFalso {
  * equivocado: no porque el camino nuevo funcione, sino porque no se recorre.
  */
 function hablarAlMicrofono(muestras = 2000) {
+  const datos = new Float32Array(muestras);
+  // Un tono, no un bloque de ceros. Los ceros SON silencio, y el silencio ahora
+  // se rechaza a propósito: con ellos estas pruebas pasarían por el motivo
+  // equivocado, o no pasarían en absoluto.
+  for (let i = 0; i < muestras; i += 1) datos[i] = 0.4 * Math.sin((2 * Math.PI * 440 * i) / 16000);
+  for (const nodo of nodos) nodo.port.onmessage?.({ data: datos });
+}
+
+/**
+ * Lo contrario: el micrófono abierto y nadie hablando.
+ *
+ * Es el caso que puso una nota falsa. Un micrófono que no capta entrega un
+ * archivo válido lleno de ceros, y quien transcribe eso se inventa una frase.
+ */
+function callarseAlMicrofono(muestras = 2000) {
   for (const nodo of nodos) nodo.port.onmessage?.({ data: new Float32Array(muestras) });
 }
 
@@ -374,6 +389,35 @@ describe('el micrófono entre un ejercicio de voz y el siguiente', () => {
     await screen.findByText(/bien dichas/i);
     expect(corregidas[0]!.transcript).toBe('I think so');
     expect(cogidos()).toEqual([]);
+  });
+
+  /*
+    La nota inventada, que es peor que no funcionar.
+
+    Pasó de verdad y lo contó quien lo probó: «no hablé y me salió lo mismo».
+    El micrófono se abría y no captaba nada, pero un micrófono mudo no entrega
+    un archivo vacío: entrega uno lleno de ceros, perfectamente válido. Y quien
+    transcribe ceros no devuelve vacío, se INVENTA una frase. Esa invención se
+    corrigió y salió un «6 % bien dichas» de alguien que no abrió la boca.
+
+    Una nota falsa no es un fallo menor que no tener nota: enseña algo que no
+    ocurrió, y quien estudia se lo cree.
+  */
+  it('un micrófono que no capta nada no se puntúa, se dice', async () => {
+    const usuario = userEvent.setup();
+    // El servidor contestaría con una frase entera: es lo que hace Whisper con
+    // el silencio. Si se le llega a preguntar, la nota sale, y es mentira.
+    loQueOyeElServidor = 'He teaches English and he watches movies at night.';
+    render(<LeerEnVozAlta ejercicio={PRIMERO} onTerminado={() => {}} />);
+
+    await usuario.click(screen.getByRole('button', { name: /empezar a leer/i }));
+    callarseAlMicrofono();
+    await usuario.click(screen.getByRole('button', { name: /terminé de leer/i }));
+
+    await screen.findByText(/no te escuchamos/i);
+    expect(transcripciones, 'se mandó a transcribir un silencio').toBe(0);
+    expect(corregidas, 'se puntuó algo que nadie dijo').toHaveLength(0);
+    expect(screen.queryByText(/bien dichas/i)).not.toBeInTheDocument();
   });
 
   it('si tampoco el servidor oye nada, lo dice y deja reintentar', async () => {

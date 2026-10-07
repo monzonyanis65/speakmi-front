@@ -177,8 +177,13 @@ function montarNavegador({
   Object.defineProperty(navigator, 'mediaDevices', {
     configurable: true,
     value: {
-      getUserMedia: () =>
-        Promise.resolve({ getTracks: () => [{ stop: () => {} }] } as unknown as MediaStream),
+      getUserMedia: () => {
+        const pista = { stop: () => {}, muted: false };
+        return Promise.resolve({
+          getTracks: () => [pista],
+          getAudioTracks: () => [pista],
+        } as unknown as MediaStream);
+      },
     },
   });
 }
