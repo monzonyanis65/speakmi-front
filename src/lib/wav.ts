@@ -20,6 +20,8 @@
  * que hace falta: la corrección por palabras no depende de esto.
  */
 
+import { grabar } from './grabacion';
+
 /** Lo que pide el evaluador, y no es negociable. */
 export const MUESTREO = 16000;
 
@@ -265,6 +267,77 @@ export async function grabarWav(): Promise<GrabacionWav | null> {
     },
     nivel: () => pico,
     muda: () => nacioMuda,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* El camino bueno: grabar normal y convertir después                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Convierte lo que grabó `MediaRecorder` en el WAV que pide el evaluador.
+ *
+ * El formato nunca fue el problema de verdad. El problema era CUÁNDO se hacía
+ * el trabajo: capturar PCM en vivo obliga a tener un `AudioContext` despierto y
+ * un `AudioWorklet` corriendo mientras se habla, que es lo más frágil que se le
+ * puede pedir a un Safari de iPhone. Aquí no hay nada en vivo: se graba con lo
+ * que el teléfono sabe grabar y se convierte cuando ya ha terminado.
+ *
+ * El remuestreo lo hace `construirWav`, que ya existía y ya estaba probado.
+ */
+export async function wavDesdeGrabacion(crudo: Blob): Promise<{ wav: Blob; pico: number } | null> {
+  let contexto: AudioContext | null = null;
+  try {
+    const bytes = await crudo.arrayBuffer();
+    contexto = new AudioContext();
+    const decodificado = await contexto.decodeAudioData(bytes);
+    // Mono: se queda el primer canal. Un micrófono de teléfono no da más.
+    const canal = decodificado.getChannelData(0);
+    return { wav: construirWav(canal, decodificado.sampleRate), pico: picoDe(canal) };
+  } catch {
+    // Si no se puede decodificar, quien llama manda el audio tal cual: para
+    // transcribirlo vale igual, solo se queda sin la puntuación por fonemas.
+    return null;
+  } finally {
+    if (contexto) void contexto.close();
+  }
+}
+
+/**
+ * Graba la voz con `MediaRecorder` y entrega un WAV.
+ *
+ * Es el camino que debería haber sido el primero desde el principio.
+ * `MediaRecorder` es lo que soportan todos los navegadores y lo único que
+ * funciona de forma fiable en un iPhone; que entregue mp4 en vez de PCM dejó de
+ * importar en cuanto la conversión se hace al terminar.
+ *
+ * Si la conversión no sale, se entrega lo grabado tal cual: el servidor lo sabe
+ * transcribir igual y se pierde solo el desglose por sonidos. Entonces no hay
+ * pico que dar —no se ha llegado a mirar dentro del audio— y se devuelve null,
+ * que significa «no se sabe», no «es silencio».
+ */
+export async function grabarVoz(): Promise<GrabacionWav | null> {
+  const bruto = await grabar();
+  if (!bruto) return null;
+
+  let pico: number | null = null;
+
+  return {
+    terminar: async () => {
+      const crudo = await bruto.terminar();
+      if (!crudo) return null;
+
+      const convertido = await wavDesdeGrabacion(crudo);
+      if (!convertido) return crudo;
+
+      pico = convertido.pico;
+      return convertido.wav;
+    },
+    cancelar: () => bruto.cancelar(),
+    nivel: () => pico,
+    // `MediaRecorder` no deja mirar la pista, así que esto no se sabe. Lo que
+    // sí se sabe —si entró sonido o no— lo dice el pico.
+    muda: () => false,
   };
 }
 

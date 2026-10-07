@@ -6,7 +6,9 @@ import {
   juntar,
   leerCabeceraWav,
   MUESTREO,
+  PICO_MINIMO,
   remuestrear,
+  wavDesdeGrabacion,
 } from './wav';
 
 /**
@@ -213,5 +215,101 @@ describe('abrir el micrófono en un iPhone', () => {
     expect(ultimo?.resumes, 'nadie despertó el contexto').toBeGreaterThan(0);
     expect(ultimo?.state).toBe('running');
     grabacion?.cancelar();
+  });
+});
+
+/**
+ * Grabar normal y convertir después, que es el camino que debería haber sido
+ * el primero.
+ *
+ * Capturar PCM en vivo con un AudioWorklet pide un AudioContext despierto
+ * mientras se habla, y es lo que un iPhone hace peor: cuando falla no da error,
+ * entrega ceros. `MediaRecorder` es lo que todos los navegadores soportan bien,
+ * y que dé mp4 en vez de PCM deja de importar si se convierte al terminar.
+ */
+describe('convertir lo que graba el teléfono', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /**
+   * Un navegador que sabe decodificar lo que grabó, como cualquier teléfono.
+   *
+   * `pico` es lo alto que llega la onda decodificada: 0 es un micrófono que se
+   * abrió y no captó nada, que es la avería que hay que poder distinguir.
+   */
+  function montarDecodificador({ pico }: { pico: number }) {
+    vi.stubGlobal(
+      'AudioContext',
+      class {
+        close() {
+          return Promise.resolve();
+        }
+        decodeAudioData() {
+          // Medio segundo a 48 kHz, que es lo que graba un móvil de verdad.
+          const muestras = 24000;
+          const datos = new Float32Array(muestras);
+          for (let i = 0; i < muestras; i += 1) {
+            datos[i] = pico * Math.sin((2 * Math.PI * 440 * i) / 48000);
+          }
+          return Promise.resolve({
+            duration: 0.5,
+            sampleRate: 48000,
+            getChannelData: () => datos,
+          } as unknown as AudioBuffer);
+        }
+      },
+    );
+  }
+
+  /** Lo que entrega `MediaRecorder`. Su contenido da igual: lo decodifica el de arriba. */
+  const grabado = () => ({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(5000)) }) as Blob;
+
+  it('un mp4 a 48 kHz sale como WAV a 16 kHz, que es lo que pide el evaluador', async () => {
+    montarDecodificador({ pico: 0.4 });
+
+    const convertido = await wavDesdeGrabacion(grabado());
+
+    /*
+      Se mira el tamaño y no los bytes, porque el Blob de jsdom no deja volver a
+      leerlos. Vale igual: medio segundo a 16 kHz y 16 bits son 8000 muestras,
+      16000 bytes, más los 44 de cabecera. A 48 kHz serían 48044, así que este
+      número solo sale si el remuestreo ocurrió.
+    */
+    expect(convertido?.wav.size).toBe(44 + 8000 * 2);
+  });
+
+  it('mide el volumen, que es lo que evita puntuar un silencio', async () => {
+    montarDecodificador({ pico: 0.4 });
+
+    const convertido = await wavDesdeGrabacion(grabado());
+
+    expect(convertido!.pico).toBeGreaterThan(PICO_MINIMO);
+  });
+
+  it('un micrófono que se abrió y no captó nada se nota en el pico', async () => {
+    // Ceros es exactamente lo que entrega una pista viva y muda.
+    montarDecodificador({ pico: 0 });
+
+    const convertido = await wavDesdeGrabacion(grabado());
+
+    expect(convertido!.pico).toBeLessThan(PICO_MINIMO);
+  });
+
+  it('si no se puede decodificar, lo dice en vez de inventarse un pico', async () => {
+    vi.stubGlobal(
+      'AudioContext',
+      class {
+        close() {
+          return Promise.resolve();
+        }
+        decodeAudioData() {
+          return Promise.reject(new Error('formato que no entiende'));
+        }
+      },
+    );
+
+    // Null significa «no se sabe», y quien llama manda el audio tal cual para
+    // transcribirlo. Devolver un pico inventado aquí sería decidir si hubo voz
+    // sin haber mirado.
+    await expect(wavDesdeGrabacion(grabado())).resolves.toBeNull();
   });
 });

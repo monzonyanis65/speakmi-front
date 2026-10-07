@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { enviarLectura } from '@/lib/lectura';
-import { grabarWav, PICO_MINIMO } from '@/lib/wav';
-import { grabar } from '@/lib/grabacion';
+import { grabarVoz, grabarWav, PICO_MINIMO } from '@/lib/wav';
 import { callar } from '@/lib/voz';
 import { dormirElAudioCompartido } from '@/lib/amplitud';
 
@@ -53,7 +52,19 @@ async function abrirMicrofono(): Promise<Grabando | null> {
   callar();
   await dormirElAudioCompartido();
 
-  return (await grabarWav()) ?? (await grabar());
+  /*
+    Primero `MediaRecorder`, y el worklet solo si no lo hay.
+
+    Estaba al revés, y esa era la avería de fondo. Capturar PCM en vivo pide un
+    AudioContext despierto y un AudioWorklet corriendo mientras se habla, que es
+    justo lo que un iPhone hace peor. Y cuando lo hace mal NO da error: entrega
+    ceros. Por eso este plan B no llegaba a entrar nunca — el primero «funcionaba»
+    y devolvía silencio.
+
+    `MediaRecorder` es lo que todos los navegadores soportan bien. Lo que daba
+    —mp4 en vez de PCM— dejó de ser un problema al convertirlo DESPUÉS de grabar.
+  */
+  return (await grabarVoz()) ?? (await grabarWav());
 }
 import { escuchar, estaDisponible, type Escuchado, type SesionEscucha } from '@/lib/reconocimiento';
 import { ComoSonaste } from './ComoSonaste';
