@@ -2,7 +2,37 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { enviarLectura } from '@/lib/lectura';
-import { grabarWav, type GrabacionWav } from '@/lib/wav';
+import { grabarWav } from '@/lib/wav';
+import { grabar } from '@/lib/grabacion';
+
+/**
+ * Una grabación del micrófono, venga de donde venga.
+ *
+ * Hay dos formas de grabar y las dos valen aquí: el WAV en crudo del worklet,
+ * que es el único que sirve para puntuar fonemas, y el `MediaRecorder` de toda
+ * la vida, que no sirve para eso pero sí para que el servidor oiga lo que se
+ * dijo. Las dos entregan lo mismo —un blob o nada— así que al resto del
+ * componente le da igual cuál le tocó.
+ */
+interface Grabando {
+  terminar: () => Promise<Blob | null>;
+  cancelar: () => void;
+}
+
+/**
+ * Abre el micrófono, con la segunda forma si la primera no puede.
+ *
+ * La buena es el WAV: es lo que deja decir qué SONIDO falló. Pero depende de un
+ * AudioWorklet y de un AudioContext despierto, y en un iPhone eso se tuerce de
+ * varias maneras. Cuando se tuerce, antes se quedaba sin grabación ninguna y el
+ * ejercicio era imposible de terminar; ahora se graba con `MediaRecorder`, que
+ * es lo que usa la llamada y funciona en todas partes. Se pierde la fonética
+ * —el servidor mira la cabecera y no la encuentra— pero se puede leer, corregir
+ * y seguir, que es lo que importa.
+ */
+async function abrirMicrofono(): Promise<Grabando | null> {
+  return (await grabarWav()) ?? (await grabar());
+}
 import { escuchar, estaDisponible, type Escuchado, type SesionEscucha } from '@/lib/reconocimiento';
 import { ComoSonaste } from './ComoSonaste';
 import type { EvaluacionFonetica } from '@/lib/fonetica';
@@ -105,7 +135,7 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     al servidor junto al texto. Si no se puede grabar, esto se queda a null y la
     corrección sigue siendo la de siempre, sin fonemas.
   */
-  const audio = useRef<GrabacionWav | null>(null);
+  const audio = useRef<Grabando | null>(null);
   // Abrir el micrófono tarda, y en ese hueco el botón sigue pulsable. Sin esto,
   // un doble toque abre dos grabaciones y la primera se queda huérfana con el
   // piloto rojo encendido.
@@ -207,7 +237,7 @@ export function LeerEnVozAlta({ ejercicio, onTerminado }: Props) {
     // reconocedor no entendió nada y se volvió a empezar— se cierra antes de
     // abrir otra: dos streams del micrófono a la vez dejan el piloto encendido.
     audio.current?.cancelar();
-    const grabacion = await grabarWav();
+    const grabacion = await abrirMicrofono();
     arrancando.current = false;
 
     // Mientras se abría el micrófono se cambió de ejercicio o se salió. Esta

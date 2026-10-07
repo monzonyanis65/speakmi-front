@@ -64,8 +64,50 @@ export function puedeGrabarWav(): boolean {
   );
 }
 
+/**
+ * Abre el contexto de audio, con los dos remedios que pide un iPhone.
+ *
+ * UNO: pedirle 16 kHz es una petición, no una orden, y Safari no la acepta: la
+ * lanza como error en vez de ignorarla. Antes eso se traducía en devolver null
+ * —ni grabación ni nada— cuando lo correcto es abrirlo a la frecuencia que él
+ * quiera y remuestrear después, que es lo que `bytesWav` ya sabe hacer.
+ *
+ * DOS: se abre ANTES de pedir el micrófono, a propósito. Un `AudioContext` solo
+ * nace despierto si se crea dentro del toque que lo pidió, y el permiso del
+ * micrófono lleva un `await` por delante que rompe esa cadena. Creado después,
+ * nace `suspended`, y un contexto suspendido NO ejecuta el worklet: se grababan
+ * cero muestras y la grabación salía vacía sin que nada diera error.
+ */
+async function abrirContexto(): Promise<AudioContext | null> {
+  let contexto: AudioContext;
+  try {
+    contexto = new AudioContext({ sampleRate: MUESTREO });
+  } catch {
+    try {
+      contexto = new AudioContext();
+    } catch {
+      return null;
+    }
+  }
+
+  // Y aunque se cree en el momento bueno, puede venir dormido. Despertarlo es
+  // barato y no hacerlo es quedarse sin audio.
+  if (contexto.state === 'suspended') {
+    try {
+      await contexto.resume();
+    } catch {
+      // Si no se deja, se sigue: puede despertar al conectarle la entrada.
+    }
+  }
+
+  return contexto;
+}
+
 export async function grabarWav(): Promise<GrabacionWav | null> {
   if (!puedeGrabarWav()) return null;
+
+  const contexto = await abrirContexto();
+  if (!contexto) return null;
 
   let micro: MediaStream;
   try {
@@ -75,24 +117,11 @@ export async function grabarWav(): Promise<GrabacionWav | null> {
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
     });
   } catch {
+    void contexto.close();
     return null;
   }
 
   const soltar = () => micro.getTracks().forEach((pista) => pista.stop());
-
-  let contexto: AudioContext;
-  try {
-    /*
-      Se le PIDE al contexto que trabaje ya a 16 kHz, y así el remuestreo lo hace
-      el navegador, que lo hace bien. Los que no acepten la petición se quedan a
-      su frecuencia y se remuestrea a mano más abajo: peor, pero honesto, y desde
-      luego mejor que mandar 48 kHz disfrazados de 16.
-    */
-    contexto = new AudioContext({ sampleRate: MUESTREO });
-  } catch {
-    soltar();
-    return null;
-  }
 
   let url: string | null = null;
   let nodo: AudioWorkletNode;
@@ -127,6 +156,22 @@ export async function grabarWav(): Promise<GrabacionWav | null> {
     nodo procesa igual— y conectarlo devolvería tu propia voz por el auricular
     con retardo, que es la forma más rápida de que alguien deje de hablar.
   */
+
+  /*
+    Y se vuelve a despertar después de enchufar la entrada.
+
+    En iOS el contexto se puede quedar dormido otra vez cuando el sistema
+    reorganiza la sesión de audio al abrir el micrófono. Esto no es repetir lo
+    de arriba por si acaso: son dos momentos distintos, y el que importa para
+    que lleguen muestras es este, el de después.
+  */
+  if (contexto.state === 'suspended') {
+    try {
+      await contexto.resume();
+    } catch {
+      // Sin esto puede no grabarse nada, pero avisarlo aquí no arregla más.
+    }
+  }
 
   const cerrar = () => {
     nodo.port.onmessage = null;
