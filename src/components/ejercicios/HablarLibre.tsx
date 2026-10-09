@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { escuchar, estaDisponible, type SesionEscucha } from '@/lib/reconocimiento';
+import { grabar, type Grabacion } from '@/lib/grabacion';
+import { wavDesdeGrabacion, PICO_MINIMO } from '@/lib/wav';
 import { Cerrar, Micro } from '@/components/iconos';
 
 interface Informe {
@@ -46,8 +48,21 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
   const [informe, setInforme] = useState<Informe | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sesion = useRef<SesionEscucha | null>(null);
+  /*
+    El audio de lo que dices, que al terminar transcribe el servidor.
+
+    El reconocedor del navegador entrega texto al instante y gratis, pero con
+    habla libre y acento se equivoca mucho: de una respuesta entera sacaba un
+    «OK» y se comía el resto. Esto es lo mismo que ya hace la llamada, y por el
+    mismo motivo.
+  */
+  const grabacion = useRef<Grabacion | null>(null);
   const inicio = useRef(0);
   const yaEvaluado = useRef(false);
+  /** Qué intento es el de ahora, para que uno viejo no pise al nuevo. */
+  const turno = useRef(0);
+  /** El tope de `parar`, por si el reconocedor no avisa de que terminó. */
+  const espera = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const { prompt } = ejercicio;
   const minimo = prompt.minSeconds || 15;
@@ -71,8 +86,12 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
    * se ve como un error sino como que el siguiente ejercicio de voz ya no oye.
    */
   function soltar() {
+    turno.current += 1;
+    clearTimeout(espera.current);
     sesion.current?.cancelar();
     sesion.current = null;
+    grabacion.current?.cancelar();
+    grabacion.current = null;
   }
 
   // El reloj corre solo mientras se graba.
@@ -82,15 +101,67 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
     return () => clearInterval(reloj);
   }, [estado]);
 
-  async function evaluar(texto: string) {
+  /**
+   * Lo que dijiste, preferiendo lo que oiga el servidor.
+   *
+   * Aquí el servidor no es el plan B: es el que oye mejor. El reconocedor del
+   * navegador va bien leyendo una frase que ya conoce, pero hablando libre y
+   * con acento se pierde —de una respuesta entera sacaba «OK»— y encima no
+   * avisa de que se perdió: entrega esas dos letras como si fueran todo lo que
+   * se dijo, y el ejercicio te regaña por no haber hablado.
+   *
+   * Si el servidor no puede, se sigue con lo del navegador, que es mejor que
+   * nada.
+   */
+  async function loQueSeDijo(delNavegador: string): Promise<string> {
+    const abierta = grabacion.current;
+    grabacion.current = null;
+    if (!abierta) return delNavegador.trim();
+
+    const crudo = await abierta.terminar();
+    if (!crudo || crudo.size < 1000) return delNavegador.trim();
+
+    /*
+      Antes de preguntar, mirar si hay voz dentro.
+
+      Un micrófono que se abre y no capta entrega ceros, y quien transcribe
+      ceros no devuelve vacío: se inventa una frase. Puntuar esa invención sería
+      decirle a alguien que habló cuando no lo hizo.
+    */
+    const medido = await wavDesdeGrabacion(crudo);
+    if (medido && medido.pico < PICO_MINIMO) return '';
+
+    try {
+      const oido = await api.post<{ text: string }>('/speech/transcribe', crudo, {
+        timeoutMs: 20_000,
+      });
+      const texto = oido.text.trim();
+      if (texto) return texto;
+    } catch {
+      // Sin Whisper se sigue con lo que entendió el navegador.
+    }
+
+    return delNavegador.trim();
+  }
+
+  async function evaluar(delNavegador: string) {
     // El reconocedor puede avisar dos veces de que terminó. Sin esto se
     // enviaría el mismo intento por duplicado.
     if (yaEvaluado.current) return;
     yaEvaluado.current = true;
 
+    clearTimeout(espera.current);
     const duracion = (Date.now() - inicio.current) / 1000;
+    const mio = turno.current;
 
-    if (!texto.trim()) {
+    // Transcribir lleva unos segundos, así que se dice ya que se está en ello.
+    setEstado('evaluando');
+    const texto = await loQueSeDijo(delNavegador);
+
+    // Mientras se transcribía se cambió de ejercicio o se volvió a empezar.
+    if (mio !== turno.current) return;
+
+    if (!texto) {
       soltar();
       setEstado('listo');
       setError('No se te oyó nada. Comprueba el micrófono y vuelve a intentarlo.');
@@ -132,6 +203,8 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
     inicio.current = Date.now();
     setEstado('grabando');
 
+    const mio = turno.current;
+
     sesion.current = escuchar({
       idioma: 'en-US',
       onParcial: setParcial,
@@ -139,13 +212,47 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
       // que no hay forma de elegir entre alternativas: se usa la más probable.
       onFinal: (oido) => void evaluar(oido.texto),
       onError: () => {
-        // Primero devolver el micrófono y después contarlo: si no, el aviso sale
-        // en pantalla con el aparato todavía cogido, y de ahí no se sale solo.
-        soltar();
+        /*
+          Que se rinda el reconocedor ya no es el final.
+
+          Si la grabación sigue viva, se sigue escuchando solo con ella: al
+          parar, transcribe el servidor. Es lo mismo que hace la llamada, y es
+          lo que convierte «el micrófono no respondió» en un ejercicio que se
+          puede terminar igual.
+        */
+        if (grabacion.current) return;
+        sesion.current?.cancelar();
+        sesion.current = null;
         setEstado('listo');
         setError('El micrófono no respondió. Dale permiso al navegador y prueba otra vez.');
       },
     });
+
+    // La grabación va aparte y sin esperarla: el reconocedor ya está escuchando
+    // y no tiene por qué perderse el principio de la frase mientras esto abre.
+    void grabar().then((nueva) => {
+      if (!nueva) return;
+      if (mio !== turno.current) {
+        nueva.cancelar();
+        return;
+      }
+      grabacion.current = nueva;
+    });
+  }
+
+  /**
+   * Terminar de hablar.
+   *
+   * Pararlo dispara `onFinal`, que es quien evalúa. Pero si el reconocedor no
+   * llegó a arrancar —en iOS pasa— ese aviso no llega nunca y la pantalla se
+   * queda colgada. El tope evalúa igual con lo grabado; `evaluar` se protege
+   * sola contra entrar dos veces.
+   */
+  function parar() {
+    sesion.current?.detener();
+    setEstado('evaluando');
+    clearTimeout(espera.current);
+    espera.current = setTimeout(() => void evaluar(''), 1500);
   }
 
   if (!estaDisponible()) {
@@ -192,7 +299,7 @@ export function HablarLibre({ ejercicio, onTerminado }: Props) {
       <div className="mt-8 flex flex-col items-center gap-3">
         <button
           type="button"
-          onClick={() => (estado === 'grabando' ? sesion.current?.detener() : empezar())}
+          onClick={() => (estado === 'grabando' ? parar() : empezar())}
           disabled={estado === 'evaluando'}
           className={cn(
             'flex size-24 items-center justify-center rounded-full text-4xl text-white shadow-lg transition disabled:opacity-70',
