@@ -8,6 +8,7 @@
  * Un juego que no dice qué entrena es un adorno.
  */
 import type { EjercicioPublico } from '@/components/ejercicios/tipos';
+import { type ClaveIcono } from '@/components/iconos';
 
 export const CODIGOS = [
   'CONTRARRELOJ',
@@ -1029,7 +1030,16 @@ export function multiplicadorDe(racha: number, tope = 5): number {
 }
 
 export interface FichaDeJuego {
-  icono: string;
+  /**
+   * El icono de la ficha, por su nombre en el catálogo de `components/iconos`.
+   *
+   * Eran emojis. Un emoji no lo dibuja la aplicación, lo dibuja el sistema: el
+   * mismo 🎭 es plano en Android y brillante con perspectiva en iPhone, y al
+   * lado de los iconos dibujados del resto de la aplicación se lee como pegado
+   * de otro sitio. Es la razón por la que existe ese catálogo; la lista de
+   * juegos era el único rincón donde no se había aplicado.
+   */
+  icono: ClaveIcono;
   /** El título de respaldo, para cuando el servidor no contesta. */
   titulo: string;
   /** La descripción de respaldo, por lo mismo. */
@@ -1051,7 +1061,7 @@ export interface FichaDeJuego {
  */
 export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
   CONTRARRELOJ: {
-    icono: '⏱️',
+    icono: 'cronometro',
     titulo: 'Contrarreloj',
     descripcion: 'Cuántas aciertas en un minuto.',
     entrena: 'la velocidad',
@@ -1060,7 +1070,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     color: 'bg-acento-600',
   },
   PAREJAS: {
-    icono: '🃏',
+    icono: 'cartas',
     titulo: 'Parejas',
     descripcion: 'Junta cada palabra en inglés con la española.',
     entrena: 'el vocabulario',
@@ -1069,7 +1079,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     color: 'bg-marca-700',
   },
   CADENA: {
-    icono: '🔗',
+    icono: 'cadena',
     titulo: 'Cadena',
     descripcion: 'Sigue acertando. Un fallo y se acaba.',
     entrena: 'justo tus fallos',
@@ -1078,7 +1088,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     color: 'bg-emerald-800',
   },
   ESCUCHA: {
-    icono: '🎧',
+    icono: 'auriculares',
     titulo: 'Escucha',
     descripcion: 'Oyes una palabra y eliges cuál era.',
     entrena: 'el oído',
@@ -1095,7 +1105,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     solo la reconoce en una lista de cuatro opciones.
   */
   CINCO_LETRAS: {
-    icono: '🔤',
+    icono: 'letras',
     titulo: 'Cinco letras',
     descripcion: 'La palabra del día, en seis intentos.',
     entrena: 'cómo se escriben',
@@ -1110,7 +1120,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     reconocer en reconocer A TIEMPO, que es otra habilidad distinta.
   */
   CAEN: {
-    icono: '🌧️',
+    icono: 'lluvia',
     titulo: 'Lluvia de palabras',
     descripcion: 'Llévalas a su cesta antes de que toquen el suelo.',
     entrena: 'reconocer sin pensar',
@@ -1128,7 +1138,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     estudiar: hay que pillarse a uno mismo en el acto.
   */
   FALSOS_AMIGOS: {
-    icono: '🎭',
+    icono: 'mascara',
     titulo: 'Falsos amigos',
     descripcion: '¿Significa lo que parece? Decide antes de que se acabe.',
     entrena: 'no fiarte del parecido',
@@ -1147,7 +1157,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     nada, porque hablando no va a tener diez.
   */
   PARTICULAS: {
-    icono: '🎯',
+    icono: 'diana',
     titulo: 'La partícula',
     descripcion: 'Un verbo, seis partículas y tres segundos.',
     entrena: 'los verbos compuestos',
@@ -1171,7 +1181,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     leer nada.
   */
   BRECHA: {
-    icono: '🚨',
+    icono: 'alarma',
     titulo: 'Protocolo de brecha',
     descripcion: 'La IA dicta la maniobra en inglés. Ejecútala antes de que reviente.',
     entrena: 'obedecer en inglés',
@@ -1207,7 +1217,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     sin dar la situación por escrito.
   */
   NEON: {
-    icono: '🔎',
+    icono: 'lupa',
     titulo: 'Sombras de neón',
     descripcion: 'Lee el expediente, pilla la contradicción y elige cómo le hablas a cada uno.',
     entrena: 'leer entre líneas',
@@ -1235,7 +1245,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     juego de ritmo: es el color de una pantalla de neón encendida.
   */
   BEAT: {
-    icono: '🥁',
+    icono: 'compas',
     titulo: 'Al compás',
     descripcion: 'Caen notas con trozos de frase. Mándalas a su sitio en el pulso.',
     entrena: 'el orden de la frase',
@@ -1257,7 +1267,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     más frío y más oscuro.
   */
   CARRERA: {
-    icono: '🏃',
+    icono: 'carrera',
     titulo: 'Carrera de sintaxis',
     descripcion: 'Milo corre por tres carriles. Cruza el portal que completa la frase.',
     entrena: 'leer sin frenar',
@@ -1284,7 +1294,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     a 900, así que uno sale claro y el otro casi negro.
   */
   HORDA: {
-    icono: '👾',
+    icono: 'marciano',
     titulo: 'Supervivientes',
     descripcion: 'Esquiva la horda y forja verbos compuestos para que tu arma crezca.',
     entrena: 'producir el compuesto',
@@ -1308,7 +1318,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     palabra, y esto es elegir cuál de las dos que ya conoces es la que toca.
   */
   DERRAPE: {
-    icono: '🏁',
+    icono: 'bandera',
     titulo: 'Derrape',
     descripcion: 'Dos vueltas, doce curvas. Toma la rama de la palabra exacta y baja tu tiempo.',
     entrena: 'la palabra exacta',
@@ -1317,7 +1327,7 @@ export const FICHAS: Record<CodigoJuego, FichaDeJuego> = {
     color: 'bg-red-700',
   },
   MERCADO: {
-    icono: '🏮',
+    icono: 'farolillo',
     titulo: 'El mercado de contrabando',
     descripcion: 'Fabrica lo que el cliente pide, pieza a pieza. Y no le ofendas al cobrar.',
     entrena: 'construir la frase',

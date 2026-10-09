@@ -13,7 +13,7 @@ import {
   type CodigoJuego,
   type JuegoDelCatalogo,
 } from '@/components/juegos/tipos';
-import { Candado, Copa, Diana } from '@/components/iconos';
+import { ICONOS, Candado, Copa, Diana } from '@/components/iconos';
 
 /**
  * Los juegos.
@@ -170,11 +170,16 @@ function Tarjeta({
         <span
           aria-hidden
           className={cn(
-            'grid size-14 shrink-0 place-items-center rounded-2xl bg-linear-to-br text-3xl shadow-sm',
+            'grid size-14 shrink-0 place-items-center rounded-2xl bg-linear-to-br text-white shadow-sm',
             aspecto.degradado,
           )}
         >
-          {ficha.icono}
+          {(() => {
+            // El icono se busca por su nombre en el catálogo. Antes aquí había
+            // un emoji suelto, que lo dibujaba el sistema y no la aplicación.
+            const Icono = ICONOS[ficha.icono];
+            return <Icono tamano={28} />;
+          })()}
         </span>
 
         <span className="min-w-0 flex-1">

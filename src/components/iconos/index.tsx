@@ -515,6 +515,169 @@ export function Medalla(props: PropsIcono) {
 }
 
 /* ------------------------------------------------------------------------- *
+ * LOS JUEGOS
+ *
+ * Quince fichas que hasta ahora llevaban un emoji cada una. Un emoji no lo
+ * dibuja la aplicación, lo dibuja el sistema: el mismo 🎭 es plano en Android y
+ * brillante con perspectiva en iPhone, y al lado del resto de esta familia se
+ * lee como pegado de otro sitio. Es la misma razón por la que existe todo este
+ * archivo; la lista de juegos era el único rincón donde no se había aplicado.
+ *
+ * Tres juegos reutilizan iconos que ya estaban —auriculares, diana y bandera—
+ * y el resto se dibujan aquí, con las mismas cuatro reglas de arriba.
+ * ------------------------------------------------------------------------- */
+
+/** Cronómetro. Contrarreloj: un minuto y cuantas más, mejor. */
+export function Cronometro(props: PropsIcono) {
+  return (
+    <Lienzo {...props}>
+      <circle cx="12" cy="13.5" r="7.5" />
+      <path d="M12 13.5V9.8" />
+      <path d="M9.5 3h5" />
+      <path d="M18.6 7.4l1.3-1.3" />
+    </Lienzo>
+  );
+}
+
+/** Dos cartas. Parejas: una cada palabra con lo que significa. */
+export function Cartas(props: PropsIcono) {
+  return (
+    <Lienzo {...props}>
+      <rect x="3" y="6.5" width="10" height="13.5" rx="2" transform="rotate(-9 8 13)" />
+      <rect x="11" y="4" width="10" height="13.5" rx="2" transform="rotate(9 16 11)" />
+    </Lienzo>
+  );
+}
+
+/** Dos eslabones. Cadena: encadenar aciertos hasta el primer fallo. */
+export function Cadena(props: PropsIcono) {
+  return (
+    <Lienzo {...props}>
+      <path d="M9.6 14.4a4 4 0 0 1 0-5.7l2.1-2.1a4 4 0 1 1 5.7 5.7l-1 1" />
+      <path d="M14.4 9.6a4 4 0 0 1 0 5.7l-2.1 2.1a4 4 0 1 1-5.7-5.7l1-1" />
+    </Lienzo>
+  );
+}
+
+/**
+ * Tres casillas, una marcada. Cinco letras: la palabra del día, letra a letra.
+ *
+ * Llevó dentro una «Aa» dibujada y se quitó: dos letras con sus contornos son
+ * demasiado detalle para 24 px y salía una mancha. Las casillas son lo que de
+ * verdad se ve en ese juego, y tres se distinguen donde cinco ya no.
+ */
+export function Letras(props: PropsIcono) {
+  return (
+    <Lienzo {...props}>
+      <rect x="2.5" y="7.5" width="6" height="9" rx="1.5" />
+      <rect x="9" y="7.5" width="6" height="9" rx="1.5" />
+      <rect x="15.5" y="7.5" width="6" height="9" rx="1.5" />
+      <path d="M12 12h0" />
+    </Lienzo>
+  );
+}
+
+/** Nube con gotas. Lluvia de palabras: caen y hay que atraparlas. */
+export function Lluvia(props: PropsIcono) {
+  return (
+    <Lienzo {...props}>
+      <path d="M7 14.5a3.8 3.8 0 0 1 .5-7.6 5.2 5.2 0 0 1 9.8 1.5 3.3 3.3 0 0 1-.6 6.1" />
+      <path d="M8.5 18v1.8" />
+      <path d="M12 17.5v2.5" />
+      <path d="M15.5 18v1.8" />
+    </Lienzo>
+  );
+}
+
+/**
+ * Una máscara con su palo. Falsos amigos: parece lo que no es.
+ *
+ * La primera era media circunferencia con dos puntos y se leía como una cara
+ * sonriente, que es justo lo contrario de lo que tiene que decir. El palo es lo
+ * que la convierte en máscara: algo que alguien se pone delante.
+ */
+export function Mascara(props: PropsIcono) {
+  return (
+    <Lienzo {...props}>
+      <path d="M5 5.5h14v5.8A7 7 0 0 1 12 18a7 7 0 0 1-7-6.7Z" />
+      <path d="M8.8 9.5h0" />
+      <path d="M15.2 9.5h0" />
+      <path d="M12 18v3.5" />
+    </Lienzo>
+  );
+}
+
+/** Aviso en triángulo. Protocolo de brecha: obedecer en inglés, deprisa. */
+export function Alarma(props: PropsIcono) {
+  return (
+    <Lienzo {...props}>
+      <path d="M12 3.8 21 19.5H3Z" />
+      <path d="M12 9.5v4" />
+      <path d="M12 16.6h0" />
+    </Lienzo>
+  );
+}
+
+/** Lupa. Sombras de neón: leer entre líneas. */
+export function Lupa(props: PropsIcono) {
+  return (
+    <Lienzo {...props}>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="M15.3 15.3 20.5 20.5" />
+    </Lienzo>
+  );
+}
+
+/** Metrónomo. Al compás: el orden de la frase, a tiempo. */
+export function Compas(props: PropsIcono) {
+  return (
+    <Lienzo {...props}>
+      <path d="M9 3.5h6l3.5 17h-13Z" />
+      <path d="M6.6 15.5h10.8" />
+      <path d="M12 18.5 16 7" />
+    </Lienzo>
+  );
+}
+
+/** Flechas hacia delante. Carrera de sintaxis: leer sin frenar. */
+export function Carrera(props: PropsIcono) {
+  return (
+    <Lienzo {...props}>
+      <path d="M4 7.5 9.5 12 4 16.5" />
+      <path d="M11.5 7.5 17 12l-5.5 4.5" />
+      <path d="M20.5 6v12" />
+    </Lienzo>
+  );
+}
+
+/** Bicho de marcianitos. Supervivientes: la horda que llega. */
+export function Marciano(props: PropsIcono) {
+  return (
+    <Lienzo {...props}>
+      <path d="M6 10.5a6 6 0 0 1 12 0v4.2a3.3 3.3 0 0 1-3.3 3.3H9.3A3.3 3.3 0 0 1 6 14.7Z" />
+      <path d="M8.2 6.2 6.6 4.2" />
+      <path d="M15.8 6.2 17.4 4.2" />
+      <path d="M9.6 11.5h0" />
+      <path d="M14.4 11.5h0" />
+    </Lienzo>
+  );
+}
+
+/** Farolillo. El mercado de contrabando: construir la frase para regatear. */
+export function Farolillo(props: PropsIcono) {
+  return (
+    <Lienzo {...props}>
+      <path d="M8 6.5h8" />
+      <path d="M8 17.5h8" />
+      <path d="M12 3.5v3" />
+      <path d="M12 17.5v3" />
+      <path d="M8 6.5c-2.6 2.9-2.6 8.1 0 11" />
+      <path d="M16 6.5c2.6 2.9 2.6 8.1 0 11" />
+    </Lienzo>
+  );
+}
+
+/* ------------------------------------------------------------------------- *
  * EL CATÁLOGO
  * ------------------------------------------------------------------------- */
 
@@ -555,6 +718,18 @@ export const ICONOS = {
   enlaceExterno: EnlaceExterno,
   rayo: Rayo,
   medalla: Medalla,
+  cronometro: Cronometro,
+  cartas: Cartas,
+  cadena: Cadena,
+  letras: Letras,
+  lluvia: Lluvia,
+  mascara: Mascara,
+  alarma: Alarma,
+  lupa: Lupa,
+  compas: Compas,
+  carrera: Carrera,
+  marciano: Marciano,
+  farolillo: Farolillo,
 } as const;
 
 export type ClaveIcono = keyof typeof ICONOS;

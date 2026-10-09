@@ -78,9 +78,7 @@ export function FinDeJuego({
         <Mascota estado={estado} tamano={130} />
       </div>
 
-      <p className="mt-4 text-sm text-[var(--texto-suave)]">
-        {ficha.icono} {ficha.titulo}
-      </p>
+      <p className="mt-4 text-sm text-[var(--texto-suave)]">{ficha.titulo}</p>
 
       <h1 className="mt-1 text-2xl font-extrabold">
         {record ? '¡Récord nuevo!' : acierto >= 0.6 ? '¡Buena partida!' : 'Se acabó'}

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import { ICONOS, type ClaveIcono } from '.';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 /**
  * LO QUE SE PRUEBA AQUÍ ES QUE LOS VEINTIOCHO SEAN UNA FAMILIA.
@@ -27,9 +29,35 @@ function pintar(clave: ClaveIcono, props: Record<string, unknown> = {}) {
 }
 
 describe('el juego de iconos', () => {
-  it('son veintiocho y ninguno se llama como otro', () => {
-    expect(CLAVES.length).toBe(28);
+  it('ninguno se llama como otro', () => {
     expect(new Set(CLAVES).size).toBe(CLAVES.length);
+  });
+
+  /*
+    Aquí había un «son veintiocho». Un número escrito a mano al lado de una
+    lista que crece solo caduca el día que alguien añade un icono, y lo que se
+    rompe entonces no es nada: es la prueba, que pide que la actualicen. Pasó
+    en cuanto entraron los doce de los juegos.
+
+    Lo que sí importa y no caduca es que ningún icono se quede FUERA del
+    catálogo. Un icono dibujado y no registrado no da error de compilación —el
+    componente existe y se puede importar— pero los dos sitios que eligen icono
+    por su nombre, la barra de abajo y las fichas de juego, se quedan con un
+    hueco donde iba el dibujo.
+  */
+  it('todos los que se dibujan están en el catálogo', () => {
+    const fuente = readFileSync(path.join(import.meta.dirname, 'index.tsx'), 'utf8');
+    const dibujados = [...fuente.matchAll(/export function (\w+)\(\s*(?:props|\{)/g)].map(
+      (m) => m[1]!,
+    );
+
+    const registrados = new Set(
+      Object.values(ICONOS).map((componente) => (componente as { name: string }).name),
+    );
+    const sueltos = dibujados.filter((nombre) => !registrados.has(nombre));
+
+    expect(sueltos, 'hay iconos dibujados que no están en ICONOS').toEqual([]);
+    expect(dibujados.length).toBeGreaterThan(20);
   });
 
   it.each(CLAVES)('%s se dibuja en la rejilla de 24 y con el trazo de la casa', (clave) => {
