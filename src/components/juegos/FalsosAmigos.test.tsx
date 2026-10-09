@@ -182,6 +182,43 @@ describe('FalsosAmigos', () => {
     expect(marcador.puntuacion).toBe(48);
   });
 
+  /*
+    Aporrear la flecha mientras se lee el veredicto.
+
+    Es lo que hace cualquiera en un juego de reflejos con cartas de segundo y
+    medio, y antes de este arreglo rompía la partida de tres formas a la vez:
+
+      · la misma carta se contestaba otra vez, así que el marcador subía por un
+        acierto que el servidor ya había apuntado —y rechazaba con un 409—;
+      · el total crecía sin que creciera el número de cartas, de modo que una
+        ronda de veinte podía cerrarse diciendo «20/40»;
+      · y lo peor: el reloj que pasa a la carta siguiente se rearma con cada
+        veredicto nuevo, así que pulsando más rápido que la revelación el juego
+        se quedaba clavado en la carta 1 de 20 para siempre, sin salida.
+
+    Medido con el navegador de verdad: 436 pulsaciones, 402 respuestas con 409 y
+    el contador quieto en «1/20».
+  */
+  it('insistir mientras se lee el veredicto no vuelve a contestar la carta', async () => {
+    const usuario = userEvent.setup();
+    const { onResponder } = renderizar();
+
+    // Falla a propósito: la revelación del fallo es la larga, que es cuando da
+    // tiempo de sobra a seguir pulsando.
+    await usuario.keyboard('{ArrowRight}');
+    expect(await screen.findByText(/Esa era la trampa/)).toBeInTheDocument();
+
+    await usuario.keyboard('{ArrowRight}{ArrowLeft}{ArrowRight}{ArrowLeft}');
+
+    expect(onResponder).toHaveBeenCalledTimes(1);
+    // Y sigue siendo la primera carta, no una ronda de veinte convertida en una
+    // de cuarenta.
+    expect(screen.getByText('1')).toBeInTheDocument();
+
+    // Pasada la revelación, la carta avanza: el juego no se quedó clavado.
+    await waitFor(() => expect(screen.getByText('emotion')).toBeInTheDocument(), { timeout: 4000 });
+  });
+
   it('se puede salir en cualquier momento', async () => {
     const usuario = userEvent.setup();
     const { onSalir } = renderizar();

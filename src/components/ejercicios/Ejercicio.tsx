@@ -322,8 +322,18 @@ function Ordenar({ ejercicio, bloqueado, onCambio }: PropsEjercicio) {
 
   useEffect(() => setElegidas([]), [ejercicio.code]);
 
-  // Se barajan una vez por ejercicio, no en cada pintado.
-  const [orden] = useState(() => prompt.tokens.map((_, i) => i).sort(() => Math.random() - 0.5));
+  /*
+    Se barajan una vez por ejercicio, no en cada pintado, y con Fisher-Yates.
+
+    Aquí había `sort(() => Math.random() - 0.5)`, que es el mismo atajo que
+    `barajarIndices` explica por qué no vale. Medido en este Node, con ocho
+    fichas dejaba el orden de entrada intacto el 0,93 % de las veces, cuando
+    por azar tocaría el 0,0025 %: trescientas setenta veces de más. En un
+    ejercicio de ordenar, «el orden de entrada intacto» no es un sesgo
+    estadístico, es la frase servida como viene del servidor en una de cada
+    cien partidas.
+  */
+  const [orden] = useState(() => barajarIndices(prompt.tokens.length));
 
   function actualizar(nuevas: number[]) {
     setElegidas(nuevas);

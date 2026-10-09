@@ -138,6 +138,20 @@ export function FalsosAmigos({
     (respuesta: Respuesta) => {
       if (!carta) return;
 
+      /*
+        Con el veredicto en pantalla, la carta ya está contestada.
+
+        Los dos botones lo sabían —van `disabled` mientras se lee— pero las
+        flechas del teclado no, y ahí es donde se juega de verdad. Insistir
+        volvía a contestar la MISMA carta: el marcador subía por un acierto que
+        el servidor ya tenía apuntado y devolvía con un 409, el total crecía sin
+        que creciera el número de cartas, y —lo que de verdad rompía la partida—
+        el reloj que pasa a la siguiente se rearma con cada veredicto nuevo, así
+        que pulsando más rápido que la revelación el juego se quedaba clavado en
+        la primera carta sin salida.
+      */
+      if (veredicto) return;
+
       // La verdad está en la propia carta: el servidor mandó `verdadera` con la
       // ronda justo para poder pintar el veredicto sin esperar a nadie. Él sigue
       // llevando la cuenta buena, carta a carta.
@@ -167,7 +181,7 @@ export function FalsosAmigos({
       */
       pendientes.current.push(onResponder(carta.id, respuesta).catch(() => undefined));
     },
-    [carta, onResponder, racha, ronda.reloj.pasosAtrasAlFallar],
+    [carta, onResponder, racha, ronda.reloj.pasosAtrasAlFallar, veredicto],
   );
 
   /*
