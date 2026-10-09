@@ -34,5 +34,25 @@ export default tseslint.config(
       eqeqeq: ['error', 'always'],
     },
   },
+  /*
+    Los recorridos de navegador: Node y CommonJS, no navegador.
+
+    Van en `.cjs` porque el front es ESM y sin esa extensión `require` no
+    existe, así que `console` y `process` les salían como variables inventadas y
+    dejaban `eslint .` en rojo por cuatro guiones que no se despliegan con nada.
+
+    Llevan los globales del navegador ADEMÁS de los de Node porque lo que va
+    dentro de `page.evaluate()` se ejecuta en la pestaña, no aquí: ahí `document`
+    es tan real como `process` fuera.
+  */
+  {
+    files: ['scripts/**/*.cjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'commonjs',
+      globals: { ...globals.node, ...globals.browser },
+    },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
   prettier,
 );

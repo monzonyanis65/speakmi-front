@@ -246,6 +246,56 @@ describe('tienda', () => {
     });
   });
 
+  /**
+   * Dos clics seguidos en «Comprar» son UNA compra.
+   *
+   * Es lo que hace cualquiera cuando la red va lenta y el botón no reacciona, y
+   * es lo que peor sienta: cobrar dos veces por una mascota que además no se
+   * puede comprar dos veces. El servidor también lo para —la segunda petición
+   * choca contra «ya lo tienes»—, pero esa defensa no sirve para un consumible,
+   * que sí se puede comprar dos veces a propósito. Así que el botón tiene que
+   * apagarse mientras la compra está en el aire, y esto lo vigila.
+   *
+   * La compra se deja EN EL AIRE a posta: sin eso la primera ya habría
+   * terminado antes del segundo clic y la prueba pasaría sin probar nada.
+   */
+  it('dos clics seguidos en «Comprar» mandan una sola compra', async () => {
+    const base = servidor();
+    let soltar = (): void => {};
+    const enElAire = new Promise<void>((resolver) => {
+      soltar = resolver;
+    });
+
+    const llamadas = vi.fn(async (url: string, opciones?: { method?: string; body?: string }) => {
+      if (url.includes('/shop/buy')) await enElAire;
+      return base(url, opciones);
+    });
+
+    vi.stubGlobal('fetch', llamadas);
+    const usuario = userEvent.setup();
+    renderizar();
+
+    const NOMBRE = 'Comprar Tuki el tucán por 80 monedas';
+    await usuario.click(await screen.findByRole('button', { name: NOMBRE }));
+
+    // Que la primera compra siga de verdad en el aire es media prueba.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: NOMBRE })).toBeDisabled();
+    });
+    expect(screen.getByRole('button', { name: NOMBRE })).toHaveTextContent('Comprando…');
+
+    await usuario.click(screen.getByRole('button', { name: NOMBRE }));
+    await usuario.click(screen.getByRole('button', { name: NOMBRE }));
+
+    soltar();
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/Tuki el tucán es tuyo/);
+    expect(await screen.findByLabelText('Tienes 40 monedas')).toBeInTheDocument();
+
+    const compras = llamadas.mock.calls.filter(([url]) => String(url).includes('/shop/buy'));
+    expect(compras).toHaveLength(1);
+  });
+
   it('explica en monedas, y no en códigos, que el servidor rechazó la compra', async () => {
     // El saldo de la pantalla alcanzaba, pero el servidor dice que no: las
     // monedas se gastaron en otro sitio. Ni «error 409» ni una cifra inventada.
