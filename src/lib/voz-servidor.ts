@@ -123,6 +123,23 @@ async function descargar(texto: string): Promise<string | null> {
   const yaEsta = descargados.get(texto);
   if (yaEsta) return yaEsta;
 
+  /*
+    Si ya dijo que no puede, no se le vuelve a preguntar.
+
+    Esto es lo que faltaba, y el comentario de abajo ya lo prometía: se anotaba
+    el «hoy no puedo» del servidor y después nadie lo miraba antes de pedir la
+    siguiente palabra. Se vio recorriendo una lección entera en un navegador de
+    verdad: trescientas peticiones a 503 en un solo ejercicio de emparejar,
+    cuatro palabras pedidas una y otra vez.
+
+    No se nota mirando la pantalla —la aplicación se ve igual de bien, porque el
+    aviso de «aquí no hay voz» ya está puesto— y por eso había llegado hasta
+    aquí. Lo que cuesta es real: cada palabra que suena es un viaje a la red que
+    se sabe de antemano que va a fallar, y el día que se acabe la cuota del mes
+    eso le pasa a todo el mundo a la vez.
+  */
+  if (estado === 'no') return null;
+
   const token = getToken();
   if (!token) return null;
 

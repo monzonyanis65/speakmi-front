@@ -8,6 +8,7 @@ import { Ejercicio } from '@/components/ejercicios/Ejercicio';
 import { LeerEnVozAlta } from '@/components/ejercicios/LeerEnVozAlta';
 import { HablarLibre } from '@/components/ejercicios/HablarLibre';
 import { useContador } from '@/lib/contador';
+import { hayVozInglesa } from '@/lib/voz';
 import { Mascota, MascotaConMensaje, type EstadoMascota } from '@/components/Mascota';
 import { Boton } from '@/components/Boton';
 import { Confeti } from '@/components/Confeti';
@@ -52,6 +53,50 @@ interface Resumen {
 // se evalúan en el módulo de voz y se pueden saltar. El dictado no está aquí
 // porque sí se escribe, aunque se oiga primero.
 const SIN_TECLADO = new Set(['read_aloud', 'speak_prompt']);
+
+/**
+ * Los que NO se pueden hacer en un aparato sin voz inglesa.
+ *
+ * El dictado y los pares mínimos empiezan sonando. Si el equipo no tiene
+ * ninguna voz inglesa instalada y el servidor tampoco puede ponerla, los dos
+ * enseñan un aviso que explica por qué y termina diciendo «mientras tanto,
+ * sáltalo» —y no había forma de saltarlo—. La única salida era la X, o sea
+ * abandonar la lección entera por un ejercicio que la propia pantalla reconocía
+ * imposible.
+ *
+ * Se vio recorriendo una lección en un navegador sin voces instaladas, que es
+ * exactamente el caso del Android en español para el que se escribió todo el
+ * plan B del audio.
+ */
+const NECESITAN_OIR = new Set(['listen_type', 'minimal_pair']);
+
+/**
+ * Si este ejercicio no se puede hacer aquí por falta de voz.
+ *
+ * Se consulta otra vez al cambiar de ejercicio porque la lista de voces del
+ * navegador tarda un par de segundos en publicarse: preguntada al entrar puede
+ * contestar que no hay ninguna cuando sí las hay, y entonces saldría un botón
+ * de saltar en un ejercicio perfectamente posible.
+ */
+function useVozImposible(tipo: string | undefined): boolean {
+  const [imposible, setImposible] = useState(false);
+
+  useEffect(() => {
+    if (!tipo || !NECESITAN_OIR.has(tipo)) {
+      setImposible(false);
+      return;
+    }
+    let vigente = true;
+    void hayVozInglesa().then((hay) => {
+      if (vigente) setImposible(!hay);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, [tipo]);
+
+  return imposible;
+}
 
 /**
  * Una lección, un ejercicio por pantalla.
@@ -156,6 +201,14 @@ export function Leccion() {
   // Solo es el último de verdad si no queda nada pendiente de repetir.
   const esUltimo = indice + 1 >= ejercicios.length && porRepetir.length === 0;
   const necesitaVoz = ejercicio ? SIN_TECLADO.has(ejercicio.type) : false;
+  /*
+    Y además: un ejercicio que suena, en un aparato que no puede sonar, se
+    puede saltar. No se mira `vozInglesaYa()` dentro del render y ya está: se
+    vuelve a mirar cuando cambia el ejercicio, porque la lista de voces del
+    navegador tarda un par de segundos en publicarse y al entrar puede decir
+    todavía que no hay ninguna.
+  */
+  const sinVoz = useVozImposible(ejercicio?.type);
 
   async function comprobar() {
     if (!ejercicio || !sessionId || respuesta === null) return;
@@ -395,6 +448,15 @@ export function Leccion() {
             onClick={() => void siguiente()}
           >
             {esUltimo ? 'TERMINAR' : 'CONTINUAR'}
+          </Boton>
+        ) : sinVoz ? (
+          /*
+            El ejercicio avisa de que aquí no se puede hacer; esto es lo que
+            permite obedecer a ese aviso. Sin este botón la única salida era la
+            X, que abandona la lección entera.
+          */
+          <Boton tono="suave" tamano="grande" onClick={() => void siguiente()}>
+            {esUltimo ? 'TERMINAR' : 'Saltar: aquí no se puede oír'}
           </Boton>
         ) : necesitaVoz ? (
           <Boton

@@ -324,3 +324,43 @@ describe('el gancho para medir lo que suena', () => {
     expect(sonadas).toHaveLength(1);
   });
 });
+
+/**
+ * Que un servidor que no puede no se convierta en una tormenta de peticiones.
+ *
+ * Lo encontró el recorrido de extremo a extremo: una lección de emparejar con
+ * cuatro palabras disparaba TRESCIENTAS peticiones a `/speech/audio`, todas a
+ * 503. El estado «hoy no puedo» se anotaba al primer fallo —el código lo decía
+ * en un comentario— pero nadie lo miraba antes de pedir la siguiente palabra.
+ *
+ * No se ve en pantalla, porque el aviso de «aquí no hay voz» ya está puesto y
+ * la aplicación se comporta igual. Lo que cuesta es red, batería y, el día que
+ * se acabe la cuota del mes, un servidor recibiendo eso de todo el mundo a la
+ * vez.
+ */
+describe('cuando el servidor dice que hoy no puede', () => {
+  beforeEach(() => {
+    montarSintetizador([{ lang: 'es-ES', name: 'Española' }]);
+    montarServidor({ puedeHablar: false });
+  });
+
+  it('no se le vuelve a pedir una palabra tras el primer 503', async () => {
+    await decir('one');
+    const tras_el_primero = pedidas.length;
+
+    await decir('two');
+    await decir('three');
+    await decir('four');
+
+    expect(tras_el_primero).toBe(1);
+    expect(pedidas.length, 'se siguió pidiendo audio a un servidor caído').toBe(1);
+  });
+
+  it('tampoco al repetir la misma palabra', async () => {
+    await decir('one');
+    await decir('one');
+    await decir('one');
+
+    expect(pedidas.length).toBe(1);
+  });
+});
