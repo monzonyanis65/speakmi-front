@@ -18,9 +18,20 @@ import { describe, expect, it } from 'vitest';
  *
  *   · que exista el archivo que cada sitio promete;
  *   · que mida lo que dice medir;
- *   · que el color del fondo del dibujo sea el mismo que el `theme_color`, que
- *     es el que pinta la barra de estado y la pantalla de arranque. Si no lo
- *     es, al abrirla aparece un marco de otro tono alrededor del icono.
+ *   · que el fondo del dibujo sea el mismo que el `background_color`.
+ *
+ *
+ * ESTA PRUEBA COMPROBABA LO QUE NO ERA
+ *
+ * Comparaba el fondo del icono con el `theme_color`, y eso era una premisa
+ * equivocada: `theme_color` pinta la barra de estado y la de herramientas, o
+ * sea el CROMADO de la aplicación, que es índigo porque esa es la marca. El que
+ * va detrás del icono mientras arranca es `background_color`, que es otro campo.
+ *
+ * Atarlos obligaba a que el icono fuese del color de la barra de estado, que no
+ * tiene por qué. Se vio en cuanto el icono dejó de ser un cuadrado índigo y pasó
+ * a ser un dibujo sobre un cielo claro: la prueba daba rojo y el icono estaba
+ * bien. Lo que se arregló fue la prueba.
  */
 
 const raiz = path.resolve(import.meta.dirname, '..');
@@ -36,9 +47,14 @@ function ladoDe(relativo: string): { ancho: number; alto: number } {
   return { ancho: bytes.readUInt32BE(16), alto: bytes.readUInt32BE(20) };
 }
 
-/** El color de fondo que declara el propio dibujo. */
+/**
+ * El color por el que empieza el fondo del dibujo.
+ *
+ * Es la primera parada del degradado, que es la de arriba, y es la que se ve
+ * pegada al borde superior del icono.
+ */
 function fondoDelSvg(): string {
-  const encontrado = /<rect[^>]*fill="(#[0-9a-fA-F]{6})"/.exec(svg);
+  const encontrado = /<stop[^>]*stop-color="(#[0-9a-fA-F]{6})"/.exec(svg);
   return (encontrado?.[1] ?? '').toLowerCase();
 }
 
@@ -72,16 +88,25 @@ describe('el icono de la aplicación', () => {
     }
   });
 
-  it('el fondo del dibujo es el mismo color que la barra de estado', () => {
+  it('el fondo del dibujo es el mismo que el de la pantalla de arranque', () => {
     const fondo = fondoDelSvg();
-    expect(fondo, 'el SVG no declara un fondo liso').toMatch(/^#[0-9a-f]{6}$/);
+    expect(fondo, 'el SVG no declara el degradado del fondo').toMatch(/^#[0-9a-f]{6}$/);
 
+    // `background_color` es lo que pinta el teléfono detrás del icono mientras
+    // la aplicación arranca. Si no es el del icono, durante ese segundo se ve un
+    // marco de otro tono alrededor del dibujo.
+    const arranque = /background_color: '(#[0-9a-fA-F]{6})'/.exec(vite)?.[1];
+    expect(arranque?.toLowerCase(), 'el background_color no es el del icono').toBe(fondo);
+  });
+
+  it('la barra de estado sigue siendo del color de la marca', () => {
+    // Esto NO tiene que ver con el icono, y por eso se comprueba aparte: es el
+    // cromado de la aplicación. Antes estaba atado al fondo del dibujo y era un
+    // error; se deja escrito para que no se vuelvan a atar.
     const delHtml = /<meta name="theme-color" content="(#[0-9a-fA-F]{6})"/.exec(html)?.[1];
     const delManifest = /theme_color: '(#[0-9a-fA-F]{6})'/.exec(vite)?.[1];
 
-    expect(delHtml?.toLowerCase(), 'el theme-color del html no es el del icono').toBe(fondo);
-    expect(delManifest?.toLowerCase(), 'el theme_color del manifest no es el del icono').toBe(
-      fondo,
-    );
+    expect(delHtml?.toLowerCase()).toBe('#4f46e5');
+    expect(delManifest?.toLowerCase()).toBe('#4f46e5');
   });
 });

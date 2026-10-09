@@ -1,66 +1,64 @@
 <!--
   EL ICONO DE SPEAKMI
 
-  Qué es: la cara de Milo dibujada DENTRO de un bocadillo de diálogo. Una sola
-  silueta que dice las dos cosas que es la aplicación —un personaje, y hablar—
-  en vez de elegir una. El anterior era el pájaro entero, y entero no cabe: a
-  48 px se veía una mancha blanca con un pico que ya no se distinguía.
+  Milo con un bocadillo, mirándolo. Lo de mirarlo no es un detalle: es lo que
+  convierte dos dibujos puestos al lado en una escena, y lo que hace que el
+  icono cuente que esta aplicación va de hablar con alguien.
 
-  Las cuatro decisiones, que son de tamaño y no de gusto:
+  EL PÁJARO ES EL DE LA APLICACIÓN, NO UNO PARECIDO
 
-  1. SE LEE A 48 px. Es lo que mide de verdad en la pantalla de inicio de un
-     teléfono. Por eso hay tres elementos y no diez: dos ojos y un pico. Las
-     cejas, el moteado del pecho y las alas de la mascota se quedaron fuera; a
-     ese tamaño no son detalle, son suciedad.
+  Las coordenadas salen de `components/mascotas/milo.tsx` y del orden en que lo
+  pinta `dibujo.ts`, comprobado contra la pantalla `/vivo`. Importa porque es
+  fácil dibujar «un pájaro redondo índigo» y que no sea él: no tiene copete —la
+  coronilla es lisa—, cabeza y cuerpo son una sola silueta sin cuello, y lo que
+  de verdad le distingue son las cejas, dos arcos gruesos y oscuros.
 
-  2. BLANCO SOBRE ÍNDIGO, Y EL ÍNDIGO PLANO. Es el contraste más alto que da la
-     paleta de la casa y lo que hace que la silueta aguante encima de un fondo
-     de pantalla cualquiera. Llevó un degradado y se quitó: a 48 px no se
-     distingue de un color liso, y obligaba a que lo que se ve en el teléfono se
-     generase de otra manera que lo que se ve en la pestaña del navegador. Un
-     icono con dos versiones es un icono que un día dejan de parecerse.
+  La única licencia es el grosor de esas cejas: 2,9 en vez de los 2,7 de la
+  aplicación. A 44 px, que es lo que mide en una pantalla de inicio, con 2,7
+  adelgazan hasta desaparecer, y sin cejas deja de ser Milo.
 
-  3. A SANGRE, SIN ESQUINAS REDONDEADAS. Las redondea el sistema, y cada uno a
-     su manera —iOS con su cuadrado blando, Android con lo que quiera el
-     fabricante—. Redondearlas aquí también deja un borde doble con una cuña de
-     fondo asomando por fuera, que es el error clásico.
+  LO DEMÁS ES ENVOLTORIO, Y ES PARA QUE SE VEA PEQUEÑO
 
-  4. TODO DENTRO DEL CÍRCULO CENTRAL. Android recorta el icono con la forma que
-     le dé la gana, así que nada importante puede salirse del 80 % del centro.
-     Por eso el rabito del bocadillo apunta hacia dentro y no hacia la esquina.
+  · A sangre y sin esquinas redondeadas: las pone cada sistema a su manera, y
+    ponerlas aquí también deja un borde doble.
+  · La sombra del suelo es la única sombra. Sin ella el pájaro flota, y un bicho
+    flotando dentro de un cuadrado se ve recortado y pegado.
+  · El degradado del fondo va de arriba claro a abajo algo más saturado. Es
+    corto a propósito: a 44 px un degradado largo se lee como suciedad.
 
-  Si se retoca este archivo hay que volver a generar los PNG:
-  `python scripts/generar-iconos.py`. Son ellos los que acaban en el teléfono.
+  Si se retoca esto hay que regenerar los PNG, que son los que acaban en el
+  teléfono:  python scripts/generar-iconos.py
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" fill="#4f46e5" />
+  <defs>
+    <linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eaf2ff" />
+      <stop offset="1" stop-color="#c6dcff" />
+    </linearGradient>
+    <filter id="blando" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14" />
+    </filter>
+  </defs>
 
-  <g id="marca">
-    <!--
-      El bocadillo y su rabito van en un solo trazado, no en dos figuras
-      pegadas: así no puede aparecer nunca la costura entre ambos cuando el
-      sistema lo escala a un tamaño raro.
-    -->
-    <path
-      fill="#ffffff"
-      d="M160 72h192a84 84 0 0 1 84 84v112a84 84 0 0 1-84 84H236l-78 62a7 7 0 0 1-11.3-6.5l11.2-55.6A84 84 0 0 1 76 268V156a84 84 0 0 1 84-84z"
-    />
+  <!-- `id="fondo"` no es decorativo: el generador de PNG lo busca por ese
+       nombre para pintar el degradado por su cuenta. Ver `generar-iconos.py`. -->
+  <rect id="fondo" width="512" height="512" fill="url(#cielo)" />
 
-    <!-- Los ojos, con su brillo. El brillo es lo único que separa una cara
-         despierta de dos agujeros, y a 48 px todavía se nota. -->
-    <circle cx="196" cy="190" r="34" fill="#312e81" />
-    <circle cx="316" cy="190" r="34" fill="#312e81" />
-    <circle cx="208" cy="178" r="11" fill="#ffffff" />
-    <circle cx="328" cy="178" r="11" fill="#ffffff" />
+  <ellipse cx="256" cy="409.6" rx="150" ry="26" fill="#7d9ad0" fill-opacity="0.47"
+           filter="url(#blando)" />
 
-    <!-- El pico, en el ámbar de la casa. Las puntas redondeadas son lo que lo
-         hace hermano de los demás iconos y no un triángulo cualquiera. -->
-    <path
-      d="M223 248h66l-33 56z"
-      fill="#f59e0b"
-      stroke="#f59e0b"
-      stroke-width="12"
-      stroke-linejoin="round"
-    />
+  <!-- Milo, en las coordenadas de su lienzo de 120, colocado y escalado aquí. -->
+  <g transform="translate(15,32.52) scale(3.8790) translate(0,-16)">
+      <path d="M22 78 L4 92 L26 88 Z" fill="#4338ca"/>
+      <ellipse cx="86" cy="68" rx="10" ry="16" fill="#3730a3"/>
+      <ellipse cx="60" cy="66" rx="34" ry="36" fill="#4f46e5"/>
+      <ellipse cx="62" cy="74" rx="22" ry="24" fill="#e0e7ff"/>
+      <ellipse cx="32" cy="72" rx="11" ry="20" fill="#4338ca"/>
+      <circle cx="60" cy="42" r="26" fill="#4f46e5"/>
+      <g stroke="#1e1b4b" stroke-width="2.9" fill="none" stroke-linecap="round"><path d="M43.5 28.5 Q50 24.3 56.5 27"/><path d="M63.5 27 Q70 24.3 76.5 28.5"/></g>
+      <ellipse cx="50" cy="40" rx="9" ry="9.8" fill="#fff"/><ellipse cx="70" cy="40" rx="9" ry="9.8" fill="#fff"/><circle cx="52.0" cy="40.4" r="4.6" fill="#0f172a"/><circle cx="72.0" cy="40.4" r="4.6" fill="#0f172a"/><circle cx="53.800000000000004" cy="38.4" r="1.7" fill="#fff"/><circle cx="73.8" cy="38.4" r="1.7" fill="#fff"/>
+      <path d="M54 50 L66 50 L60 58 Z" fill="#f59e0b"/>
+      <g stroke="#f59e0b" stroke-width="3" stroke-linecap="round" fill="none"><path d="M52 100 L52 108 M46 108 L58 108"/><path d="M68 100 L68 108 M62 108 L74 108"/></g>
+      <path d="M92 24 h22 a6 6 0 0 1 6 6 v13 a6 6 0 0 1-6 6 h-12 l-8 6 1.4-6 A6 6 0 0 1 92 43 V30 a6 6 0 0 1 6-6 z" fill="#ffffff"/><g fill="#4f46e5"><circle cx="99" cy="36" r="2"/><circle cx="106" cy="36" r="2"/><circle cx="113" cy="36" r="2"/></g>
   </g>
 </svg>

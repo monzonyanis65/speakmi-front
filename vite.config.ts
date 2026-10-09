@@ -28,7 +28,10 @@ export default defineConfig({
         description:
           'Aprende inglés hablando: Speakmi te escucha y te corrige la pronunciación palabra por palabra.',
         theme_color: '#4f46e5',
-        background_color: '#f8fafc',
+        // El mismo con el que empieza el degradado del icono: es lo que el
+        // teléfono pinta detrás del dibujo mientras la aplicación arranca, y si
+        // no coincide se ve un marco de otro tono durante ese segundo.
+        background_color: '#eaf2ff',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
