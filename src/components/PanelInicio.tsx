@@ -103,6 +103,14 @@ export function CifrasDeHoy() {
     <div className="flex min-w-0 flex-1 items-center justify-between gap-0.5">
       <Cifra
         icono={<Llama tamano={18} />}
+        /*
+          La llama se enciende cuando hay racha y se apaga cuando no.
+
+          Es el único color de la tira que significa algo en vez de adornar: una
+          llama naranja al lado de un cero se lee como que algo va bien, y no va
+          bien. Apagada no es un reproche, es que todavía no está encendida.
+        */
+        color={dias > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-[var(--texto-suave)]'}
         valor={dias}
         // Los congelados eran un renglón propio debajo del panel. Son un detalle
         // de la racha, así que se cuentan contando la racha y no ocupan fila.
@@ -115,18 +123,21 @@ export function CifrasDeHoy() {
       />
       <Cifra
         icono={<Estrella tamano={18} />}
+        color="text-marca-600 dark:text-marca-400"
         valor={data?.xpTotal ?? 0}
         etiqueta="de experiencia"
       />
       {/* Las monedas llevan a la tienda: verlas y no poder gastarlas frustra. */}
       <Cifra
         icono={<Moneda tamano={18} />}
+        color="text-amber-600 dark:text-amber-400"
         valor={cartera?.coins ?? 0}
         etiqueta="monedas"
         onClick={() => navegar('/tienda')}
       />
       <Cifra
         icono={<Libro tamano={18} />}
+        color="text-emerald-600 dark:text-emerald-400"
         valor={data?.leccionesCompletadas ?? 0}
         etiqueta="lecciones hechas"
       />
@@ -159,16 +170,30 @@ function Cifra({
   icono,
   valor,
   etiqueta,
+  color,
   onClick,
 }: {
   icono: ReactNode;
   valor: number;
   etiqueta: string;
+  /**
+   * El tono del icono. Solo del icono.
+   *
+   * El número se queda del color del texto a propósito: cuatro cifras de cuatro
+   * colores distintos es una fila de confeti donde no se lee ninguna. Con el
+   * color solo en el dibujo, cada cosa se distingue de un vistazo y los números
+   * siguen siendo lo que más contrasta, que es lo que se viene a mirar.
+   *
+   * Y va aquí y no dentro del icono porque todo el juego está dibujado con
+   * `currentColor` justamente para esto: el tono lo pone quien lo usa, y así los
+   * mismos dibujos valen en claro y en oscuro sin hacerlos dos veces.
+   */
+  color?: string;
   onClick?: () => void;
 }) {
   const visible = (
     <>
-      {icono}
+      <span className={color}>{icono}</span>
       <span aria-hidden className="truncate text-sm font-extrabold tabular-nums">
         {corto(valor)}
       </span>
